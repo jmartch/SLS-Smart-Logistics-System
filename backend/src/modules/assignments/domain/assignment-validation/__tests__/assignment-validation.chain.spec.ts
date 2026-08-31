@@ -72,6 +72,68 @@ describe('AssignmentValidationChain', () => {
     });
   });
 
+  it('checks complete data before coordinates', () => {
+    const originalContext = createContext();
+
+    const context: AssignmentValidationContext = {
+      ...originalContext,
+      package: {
+        ...originalContext.package,
+        recipientAddress: ' ',
+        latitude: 200,
+      },
+    };
+
+    const result = createAssignmentValidationChain().handle(context);
+
+    expect(result).toMatchObject({
+      ok: false,
+      code: 'INCOMPLETE_DATA',
+      handler: 'CompleteDataValidationHandler',
+    });
+  });
+
+  it('checks weight before volume when both capacities are exceeded', () => {
+    const originalContext = createContext();
+
+    const context: AssignmentValidationContext = {
+      ...originalContext,
+      package: {
+        ...originalContext.package,
+        weightKg: 101,
+        volumeM3: 6,
+      },
+    };
+
+    const result = createAssignmentValidationChain().handle(context);
+
+    expect(result).toMatchObject({
+      ok: false,
+      code: 'WEIGHT_CAPACITY_EXCEEDED',
+      handler: 'WeightCapacityHandler',
+    });
+  });
+
+  it('reaches courier validation after all previous rules pass', () => {
+    const originalContext = createContext();
+
+    const context: AssignmentValidationContext = {
+      ...originalContext,
+      courier: {
+        ...originalContext.courier!,
+        available: false,
+      },
+    };
+
+    const result = createAssignmentValidationChain().handle(context);
+
+    expect(result).toMatchObject({
+      ok: false,
+      code: 'COURIER_UNAVAILABLE',
+      handler: 'CourierAvailabilityHandler',
+    });
+  });
+
   it('allows a new handler without modifying existing handlers', () => {
     const chain = buildAssignmentValidationChain([
       new TenantValidationHandler(),
