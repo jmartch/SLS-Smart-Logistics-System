@@ -1,0 +1,38 @@
+import type { AssignmentValidationHandler } from '../core/assignment-validation.handler';
+import { CoordinateValidationHandler } from '../handlers/coordinate-validation.handler';
+import { TenantValidationHandler } from '../handlers/tenant-validation.handler';
+import { VehicleAvailabilityHandler } from '../handlers/vehicle-availability.handler';
+import { VolumeCapacityHandler } from '../handlers/volume-capacity.handler';
+import { WeightCapacityHandler } from '../handlers/weight-capacity.handler';
+import { ZoneValidationHandler } from '../handlers/zone-validation.handler';
+
+export function buildAssignmentValidationChain(
+  handlers: readonly AssignmentValidationHandler[],
+): AssignmentValidationHandler {
+  const [firstHandler, ...remainingHandlers] = handlers;
+
+  if (!firstHandler) {
+    throw new Error(
+      'Assignment validation chain requires at least one handler',
+    );
+  }
+
+  let currentHandler = firstHandler;
+
+  for (const nextHandler of remainingHandlers) {
+    currentHandler = currentHandler.setNext(nextHandler);
+  }
+
+  return firstHandler;
+}
+
+export function createAssignmentValidationChain(): AssignmentValidationHandler {
+  return buildAssignmentValidationChain([
+    new TenantValidationHandler(),
+    new CoordinateValidationHandler(),
+    new ZoneValidationHandler(),
+    new VehicleAvailabilityHandler(),
+    new WeightCapacityHandler(),
+    new VolumeCapacityHandler(),
+  ]);
+}
