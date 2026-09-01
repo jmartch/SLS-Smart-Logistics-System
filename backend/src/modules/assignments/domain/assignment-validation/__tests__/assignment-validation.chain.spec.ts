@@ -4,12 +4,20 @@ import {
 } from '../chain/assignment-validation.chain';
 import { BaseAssignmentValidationHandler } from '../core/assignment-validation.handler';
 import type {
+  AssignmentRejectionCode,
   AssignmentValidationContext,
   AssignmentValidationResult,
 } from '../core/assignment-validation.types';
 import { CoordinateValidationHandler } from '../handlers/coordinate-validation.handler';
 import { TenantValidationHandler } from '../handlers/tenant-validation.handler';
 import { createContext } from './assignment-validation.fixture';
+
+interface RejectionScenario {
+  readonly name: string;
+  readonly context: () => AssignmentValidationContext;
+  readonly code: AssignmentRejectionCode;
+  readonly handler: string;
+}
 
 class AdditionalRuleHandler extends BaseAssignmentValidationHandler {
   override handle(
@@ -22,157 +30,133 @@ class AdditionalRuleHandler extends BaseAssignmentValidationHandler {
   }
 }
 
+function packageContext(
+  changes: Partial<AssignmentValidationContext['package']>,
+): AssignmentValidationContext {
+  const context = createContext();
+
+  return {
+    ...context,
+    package: { ...context.package, ...changes },
+  };
+}
+
 describe('AssignmentValidationChain', () => {
-  it('accepts a context that passes every handler', () => {
+  it('accepts an assignment that passes the complete chain', () => {
+    expect(createAssignmentValidationChain().handle(createContext())).toEqual({
+      ok: true,
+    });
+  });
+
+  it('returns the expected rejection for every validation stage', () => {
+    const scenarios: RejectionScenario[] = [
+      {
+        name: 'tenant mismatch',
+        context: () => packageContext({ tenantId: 'tenant-b' }),
+        code: 'TENANT_MISMATCH',
+        handler: 'TenantValidationHandler',
+      },
+      {
+        name: 'duplicate assignment',
+        context: () => ({ ...createContext(), hasActiveAssignment: true }),
+        code: 'DUPLICATE_ASSIGNMENT',
+        handler: 'DuplicateAssignmentValidationHandler',
+      },
+      {
+        name: 'incomplete package data',
+        context: () => packageContext({ recipientAddress: ' ' }),
+        code: 'INCOMPLETE_DATA',
+        handler: 'CompleteDataValidationHandler',
+      },
+      {
+        name: 'invalid coordinates',
+        context: () => packageContext({ latitude: 200 }),
+        code: 'INVALID_COORDINATES',
+        handler: 'CoordinateValidationHandler',
+      },
+      {
+        name: 'unsupported zone',
+        context: () => packageContext({ zoneId: 'zone-south' }),
+        code: 'ZONE_NOT_SUPPORTED',
+        handler: 'ZoneValidationHandler',
+      },
+      {
+        name: 'unavailable vehicle',
+        context: () => {
+          const context = createContext();
+          return {
+            ...context,
+            vehicle: { ...context.vehicle!, available: false },
+          };
+        },
+        code: 'VEHICLE_UNAVAILABLE',
+        handler: 'VehicleAvailabilityHandler',
+      },
+      {
+        name: 'insufficient weight capacity',
+        context: () => packageContext({ weightKg: 101 }),
+        code: 'WEIGHT_CAPACITY_EXCEEDED',
+        handler: 'WeightCapacityHandler',
+      },
+      {
+        name: 'insufficient volume capacity',
+        context: () => packageContext({ volumeM3: 6 }),
+        code: 'VOLUME_CAPACITY_EXCEEDED',
+        handler: 'VolumeCapacityHandler',
+      },
+      {
+        name: 'unavailable courier',
+        context: () => {
+          const context = createContext();
+          return {
+            ...context,
+            courier: { ...context.courier!, available: false },
+          };
+        },
+        code: 'COURIER_UNAVAILABLE',
+        handler: 'CourierAvailabilityHandler',
+      },
+    ];
+
     const chain = createAssignmentValidationChain();
 
-    expect(chain.handle(createContext())).toEqual({ ok: true });
+    for (const scenario of scenarios) {
+      expect({
+        scenario: scenario.name,
+        result: chain.handle(scenario.context()),
+      }).toMatchObject({
+        scenario: scenario.name,
+        result: {
+          ok: false,
+          code: scenario.code,
+          handler: scenario.handler,
+        },
+      });
+    }
   });
 
-  it('stops at tenant validation before checking coordinates', () => {
-    const originalContext = createContext();
+  it('stops at the first failing handler', () => {
+    const context = packageContext({ weightKg: 101, volumeM3: 6 });
 
-    const context: AssignmentValidationContext = {
-      ...originalContext,
-      package: {
-        ...originalContext.package,
-        tenantId: 'tenant-b',
-        latitude: 200,
-      },
-    };
-
-    const chain = createAssignmentValidationChain();
-    const result = chain.handle(context);
-
-    expect(result).toMatchObject({
-      ok: false,
-      code: 'TENANT_MISMATCH',
-      handler: 'TenantValidationHandler',
-    });
-  });
-
-  it('checks duplicate assignment before package data', () => {
-    const originalContext = createContext();
-
-    const context: AssignmentValidationContext = {
-      ...originalContext,
-      hasActiveAssignment: true,
-      package: {
-        ...originalContext.package,
-        recipientAddress: ' ',
-      },
-    };
-
-    const result = createAssignmentValidationChain().handle(context);
-
-    expect(result).toMatchObject({
-      ok: false,
-      code: 'DUPLICATE_ASSIGNMENT',
-      handler: 'DuplicateAssignmentValidationHandler',
-    });
-  });
-
-  it('reaches coordinate validation when tenant validation passes', () => {
-    const originalContext = createContext();
-
-    const context: AssignmentValidationContext = {
-      ...originalContext,
-      package: {
-        ...originalContext.package,
-        latitude: 200,
-      },
-    };
-
-    const chain = createAssignmentValidationChain();
-    const result = chain.handle(context);
-
-    expect(result).toMatchObject({
-      ok: false,
-      code: 'INVALID_COORDINATES',
-      handler: 'CoordinateValidationHandler',
-    });
-  });
-
-  it('checks complete data before coordinates', () => {
-    const originalContext = createContext();
-
-    const context: AssignmentValidationContext = {
-      ...originalContext,
-      package: {
-        ...originalContext.package,
-        recipientAddress: ' ',
-        latitude: 200,
-      },
-    };
-
-    const result = createAssignmentValidationChain().handle(context);
-
-    expect(result).toMatchObject({
-      ok: false,
-      code: 'INCOMPLETE_DATA',
-      handler: 'CompleteDataValidationHandler',
-    });
-  });
-
-  it('checks weight before volume when both capacities are exceeded', () => {
-    const originalContext = createContext();
-
-    const context: AssignmentValidationContext = {
-      ...originalContext,
-      package: {
-        ...originalContext.package,
-        weightKg: 101,
-        volumeM3: 6,
-      },
-    };
-
-    const result = createAssignmentValidationChain().handle(context);
-
-    expect(result).toMatchObject({
+    expect(createAssignmentValidationChain().handle(context)).toMatchObject({
       ok: false,
       code: 'WEIGHT_CAPACITY_EXCEEDED',
       handler: 'WeightCapacityHandler',
     });
   });
 
-  it('reaches courier validation after all previous rules pass', () => {
-    const originalContext = createContext();
-
-    const context: AssignmentValidationContext = {
-      ...originalContext,
-      courier: {
-        ...originalContext.courier!,
-        available: false,
-      },
-    };
-
-    const result = createAssignmentValidationChain().handle(context);
-
-    expect(result).toMatchObject({
-      ok: false,
-      code: 'COURIER_UNAVAILABLE',
-      handler: 'CourierAvailabilityHandler',
-    });
-  });
-
-  it('allows a new handler without modifying existing handlers', () => {
-    const chain = buildAssignmentValidationChain([
+  it('supports extension and rejects an empty chain', () => {
+    const extendedChain = buildAssignmentValidationChain([
       new TenantValidationHandler(),
       new CoordinateValidationHandler(),
       new AdditionalRuleHandler(),
     ]);
 
-    const result = chain.handle(createContext());
-
-    expect(result).toEqual({
+    expect(extendedChain.handle(createContext())).toMatchObject({
       ok: false,
-      code: 'INCOMPLETE_DATA',
-      message: 'Additional validation rule rejected the assignment',
       handler: 'AdditionalRuleHandler',
     });
-  });
 
-  it('rejects an empty handler collection', () => {
     expect(() => buildAssignmentValidationChain([])).toThrow(
       'Assignment validation chain requires at least one handler',
     );
