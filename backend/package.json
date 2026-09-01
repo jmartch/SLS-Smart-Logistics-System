@@ -20,7 +20,8 @@
     "test:e2e": "jest --config ./test/jest-e2e.json",
     "demo:chain": "ts-node src/modules/assignments/domain/assignment-validation/demo/assignment-chain.demo.ts",
     "demo:state": "ts-node src/modules/packages/domain/package-state/demo/package-state.demo.ts",
-    "demo:iterator": "ts-node src/modules/routes/domain/route-stop-iterator/demo/route-stop-iterator.demo.ts"
+    "demo:iterator": "ts-node src/modules/routes/domain/route-stop-iterator/demo/route-stop-iterator.demo.ts",
+    "demo:interpreter": "ts-node src/modules/routing-rules/domain/assignment-rule-interpreter/demo/assignment-rule-interpreter.demo.ts"
   },
   "dependencies": {
     "@nestjs/common": "^11.0.1",
