@@ -3,6 +3,7 @@ import type { AssignmentValidationContext } from '../core/assignment-validation.
 export function createContext(): AssignmentValidationContext {
   return {
     tenantId: 'tenant-a',
+    hasActiveAssignment: false,
     package: {
       id: 'package-1',
       tenantId: 'tenant-a',

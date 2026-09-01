@@ -51,6 +51,27 @@ describe('AssignmentValidationChain', () => {
     });
   });
 
+  it('checks duplicate assignment before package data', () => {
+    const originalContext = createContext();
+
+    const context: AssignmentValidationContext = {
+      ...originalContext,
+      hasActiveAssignment: true,
+      package: {
+        ...originalContext.package,
+        recipientAddress: ' ',
+      },
+    };
+
+    const result = createAssignmentValidationChain().handle(context);
+
+    expect(result).toMatchObject({
+      ok: false,
+      code: 'DUPLICATE_ASSIGNMENT',
+      handler: 'DuplicateAssignmentValidationHandler',
+    });
+  });
+
   it('reaches coordinate validation when tenant validation passes', () => {
     const originalContext = createContext();
 

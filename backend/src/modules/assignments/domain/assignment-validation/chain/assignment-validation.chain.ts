@@ -2,6 +2,7 @@ import type { AssignmentValidationHandler } from '../core/assignment-validation.
 import { CompleteDataValidationHandler } from '../handlers/complete-data-validation.handler';
 import { CoordinateValidationHandler } from '../handlers/coordinate-validation.handler';
 import { CourierAvailabilityHandler } from '../handlers/courier-availability.handler';
+import { DuplicateAssignmentValidationHandler } from '../handlers/duplicate-assignment-validation.handler';
 import { TenantValidationHandler } from '../handlers/tenant-validation.handler';
 import { VehicleAvailabilityHandler } from '../handlers/vehicle-availability.handler';
 import { VolumeCapacityHandler } from '../handlers/volume-capacity.handler';
@@ -31,6 +32,7 @@ export function buildAssignmentValidationChain(
 export function createAssignmentValidationChain(): AssignmentValidationHandler {
   return buildAssignmentValidationChain([
     new TenantValidationHandler(),
+    new DuplicateAssignmentValidationHandler(),
     new CompleteDataValidationHandler(),
     new CoordinateValidationHandler(),
     new ZoneValidationHandler(),

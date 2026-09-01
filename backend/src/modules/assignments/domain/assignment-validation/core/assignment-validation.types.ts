@@ -1,5 +1,6 @@
 export interface AssignmentValidationContext {
   readonly tenantId: string;
+  readonly hasActiveAssignment: boolean;
 
   readonly package: {
     readonly id: string;
@@ -30,6 +31,7 @@ export interface AssignmentValidationContext {
 
 export type AssignmentRejectionCode =
   | 'TENANT_MISMATCH'
+  | 'DUPLICATE_ASSIGNMENT'
   | 'INCOMPLETE_DATA'
   | 'INVALID_COORDINATES'
   | 'ZONE_NOT_SUPPORTED'
