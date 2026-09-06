@@ -1,0 +1,98 @@
+enum NotificationChannel {
+  EMAIL
+  IN_APP
+}
+
+enum NotificationStatus {
+  PENDING
+  SENT
+  FAILED
+}
+
+enum OutboxEventStatus {
+  PENDING
+  PUBLISHED
+  FAILED
+}
+
+model NotificationTemplate {
+  id              String              @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId        String              @db.Uuid
+  eventType       String
+  channel         NotificationChannel
+  subjectTemplate String
+  bodyTemplate    String
+  active          Boolean             @default(true)
+
+  tenant        Tenant         @relation(fields: [tenantId], references: [id])
+  notifications Notification[]
+
+  @@unique([tenantId, eventType, channel])
+  @@index([tenantId])
+}
+
+model Notification {
+  id            String              @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId      String              @db.Uuid
+  templateId    String?             @db.Uuid
+  sourceEventId String?             @db.Uuid
+  recipient     String
+  channel       NotificationChannel
+  status        NotificationStatus  @default(PENDING)
+  attempts      Int                 @default(0)
+  sentAt        DateTime?
+
+  tenant   Tenant                @relation(fields: [tenantId], references: [id])
+  template NotificationTemplate? @relation(fields: [templateId], references: [id])
+
+  @@index([tenantId])
+}
+
+model OutboxEvent {
+  id            String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId      String            @db.Uuid
+  eventId       String            @unique @db.Uuid
+  correlationId String?           @db.Uuid
+  eventType     String
+  version       Int               @default(1)
+  payload       Json
+  status        OutboxEventStatus @default(PENDING)
+  attempts      Int               @default(0)
+  occurredAt    DateTime          @default(now())
+  publishedAt   DateTime?
+
+  tenant Tenant @relation(fields: [tenantId], references: [id])
+
+  @@index([tenantId])
+}
+
+model ProcessedEvent {
+  id           String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId     String   @db.Uuid
+  eventId      String   @db.Uuid
+  consumerName String
+  processedAt  DateTime @default(now())
+
+  tenant Tenant @relation(fields: [tenantId], references: [id])
+
+  @@unique([tenantId, eventId, consumerName])
+  @@index([tenantId])
+}
+
+model DeadLetterMessage {
+  id            String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId      String    @db.Uuid
+  eventId       String    @db.Uuid
+  correlationId String?   @db.Uuid
+  sourceQueue   String
+  consumerName  String
+  attempts      Int
+  originalEvent Json
+  failureReason String
+  failedAt      DateTime  @default(now())
+  redrivenAt    DateTime?
+
+  tenant Tenant @relation(fields: [tenantId], references: [id])
+
+  @@index([tenantId])
+}
