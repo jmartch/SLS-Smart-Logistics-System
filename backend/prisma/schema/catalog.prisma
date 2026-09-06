@@ -1,0 +1,56 @@
+model Zone {
+  id       String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId String @db.Uuid
+  code     String
+  name     String
+
+  tenant   Tenant    @relation(fields: [tenantId], references: [id])
+  sectors  Sector[]
+  packages Package[]
+
+  @@unique([tenantId, code])
+  @@index([tenantId])
+}
+
+model Sector {
+  id       String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId String @db.Uuid
+  zoneId   String @db.Uuid
+  code     String
+  name     String
+
+  tenant   Tenant    @relation(fields: [tenantId], references: [id])
+  zone     Zone      @relation(fields: [zoneId], references: [id])
+  packages Package[]
+
+  @@unique([zoneId, code])
+  @@index([tenantId])
+}
+
+model RoutingRule {
+  id         String  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId   String  @db.Uuid
+  name       String
+  expression String
+  version    Int     @default(1)
+  active     Boolean @default(true)
+
+  tenant      Tenant       @relation(fields: [tenantId], references: [id])
+  assignments Assignment[]
+
+  @@index([tenantId])
+}
+
+model ShipmentType {
+  id       String  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId String  @db.Uuid
+  code     String
+  name     String
+  active   Boolean @default(true)
+
+  tenant   Tenant    @relation(fields: [tenantId], references: [id])
+  packages Package[]
+
+  @@unique([tenantId, code])
+  @@index([tenantId])
+}
