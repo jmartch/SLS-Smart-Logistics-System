@@ -1,0 +1,160 @@
+enum VehicleStatus {
+  ACTIVE
+  INACTIVE
+  MAINTENANCE
+}
+
+enum CourierStatus {
+  ACTIVE
+  INACTIVE
+}
+
+enum RoutePlanningRequestStatus {
+  PENDING
+  IN_PROGRESS
+  COMPLETED
+  FAILED
+}
+
+enum RouteState {
+  PLANNED
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+}
+
+enum RouteStopState {
+  PENDING
+  COMPLETED
+  FAILED
+}
+
+enum AssignmentType {
+  INITIAL
+  REASSIGNMENT
+}
+
+enum AssignmentStatus {
+  ACTIVE
+  ENDED
+  CANCELLED
+}
+
+model Vehicle {
+  id          String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId    String        @db.Uuid
+  plate       String
+  maxWeightKg Decimal       @db.Decimal(10, 3)
+  maxVolumeM3 Decimal       @db.Decimal(10, 3)
+  status      VehicleStatus @default(ACTIVE)
+
+  tenant      Tenant       @relation(fields: [tenantId], references: [id])
+  routes      Route[]
+  assignments Assignment[]
+
+  @@unique([tenantId, plate])
+  @@index([tenantId])
+}
+
+model Courier {
+  id       String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId String        @db.Uuid
+  userId   String        @db.Uuid
+  status   CourierStatus @default(ACTIVE)
+
+  tenant           Tenant            @relation(fields: [tenantId], references: [id])
+  user             User              @relation(fields: [userId], references: [id])
+  routes           Route[]
+  assignments      Assignment[]
+  deliveryAttempts DeliveryAttempt[]
+
+  @@unique([userId])
+  @@index([tenantId])
+}
+
+model RoutePlanningRequest {
+  id                String                     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId          String                     @db.Uuid
+  requestedByUserId String                     @db.Uuid
+  status            RoutePlanningRequestStatus @default(PENDING)
+  parameters        Json
+  failureReason     String?
+  createdAt         DateTime                   @default(now())
+  completedAt       DateTime?
+
+  tenant          Tenant  @relation(fields: [tenantId], references: [id])
+  requestedByUser User    @relation(fields: [requestedByUserId], references: [id])
+  routes          Route[]
+
+  @@index([tenantId])
+}
+
+model Route {
+  id                String     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId          String     @db.Uuid
+  planningRequestId String     @db.Uuid
+  vehicleId         String     @db.Uuid
+  courierId         String     @db.Uuid
+  state             RouteState @default(PLANNED)
+  plannedAt         DateTime   @default(now())
+  startedAt         DateTime?
+  completedAt       DateTime?
+
+  tenant          Tenant               @relation(fields: [tenantId], references: [id])
+  planningRequest RoutePlanningRequest @relation(fields: [planningRequestId], references: [id])
+  vehicle         Vehicle              @relation(fields: [vehicleId], references: [id])
+  courier         Courier              @relation(fields: [courierId], references: [id])
+  stops           RouteStop[]
+  assignments     Assignment[]
+  incidents       Incident[]
+
+  @@index([tenantId])
+}
+
+model RouteStop {
+  id        String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId  String         @db.Uuid
+  routeId   String         @db.Uuid
+  sequence  Int
+  latitude  Decimal        @db.Decimal(10, 6)
+  longitude Decimal        @db.Decimal(10, 6)
+  state     RouteStopState @default(PENDING)
+
+  tenant           Tenant            @relation(fields: [tenantId], references: [id])
+  route            Route             @relation(fields: [routeId], references: [id])
+  assignments      Assignment[]
+  deliveryAttempts DeliveryAttempt[]
+  incidents        Incident[]
+
+  @@unique([routeId, sequence])
+  @@index([tenantId])
+}
+
+model Assignment {
+  id                     String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId               String           @db.Uuid
+  packageId              String           @db.Uuid
+  routeId                String?          @db.Uuid
+  routeStopId            String?          @db.Uuid
+  vehicleId              String?          @db.Uuid
+  courierId              String?          @db.Uuid
+  routingRuleId          String?          @db.Uuid
+  responsibleUserId      String?          @db.Uuid
+  assignmentType         AssignmentType
+  status                 AssignmentStatus @default(ACTIVE)
+  reasonCode             String?
+  ruleExpressionSnapshot String?
+  createdAt              DateTime         @default(now())
+  endedAt                DateTime?
+
+  tenant          Tenant       @relation(fields: [tenantId], references: [id])
+  package         Package      @relation(fields: [packageId], references: [id])
+  route           Route?       @relation(fields: [routeId], references: [id])
+  routeStop       RouteStop?   @relation(fields: [routeStopId], references: [id])
+  vehicle         Vehicle?     @relation(fields: [vehicleId], references: [id])
+  courier         Courier?     @relation(fields: [courierId], references: [id])
+  routingRule     RoutingRule? @relation(fields: [routingRuleId], references: [id])
+  responsibleUser User?        @relation(fields: [responsibleUserId], references: [id])
+
+  @@index([tenantId])
+}
