@@ -1,0 +1,16 @@
+model AuditLog {
+  id            String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId      String   @db.Uuid
+  actorUserId   String?  @db.Uuid
+  action        String
+  entityType    String
+  entityId      String   @db.Uuid
+  correlationId String?  @db.Uuid
+  metadata      Json
+  createdAt     DateTime @default(now())
+
+  tenant    Tenant @relation(fields: [tenantId], references: [id])
+  actorUser User?  @relation(fields: [actorUserId], references: [id])
+
+  @@index([tenantId])
+}
