@@ -20,6 +20,10 @@
 - No `onDelete: Cascade` anywhere in this plan — deleting a `Tenant` or any parent row must fail loudly (Postgres default `NO ACTION`) rather than silently wipe related data. This is a deliberate MVP choice, not an oversight.
 - Migration workflow runs inside the `backend` container: `docker compose exec backend <command>`. All `npx prisma` commands in this plan assume that prefix; steps show the full command.
 - Dev-only credential: the `sls_app` Postgres role password is `sls_app_dev_password`, hardcoded in the migration SQL and `.env.example`. This is a local Docker Compose dev database, not a deployed environment — do not treat this as a real secret.
+- **Prisma 7 correction (discovered while executing Task 13):** the `prisma-client` generator produces a driver-adapter-only client. Three things in this plan's original Task 13/14/15 code blocks are wrong and were fixed during implementation:
+  1. Import from `../../generated/prisma/client`, not `../../generated/prisma` (no `index.ts` is generated).
+  2. `new PrismaClient({ datasourceUrl: ... })` does not exist in Prisma 7 — `PrismaClientOptions` only accepts `adapter` (a driver adapter) or `accelerateUrl`. Use `@prisma/adapter-pg`: `new PrismaClient({ adapter: new PrismaPg({ connectionString: process.env.RUNTIME_DATABASE_URL }) })`. This required adding `@prisma/adapter-pg`, `pg`, and `@types/pg` to `backend/package.json`.
+  3. Jest needs two additions to run anything that imports the generated client: a `moduleNameMapper` (`"^(\\.{1,2}/.*)\\.js$": "$1"`) in both `backend/package.json`'s `jest` block and `backend/test/jest-e2e.json`, because the generated client's relative imports use `.js` extensions (TS `nodenext` style) that Jest's CJS resolver can't follow to sibling `.ts` files; and `NODE_OPTIONS=--experimental-vm-modules` on the `test`/`test:e2e` npm scripts (via `cross-env`, added as a dev dependency), because Prisma 7's WASM query compiler loads itself via dynamic `import()`, which Jest's VM sandbox refuses without that flag.
 
 ---
 
@@ -1306,12 +1310,9 @@ Expected: `sls_app` listed, with no `Superuser` or `Bypass RLS` attribute.
 
 ```ts
 // backend/src/database/prisma.service.ts
-import {
-  Injectable,
-  OnModuleInit,
-  OnModuleDestroy,
-} from '@nestjs/common';
-import { PrismaClient } from '../../generated/prisma';
+import { Injectable, OnModuleInit, OnModuleDestroy } from '@nestjs/common';
+import { PrismaPg } from '@prisma/adapter-pg';
+import { PrismaClient } from '../../generated/prisma/client';
 
 @Injectable()
 export class PrismaService
@@ -1320,7 +1321,9 @@ export class PrismaService
 {
   constructor() {
     super({
-      datasourceUrl: process.env.RUNTIME_DATABASE_URL,
+      adapter: new PrismaPg({
+        connectionString: process.env.RUNTIME_DATABASE_URL,
+      }),
     });
   }
 
@@ -1333,6 +1336,8 @@ export class PrismaService
   }
 }
 ```
+
+Requires `@prisma/adapter-pg`, `pg`, and `@types/pg` — see the Global Constraints correction note.
 
 - [ ] **Step 2: Write PrismaModule**
 
@@ -1367,18 +1372,55 @@ import { PrismaModule } from './database/prisma.module';
 export class AppModule {}
 ```
 
-- [ ] **Step 4: Verify the app still boots**
+- [ ] **Step 4: Add Jest configuration the generated Prisma client needs**
+
+Two changes are required before any test can import anything that pulls in `PrismaService` — without them, Jest fails with "Cannot find module './internal/class.js'" and then "A dynamic import callback was invoked without --experimental-vm-modules". See the Global Constraints correction note for why.
+
+In `backend/package.json`'s `jest` block, add `moduleNameMapper` next to `transform`:
+
+```json
+"moduleNameMapper": {
+  "^(\\.{1,2}/.*)\\.js$": "$1"
+},
+```
+
+In `backend/test/jest-e2e.json`, add the same key:
+
+```json
+"moduleNameMapper": {
+  "^(\\.{1,2}/.*)\\.js$": "$1"
+}
+```
+
+Add `cross-env` as a dev dependency and prefix the `test`, `test:watch`, `test:cov`, and `test:e2e` scripts in `backend/package.json` with `cross-env NODE_OPTIONS=--experimental-vm-modules`:
+
+```bash
+npm install -D cross-env
+```
+
+```json
+"test": "cross-env NODE_OPTIONS=--experimental-vm-modules jest",
+"test:watch": "cross-env NODE_OPTIONS=--experimental-vm-modules jest --watch",
+"test:cov": "cross-env NODE_OPTIONS=--experimental-vm-modules jest --coverage",
+"test:e2e": "cross-env NODE_OPTIONS=--experimental-vm-modules jest --config ./test/jest-e2e.json"
+```
+
+Then sync dependencies in the running container (it has its own `node_modules` volume, separate from the host):
+
+Run: `docker compose exec backend npm install`
+
+- [ ] **Step 5: Verify the app still boots**
 
 Run: `docker compose exec backend npx nest build`
 Expected: exits 0, no TypeScript errors.
 
 Run: `docker compose exec backend npm run test:e2e`
-Expected: the existing `AppController (e2e)` test still passes — confirms `PrismaModule` (now `@Global`, imported into `AppModule`) doesn't break app bootstrap even though nothing calls Prisma yet.
+Expected: the existing `AppController (e2e)` test still passes — confirms `PrismaModule` (now `@Global`, imported into `AppModule`) doesn't break app bootstrap, and that it can actually `$connect()`/`$disconnect()` as `sls_app` against the real database.
 
-- [ ] **Step 5: Commit**
+- [ ] **Step 6: Commit**
 
 ```bash
-git add backend/src/database/prisma.service.ts backend/src/database/prisma.module.ts backend/src/app.module.ts
+git add backend/src/database/prisma.service.ts backend/src/database/prisma.module.ts backend/src/app.module.ts backend/package.json backend/package-lock.json backend/test/jest-e2e.json
 git commit -m "feat(database): add PrismaService and PrismaModule"
 ```
 
@@ -1426,7 +1468,7 @@ Expected: FAIL — `Cannot find module './run-with-tenant'`
 
 ```ts
 // backend/src/database/run-with-tenant.ts
-import { Prisma, PrismaClient } from '../../generated/prisma';
+import { Prisma, PrismaClient } from '../../generated/prisma/client';
 
 const UUID_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -1484,12 +1526,15 @@ git commit -m "feat(database): add runWithTenant helper with tenant id validatio
 
 ```ts
 // backend/test/tenant-isolation.e2e-spec.ts
-import { PrismaClient } from '../generated/prisma';
+import { PrismaClient } from '../generated/prisma/client';
+import { PrismaPg } from '@prisma/adapter-pg';
 import { PrismaService } from '../src/database/prisma.service';
 import { runWithTenant } from '../src/database/run-with-tenant';
 
 describe('Tenant isolation (RLS)', () => {
-  const admin = new PrismaClient({ datasourceUrl: process.env.DATABASE_URL });
+  const admin = new PrismaClient({
+    adapter: new PrismaPg({ connectionString: process.env.DATABASE_URL }),
+  });
   const app = new PrismaService();
 
   let tenantAId: string;
