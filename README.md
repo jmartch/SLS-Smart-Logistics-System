@@ -1,12 +1,13 @@
 # SLS — Smart Logistics System
 
-Sistema de gestión de operaciones logísticas, compuesto por un frontend en React/Vite, una API en NestJS y PostgreSQL.
+Sistema de gestión de operaciones logísticas, compuesto por un frontend en React/Vite, una API en NestJS, PostgreSQL y RabbitMQ.
 
 ## Stack
 
 - Frontend: React, TypeScript y Vite.
 - Backend: NestJS, TypeScript y Prisma ORM.
 - Base de datos: PostgreSQL 17.
+- Mensajería asíncrona: RabbitMQ 4.
 - Entorno de desarrollo: Docker Compose.
 
 ## Estructura
@@ -36,6 +37,7 @@ otra para runtime — ver la sección de Row-Level Security más abajo):
 ```env
 DATABASE_URL="postgresql://postgres:postgres@postgres:5432/sls?schema=public"
 RUNTIME_DATABASE_URL="postgresql://sls_app:sls_app_dev_password@postgres:5432/sls?schema=public"
+RABBITMQ_URL="amqp://sls:sls@rabbitmq:5672/sls"
 ```
 
 Después, inicia el entorno:
@@ -49,6 +51,10 @@ docker compose up --build
 | Frontend | http://localhost:5173 |
 | API | http://localhost:3000 |
 | PostgreSQL | localhost:5432 |
+| RabbitMQ (AMQP) | localhost:5672 |
+| RabbitMQ Management | http://localhost:15672 |
+
+La interfaz de administración de RabbitMQ usa las credenciales locales `sls` / `sls`. El backend se conecta mediante `RABBITMQ_URL`; dentro de Docker debe usar el hostname `rabbitmq`, mientras que los procesos ejecutados directamente en la máquina usan `localhost`.
 
 Para ver el estado y los registros:
 
@@ -111,3 +117,4 @@ La infraestructura Docker, los proyectos base de frontend/backend, PostgreSQL y 
 configurados. El modelo de datos completo (27 entidades) está implementado con aislamiento
 multi-tenant por Row-Level Security — ver la sección "Aislamiento multi-tenant" arriba. Aún
 están pendientes la API, autenticación, interfaz y módulos logísticos.
+La infraestructura Docker, los proyectos base de frontend/backend, PostgreSQL, RabbitMQ y Prisma están configurados. Aún están pendientes el modelo de datos, la API, autenticación, interfaz y módulos logísticos. RabbitMQ está disponible como infraestructura, pero aún falta implementar los publicadores, consumidores y el proceso worker de NestJS.
