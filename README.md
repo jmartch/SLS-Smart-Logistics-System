@@ -107,4 +107,7 @@ docs: update readme
 
 ## Estado
 
-La infraestructura Docker, los proyectos base de frontend/backend, PostgreSQL y Prisma están configurados. Aún están pendientes el modelo de datos, la API, autenticación, interfaz y módulos logísticos.
+La infraestructura Docker, los proyectos base de frontend/backend, PostgreSQL y Prisma están
+configurados. El modelo de datos completo (27 entidades) está implementado con aislamiento
+multi-tenant por Row-Level Security — ver la sección "Aislamiento multi-tenant" arriba. Aún
+están pendientes la API, autenticación, interfaz y módulos logísticos.
