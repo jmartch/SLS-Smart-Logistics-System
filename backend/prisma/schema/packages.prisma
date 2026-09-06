@@ -1,0 +1,66 @@
+enum PackageState {
+  REGISTERED
+  CLASSIFIED
+  PENDING_ASSIGNMENT
+  ASSIGNED
+  READY_FOR_DISPATCH
+  IN_TRANSIT
+  OUT_FOR_DELIVERY
+  DELIVERED
+  DELIVERY_FAILED
+  RESCHEDULED
+  RETURNED
+}
+
+enum PackagePriority {
+  LOW
+  NORMAL
+  HIGH
+  URGENT
+}
+
+model Package {
+  id                  String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId            String          @db.Uuid
+  zoneId              String          @db.Uuid
+  sectorId            String?         @db.Uuid
+  shipmentTypeId      String          @db.Uuid
+  trackingCode        String
+  publicTrackingToken String          @unique
+  state               PackageState    @default(REGISTERED)
+  weightKg            Decimal         @db.Decimal(10, 3)
+  volumeM3            Decimal         @db.Decimal(10, 3)
+  latitude            Decimal         @db.Decimal(10, 6)
+  longitude           Decimal         @db.Decimal(10, 6)
+  priority            PackagePriority @default(NORMAL)
+  deadline            DateTime?
+
+  tenant           Tenant                 @relation(fields: [tenantId], references: [id])
+  zone             Zone                   @relation(fields: [zoneId], references: [id])
+  sector           Sector?                @relation(fields: [sectorId], references: [id])
+  shipmentType     ShipmentType           @relation(fields: [shipmentTypeId], references: [id])
+  statusHistory    PackageStatusHistory[]
+  assignments      Assignment[]
+  deliveryAttempts DeliveryAttempt[]
+  incidents        Incident[]
+
+  @@unique([tenantId, trackingCode])
+  @@index([tenantId])
+}
+
+model PackageStatusHistory {
+  id              String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId        String        @db.Uuid
+  packageId       String        @db.Uuid
+  fromState       PackageState?
+  toState         PackageState
+  reasonCode      String?
+  changedByUserId String?       @db.Uuid
+  createdAt       DateTime      @default(now())
+
+  tenant        Tenant  @relation(fields: [tenantId], references: [id])
+  package       Package @relation(fields: [packageId], references: [id])
+  changedByUser User?   @relation(fields: [changedByUserId], references: [id])
+
+  @@index([tenantId])
+}
