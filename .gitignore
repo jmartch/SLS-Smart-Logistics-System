@@ -17,7 +17,11 @@ generated/
 .claude/
 .windsurf/
 skills-lock.json
+<<<<<<< HEAD
 docs/superpowers/
+=======
+tmp/
+>>>>>>> 090a8df38e504e462328233839ccd2cde66fe714
 
 # Logs
 *.log
