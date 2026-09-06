@@ -30,10 +30,12 @@ git clone <URL_DEL_REPOSITORIO>
 cd SLS-Smart-Logistics-System
 ```
 
-Crea `backend/.env.docker` con la conexión utilizada por el contenedor del backend:
+Crea `backend/.env.docker` con las dos conexiones que usa el backend (una para migraciones,
+otra para runtime — ver la sección de Row-Level Security más abajo):
 
 ```env
 DATABASE_URL="postgresql://postgres:postgres@postgres:5432/sls?schema=public"
+RUNTIME_DATABASE_URL="postgresql://sls_app:sls_app_dev_password@postgres:5432/sls?schema=public"
 ```
 
 Después, inicia el entorno:
@@ -69,6 +71,25 @@ docker compose exec backend npx prisma migrate dev --name <nombre-migracion>
 ```
 
 Las migraciones de `backend/prisma/migrations/` se versionan en Git; el cliente generado no.
+
+## Aislamiento multi-tenant (Row-Level Security)
+
+Todas las tablas con `tenantId` tienen RLS habilitado en PostgreSQL. El rol `postgres`
+(usado solo para migraciones) es superusuario y **no** está sujeto a RLS; el backend se
+conecta en runtime con el rol `sls_app`, que sí lo está.
+
+Sin fijar el tenant en la sesión, cualquier consulta sobre esas tablas devuelve 0 filas
+(fail-closed). El helper `runWithTenant` en `backend/src/database` hace este `SET LOCAL`
+por cada transacción:
+
+```ts
+await runWithTenant(prisma, tenantId, async (tx) => tx.package.findMany());
+```
+
+El rol `sls_app` y sus políticas se crean como parte de la migración `init_schema`
+(`backend/prisma/migrations/*_init_schema/migration.sql`), no en
+`docker-entrypoint-initdb.d`, porque las tablas todavía no existen en el primer arranque
+del contenedor de Postgres.
 
 ## Desarrollo
 
