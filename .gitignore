@@ -15,8 +15,10 @@ generated/
 # AI agent files
 .agents/
 .claude/
+.docs/
 .windsurf/
 skills-lock.json
+docs/superpowers/
 
 # Logs
 *.log
