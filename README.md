@@ -67,7 +67,8 @@ Detén los servicios con `docker compose down`. Para eliminar también los datos
 
 ## Prisma
 
-El esquema está en `backend/prisma/schema.prisma` y la configuración en `backend/prisma7.config.ts`.
+El esquema está dividido por dominio en `backend/prisma/schema/` y la configuración en
+`backend/prisma7.config.ts`.
 
 Tras cambiar el esquema, genera el cliente y crea una migración desde el contenedor:
 
@@ -113,8 +114,9 @@ docs: update readme
 
 ## Estado
 
-La infraestructura Docker, los proyectos base de frontend/backend, PostgreSQL y Prisma están
-configurados. El modelo de datos completo (27 entidades) está implementado con aislamiento
-multi-tenant por Row-Level Security — ver la sección "Aislamiento multi-tenant" arriba. Aún
-están pendientes la API, autenticación, interfaz y módulos logísticos.
-La infraestructura Docker, los proyectos base de frontend/backend, PostgreSQL, RabbitMQ y Prisma están configurados. Aún están pendientes el modelo de datos, la API, autenticación, interfaz y módulos logísticos. RabbitMQ está disponible como infraestructura, pero aún falta implementar los publicadores, consumidores y el proceso worker de NestJS.
+La infraestructura Docker, los proyectos base de frontend/backend, PostgreSQL, RabbitMQ y Prisma
+están configurados. El modelo de datos completo (27 entidades) está implementado con aislamiento
+multi-tenant por Row-Level Security — ver la sección "Aislamiento multi-tenant" arriba. RabbitMQ
+está disponible como infraestructura, pero aún falta implementar los publicadores, consumidores y
+el proceso worker de NestJS. Aún están pendientes la API, autenticación, interfaz y módulos
+logísticos.
