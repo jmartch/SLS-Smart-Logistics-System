@@ -1,0 +1,162 @@
+enum GeoDatasetSource {
+  SYNTHETIC
+  OSM
+  LOCAL_VERIFIED
+}
+
+enum GeoDatasetStatus {
+  STAGING
+  READY
+  FAILED
+}
+
+enum AddressPrecision {
+  ENTRANCE
+  BUILDING
+  INTERPOLATED
+  STREET
+}
+
+enum GeocodingStatus {
+  MATCHED
+  REVIEW_REQUIRED
+  NOT_FOUND
+}
+
+enum GeocodingReviewDecision {
+  APPROVED
+  REJECTED
+}
+
+model GeoDataset {
+  id                String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name              String
+  sourceType        GeoDatasetSource
+  sourceReference   String
+  sourceDate        DateTime           @db.Timestamptz(3)
+  checksum          String             @db.VarChar(64)
+  license           String
+  coverage          String
+  importerVersion   String
+  status            GeoDatasetStatus   @default(STAGING)
+  failureReason     String?
+  createdAt         DateTime           @default(now()) @db.Timestamptz(3)
+  readyAt           DateTime?          @db.Timestamptz(3)
+  addressReferences AddressReference[]
+  geocodingAttempts GeocodingAttempt[]
+
+  @@index([sourceType, status])
+  @@index([checksum])
+}
+
+model AddressReference {
+  id                String                              @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  datasetId         String                              @db.Uuid
+  sourceRecordId    String
+  municipalityCode  String
+  streetType        String
+  streetIdentifier  String
+  generatingRoad    String?
+  plateNumber       String?
+  neighborhood      String?
+  sourceAddress     String?
+  sourceTags        Json?
+  normalizedAddress String
+  searchKey         String
+  location          Unsupported("geometry(Point,4326)")
+  precision         AddressPrecision
+  createdAt         DateTime                            @default(now()) @db.Timestamptz(3)
+
+  dataset             GeoDataset           @relation(fields: [datasetId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  geocodingCandidates GeocodingCandidate[]
+
+  @@unique([datasetId, id])
+  @@unique([datasetId, sourceRecordId])
+  @@index([datasetId, municipalityCode, searchKey])
+}
+
+model Address {
+  id               String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId         String   @db.Uuid
+  originalText     String
+  municipalityCode String
+  createdAt        DateTime @default(now()) @db.Timestamptz(3)
+
+  tenant            Tenant             @relation(fields: [tenantId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  geocodingAttempts GeocodingAttempt[]
+
+  @@unique([tenantId, id])
+  @@index([tenantId, municipalityCode])
+}
+
+model GeocodingAttempt {
+  id                  String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId            String          @db.Uuid
+  addressId           String          @db.Uuid
+  datasetId           String          @db.Uuid
+  selectedCandidateId String?         @db.Uuid
+  normalizedText      String
+  components          Json
+  algorithmVersion    String
+  status              GeocodingStatus
+  createdAt           DateTime        @default(now()) @db.Timestamptz(3)
+
+  tenant            Tenant              @relation(fields: [tenantId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  address           Address             @relation(fields: [tenantId, addressId], references: [tenantId, id], onDelete: Restrict, onUpdate: Restrict)
+  dataset           GeoDataset          @relation(fields: [datasetId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  selectedCandidate GeocodingCandidate? @relation("SelectedCandidate", fields: [tenantId, selectedCandidateId, id], references: [tenantId, id, attemptId], onDelete: Restrict, onUpdate: Restrict)
+
+  geocodingCandidates GeocodingCandidate[]
+  reviews             GeocodingReview[]
+
+  @@unique([tenantId, id])
+  @@unique([tenantId, id, datasetId])
+  @@index([tenantId, addressId, createdAt])
+  @@index([datasetId])
+}
+
+model GeocodingCandidate {
+  id                 String                              @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId           String                              @db.Uuid
+  attemptId          String                              @db.Uuid
+  datasetId          String                              @db.Uuid
+  addressReferenceId String?                             @db.Uuid
+  rank               Int
+  score              Decimal                             @db.Decimal(5, 4)
+  scoreBreakdown     Json
+  source             String
+  precision          AddressPrecision
+  location           Unsupported("geometry(Point,4326)")
+  createdAt          DateTime                            @default(now()) @db.Timestamptz(3)
+
+  tenant           Tenant             @relation(fields: [tenantId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  attempt          GeocodingAttempt   @relation(fields: [tenantId, attemptId, datasetId], references: [tenantId, id, datasetId], onDelete: Restrict, onUpdate: Restrict)
+  addressReference AddressReference?  @relation(fields: [datasetId, addressReferenceId], references: [datasetId, id], onDelete: Restrict, onUpdate: Restrict)
+  selectedBy       GeocodingAttempt[] @relation("SelectedCandidate")
+  reviews          GeocodingReview[]
+
+  @@unique([tenantId, id])
+  @@unique([tenantId, id, attemptId])
+  @@unique([tenantId, attemptId, rank])
+  @@index([addressReferenceId])
+}
+
+model GeocodingReview {
+  id          String                  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId    String                  @db.Uuid
+  attemptId   String                  @db.Uuid
+  candidateId String                  @db.Uuid
+  reviewerId  String                  @db.Uuid
+  decision    GeocodingReviewDecision
+  reason      String
+  createdAt   DateTime                @default(now()) @db.Timestamptz(3)
+
+  tenant    Tenant             @relation(fields: [tenantId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  attempt   GeocodingAttempt   @relation(fields: [tenantId, attemptId], references: [tenantId, id], onDelete: Restrict, onUpdate: Restrict)
+  candidate GeocodingCandidate @relation(fields: [tenantId, candidateId, attemptId], references: [tenantId, id, attemptId], onDelete: Restrict, onUpdate: Restrict)
+  reviewer  User               @relation(fields: [tenantId, reviewerId], references: [tenantId, id], onDelete: Restrict, onUpdate: Restrict)
+
+  @@index([tenantId, attemptId, createdAt])
+  @@index([tenantId, candidateId, attemptId])
+  @@index([tenantId, reviewerId])
+}

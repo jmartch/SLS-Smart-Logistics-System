@@ -26,7 +26,8 @@ services:
       - /app/node_modules
 
   postgres:
-    image: postgres:17
+    build: ./docker/postgres
+    image: sls-postgres-postgis:gdb02
     container_name: sls-postgres
     environment:
       POSTGRES_USER: postgres

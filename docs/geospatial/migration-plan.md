@@ -1,6 +1,6 @@
 # Plan de migraciones geoespaciales
 
-Fecha: 2026-09-14. Estado: GDB-00 auditado; GDB-01 implementado, probado en bases aisladas y aplicado a SLS según evidencia de terminal del usuario. GDB-02 a GDB-06 siguen en diseño. Véase [informe GDB-01](gdb-01-report.md).
+Fecha: 2026-09-14. Estado: GDB-00 auditado; GDB-01 implementado, probado en bases aisladas y aplicado a SLS según evidencia de terminal del usuario. GDB-02 tiene infraestructura y catálogo probados; aplicación a SLS confirmada por el usuario (véase [informe GDB-02](gdb-02-report.md)). GDB-03 a GDB-06 siguen en diseño. Véase [informe GDB-01](gdb-01-report.md).
 
 ## Base verificada en el repositorio
 

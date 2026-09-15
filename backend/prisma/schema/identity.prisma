@@ -40,6 +40,10 @@ model Tenant {
   processedEvents        ProcessedEvent[]
   deadLetterMessages     DeadLetterMessage[]
   auditLogs              AuditLog[]
+  addresses              Address[]
+  geocodingAttempts      GeocodingAttempt[]
+  geocodingCandidates    GeocodingCandidate[]
+  geocodingReviews       GeocodingReview[]
 }
 
 model User {
@@ -57,6 +61,7 @@ model User {
   assignmentsResponsible Assignment[]
   reportedIncidents      Incident[]
   auditLogs              AuditLog[]
+  geocodingReviews       GeocodingReview[]
 
   @@unique([tenantId, id])
   @@unique([tenantId, email])
