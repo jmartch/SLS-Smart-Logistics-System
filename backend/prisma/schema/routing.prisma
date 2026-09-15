@@ -52,6 +52,7 @@ model Vehicle {
   routes      Route[]
   assignments Assignment[]
 
+  @@unique([tenantId, id])
   @@unique([tenantId, plate])
   @@index([tenantId])
 }
@@ -63,12 +64,14 @@ model Courier {
   status   CourierStatus @default(ACTIVE)
 
   tenant           Tenant            @relation(fields: [tenantId], references: [id])
-  user             User              @relation(fields: [userId], references: [id])
+  user             User              @relation(fields: [tenantId, userId], references: [tenantId, id], onDelete: Restrict, onUpdate: Cascade)
   routes           Route[]
   assignments      Assignment[]
   deliveryAttempts DeliveryAttempt[]
 
+  @@unique([tenantId, id])
   @@unique([userId])
+  @@unique([tenantId, userId])
   @@index([tenantId])
 }
 
@@ -83,9 +86,10 @@ model RoutePlanningRequest {
   completedAt       DateTime?
 
   tenant          Tenant  @relation(fields: [tenantId], references: [id])
-  requestedByUser User    @relation(fields: [requestedByUserId], references: [id])
+  requestedByUser User    @relation(fields: [tenantId, requestedByUserId], references: [tenantId, id], onDelete: Restrict, onUpdate: Cascade)
   routes          Route[]
 
+  @@unique([tenantId, id])
   @@index([tenantId])
 }
 
@@ -101,13 +105,15 @@ model Route {
   completedAt       DateTime?
 
   tenant          Tenant               @relation(fields: [tenantId], references: [id])
-  planningRequest RoutePlanningRequest @relation(fields: [planningRequestId], references: [id])
-  vehicle         Vehicle              @relation(fields: [vehicleId], references: [id])
-  courier         Courier              @relation(fields: [courierId], references: [id])
+  planningRequest RoutePlanningRequest @relation(fields: [tenantId, planningRequestId], references: [tenantId, id], onDelete: Restrict, onUpdate: Cascade)
+  vehicle         Vehicle              @relation(fields: [tenantId, vehicleId], references: [tenantId, id], onDelete: Restrict, onUpdate: Cascade)
+  courier         Courier              @relation(fields: [tenantId, courierId], references: [tenantId, id], onDelete: Restrict, onUpdate: Cascade)
   stops           RouteStop[]
   assignments     Assignment[]
   incidents       Incident[]
 
+  @@unique([tenantId, id])
+  @@unique([tenantId, id, vehicleId, courierId])
   @@index([tenantId])
 }
 
@@ -121,11 +127,13 @@ model RouteStop {
   state     RouteStopState @default(PENDING)
 
   tenant           Tenant            @relation(fields: [tenantId], references: [id])
-  route            Route             @relation(fields: [routeId], references: [id])
+  route            Route             @relation(fields: [tenantId, routeId], references: [tenantId, id], onDelete: Restrict, onUpdate: Cascade)
   assignments      Assignment[]
   deliveryAttempts DeliveryAttempt[]
   incidents        Incident[]
 
+  @@unique([tenantId, id])
+  @@unique([tenantId, id, routeId])
   @@unique([routeId, sequence])
   @@index([tenantId])
 }
@@ -148,13 +156,15 @@ model Assignment {
   endedAt                DateTime?
 
   tenant          Tenant       @relation(fields: [tenantId], references: [id])
-  package         Package      @relation(fields: [packageId], references: [id])
-  route           Route?       @relation(fields: [routeId], references: [id])
-  routeStop       RouteStop?   @relation(fields: [routeStopId], references: [id])
-  vehicle         Vehicle?     @relation(fields: [vehicleId], references: [id])
-  courier         Courier?     @relation(fields: [courierId], references: [id])
-  routingRule     RoutingRule? @relation(fields: [routingRuleId], references: [id])
-  responsibleUser User?        @relation(fields: [responsibleUserId], references: [id])
+  package         Package      @relation(fields: [tenantId, packageId], references: [tenantId, id], onDelete: Restrict, onUpdate: Cascade)
+  route           Route?       @relation(fields: [tenantId, routeId, vehicleId, courierId], references: [tenantId, id, vehicleId, courierId], onDelete: Restrict, onUpdate: Restrict)
+  routeStop       RouteStop?   @relation(fields: [tenantId, routeStopId, routeId], references: [tenantId, id, routeId], onDelete: Restrict, onUpdate: Restrict)
+  vehicle         Vehicle?     @relation(fields: [tenantId, vehicleId], references: [tenantId, id], onDelete: Restrict, onUpdate: Cascade)
+  courier         Courier?     @relation(fields: [tenantId, courierId], references: [tenantId, id], onDelete: Restrict, onUpdate: Cascade)
+  routingRule     RoutingRule? @relation(fields: [tenantId, routingRuleId], references: [tenantId, id], onDelete: Restrict, onUpdate: Cascade)
+  responsibleUser User?        @relation(fields: [tenantId, responsibleUserId], references: [tenantId, id], onDelete: Restrict, onUpdate: Cascade)
 
+  // Partial unique index for ACTIVE rows is maintained in the SQL migration.
+  // A full @@unique would incorrectly prevent assignment history.
   @@index([tenantId])
 }

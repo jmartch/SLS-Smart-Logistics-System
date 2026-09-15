@@ -58,6 +58,7 @@ model User {
   reportedIncidents      Incident[]
   auditLogs              AuditLog[]
 
+  @@unique([tenantId, id])
   @@unique([tenantId, email])
   @@index([tenantId])
 }
@@ -71,6 +72,7 @@ model Role {
   userRoles       UserRole[]
   rolePermissions RolePermission[]
 
+  @@unique([tenantId, id])
   @@unique([tenantId, name])
   @@index([tenantId])
 }
@@ -89,8 +91,8 @@ model UserRole {
   roleId   String @db.Uuid
 
   tenant Tenant @relation(fields: [tenantId], references: [id])
-  user   User   @relation(fields: [userId], references: [id])
-  role   Role   @relation(fields: [roleId], references: [id])
+  user   User   @relation(fields: [tenantId, userId], references: [tenantId, id], onDelete: Restrict, onUpdate: Cascade)
+  role   Role   @relation(fields: [tenantId, roleId], references: [tenantId, id], onDelete: Restrict, onUpdate: Cascade)
 
   @@id([tenantId, userId, roleId])
   @@index([tenantId])
@@ -102,7 +104,7 @@ model RolePermission {
   permissionId String @db.Uuid
 
   tenant     Tenant     @relation(fields: [tenantId], references: [id])
-  role       Role       @relation(fields: [roleId], references: [id])
+  role       Role       @relation(fields: [tenantId, roleId], references: [tenantId, id], onDelete: Restrict, onUpdate: Cascade)
   permission Permission @relation(fields: [permissionId], references: [id])
 
   @@id([tenantId, roleId, permissionId])

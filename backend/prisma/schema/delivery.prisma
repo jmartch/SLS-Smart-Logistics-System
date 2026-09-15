@@ -22,11 +22,12 @@ model DeliveryAttempt {
   attemptedAt   DateTime        @default(now())
 
   tenant    Tenant             @relation(fields: [tenantId], references: [id])
-  routeStop RouteStop          @relation(fields: [routeStopId], references: [id])
-  package   Package            @relation(fields: [packageId], references: [id])
-  courier   Courier            @relation(fields: [courierId], references: [id])
+  routeStop RouteStop          @relation(fields: [tenantId, routeStopId], references: [tenantId, id], onDelete: Restrict, onUpdate: Cascade)
+  package   Package            @relation(fields: [tenantId, packageId], references: [tenantId, id], onDelete: Restrict, onUpdate: Cascade)
+  courier   Courier            @relation(fields: [tenantId, courierId], references: [tenantId, id], onDelete: Restrict, onUpdate: Cascade)
   evidence  DeliveryEvidence[]
 
+  @@unique([tenantId, id])
   @@unique([routeStopId, attemptNumber])
   @@index([tenantId])
 }
@@ -41,7 +42,7 @@ model DeliveryEvidence {
   createdAt         DateTime @default(now())
 
   tenant          Tenant          @relation(fields: [tenantId], references: [id])
-  deliveryAttempt DeliveryAttempt @relation(fields: [deliveryAttemptId], references: [id])
+  deliveryAttempt DeliveryAttempt @relation(fields: [tenantId, deliveryAttemptId], references: [tenantId, id], onDelete: Restrict, onUpdate: Cascade)
 
   @@index([tenantId])
 }
@@ -59,10 +60,10 @@ model Incident {
   reportedAt       DateTime       @default(now())
 
   tenant         Tenant     @relation(fields: [tenantId], references: [id])
-  route          Route?     @relation(fields: [routeId], references: [id])
-  routeStop      RouteStop? @relation(fields: [routeStopId], references: [id])
-  package        Package?   @relation(fields: [packageId], references: [id])
-  reportedByUser User       @relation(fields: [reportedByUserId], references: [id])
+  route          Route?     @relation(fields: [tenantId, routeId], references: [tenantId, id], onDelete: Restrict, onUpdate: Cascade)
+  routeStop      RouteStop? @relation(fields: [tenantId, routeStopId], references: [tenantId, id], onDelete: Restrict, onUpdate: Cascade)
+  package        Package?   @relation(fields: [tenantId, packageId], references: [tenantId, id], onDelete: Restrict, onUpdate: Cascade)
+  reportedByUser User       @relation(fields: [tenantId, reportedByUserId], references: [tenantId, id], onDelete: Restrict, onUpdate: Cascade)
 
   @@index([tenantId])
 }

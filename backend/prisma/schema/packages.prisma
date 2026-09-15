@@ -36,14 +36,15 @@ model Package {
   deadline            DateTime?
 
   tenant           Tenant                 @relation(fields: [tenantId], references: [id])
-  zone             Zone                   @relation(fields: [zoneId], references: [id])
-  sector           Sector?                @relation(fields: [sectorId], references: [id])
-  shipmentType     ShipmentType           @relation(fields: [shipmentTypeId], references: [id])
+  zone             Zone                   @relation(fields: [tenantId, zoneId], references: [tenantId, id], onDelete: Restrict, onUpdate: Cascade)
+  sector           Sector?                @relation(fields: [tenantId, sectorId, zoneId], references: [tenantId, id, zoneId], onDelete: Restrict, onUpdate: Restrict)
+  shipmentType     ShipmentType           @relation(fields: [tenantId, shipmentTypeId], references: [tenantId, id], onDelete: Restrict, onUpdate: Cascade)
   statusHistory    PackageStatusHistory[]
   assignments      Assignment[]
   deliveryAttempts DeliveryAttempt[]
   incidents        Incident[]
 
+  @@unique([tenantId, id])
   @@unique([tenantId, trackingCode])
   @@index([tenantId])
 }
@@ -59,8 +60,8 @@ model PackageStatusHistory {
   createdAt       DateTime      @default(now())
 
   tenant        Tenant  @relation(fields: [tenantId], references: [id])
-  package       Package @relation(fields: [packageId], references: [id])
-  changedByUser User?   @relation(fields: [changedByUserId], references: [id])
+  package       Package @relation(fields: [tenantId, packageId], references: [tenantId, id], onDelete: Restrict, onUpdate: Cascade)
+  changedByUser User?   @relation(fields: [tenantId, changedByUserId], references: [tenantId, id], onDelete: Restrict, onUpdate: Cascade)
 
   @@index([tenantId])
 }
