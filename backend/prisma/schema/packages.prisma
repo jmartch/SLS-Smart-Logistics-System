@@ -22,21 +22,26 @@ enum PackagePriority {
 model Package {
   id                  String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   tenantId            String          @db.Uuid
-  zoneId              String          @db.Uuid
+  addressId           String          @db.Uuid
+  geocodingAttemptId  String?         @db.Uuid
+  zoneId              String?         @db.Uuid
   sectorId            String?         @db.Uuid
   shipmentTypeId      String          @db.Uuid
   trackingCode        String
   publicTrackingToken String          @unique
   state               PackageState    @default(REGISTERED)
   weightKg            Decimal         @db.Decimal(10, 3)
-  volumeM3            Decimal         @db.Decimal(10, 3)
-  latitude            Decimal         @db.Decimal(10, 6)
-  longitude           Decimal         @db.Decimal(10, 6)
+  lengthCm            Decimal         @db.Decimal(10, 2)
+  widthCm             Decimal         @db.Decimal(10, 2)
+  heightCm            Decimal         @db.Decimal(10, 2)
+  volumeM3            Decimal         @db.Decimal(12, 6)
   priority            PackagePriority @default(NORMAL)
   deadline            DateTime?
 
   tenant           Tenant                 @relation(fields: [tenantId], references: [id])
-  zone             Zone                   @relation(fields: [tenantId, zoneId], references: [tenantId, id], onDelete: Restrict, onUpdate: Cascade)
+  address          Address                @relation(fields: [tenantId, addressId], references: [tenantId, id], onDelete: Restrict, onUpdate: Restrict)
+  geocodingAttempt GeocodingAttempt?      @relation(fields: [tenantId, geocodingAttemptId, addressId], references: [tenantId, id, addressId], onDelete: Restrict, onUpdate: Restrict)
+  zone             Zone?                  @relation(fields: [tenantId, zoneId], references: [tenantId, id], onDelete: Restrict, onUpdate: Cascade)
   sector           Sector?                @relation(fields: [tenantId, sectorId, zoneId], references: [tenantId, id, zoneId], onDelete: Restrict, onUpdate: Restrict)
   shipmentType     ShipmentType           @relation(fields: [tenantId, shipmentTypeId], references: [tenantId, id], onDelete: Restrict, onUpdate: Cascade)
   statusHistory    PackageStatusHistory[]

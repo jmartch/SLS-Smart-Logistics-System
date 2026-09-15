@@ -1,6 +1,6 @@
 # Plan de migraciones geoespaciales
 
-Fecha: 2026-09-14. Estado: GDB-00 auditado; GDB-01 implementado, probado en bases aisladas y aplicado a SLS según evidencia de terminal del usuario. GDB-02 tiene infraestructura y catálogo probados; aplicación a SLS confirmada por el usuario (véase [informe GDB-02](gdb-02-report.md)). GDB-03 a GDB-06 siguen en diseño. Véase [informe GDB-01](gdb-01-report.md).
+Fecha: 2026-09-14. Estado: GDB-00 auditado; GDB-01 implementado, probado en bases aisladas y aplicado a SLS según evidencia de terminal del usuario. GDB-02 tiene infraestructura y catálogo probados; aplicación a SLS confirmada por el usuario (véase [informe GDB-02](gdb-02-report.md)). GDB-03 tiene persistencia probada y aplicación confirmada por el usuario; integración funcional de asignación pendiente (véase [informe GDB-03](gdb-03-report.md)). GDB-04 a GDB-06 siguen en diseño. Véase [informe GDB-01](gdb-01-report.md).
 
 ## Base verificada en el repositorio
 
@@ -52,14 +52,15 @@ Aceptación: round-trip sin invertir lat/lon; dos candidatos ambiguos exigen rev
 
 ## GDB-03 — Paquetes compatibles con recepción y geocodificación
 
-- Agregar addressId y geocodingAttemptId inicialmente nullable. Validar que intento y dirección corresponden al paquete y tenant.
-- Hacer zoneId y coordenadas antiguas nullable para permitir recepción sin geocodificación. Durante compatibilidad ambas coordenadas deben ser nulas o ambas válidas.
-- Mantener las coordenadas antiguas temporalmente como legado, sin declarar MATCHED los registros existentes. Nuevas operaciones leen la ubicación seleccionada a través del adaptador. No inventar dirección original.
-- Añadir dimensiones en cm con precisión documentada; exigir las tres juntas cuando se suministren. Conservar volumen declarado de registros antiguos y distinguirlo del calculado. No inventar dimensiones de un volumen conocido.
-- Ampliar `volumeM3` y `maxVolumeM3` a Decimal(12,6); conservar weightKg/maxWeightKg.
-- Eliminar columnas geográficas antiguas solo en una migración posterior, cuando todos los consumidores usen el nuevo modelo y exista evidencia de backfill completo.
+Decisión actualizada: el usuario confirmó la base vacía y eligió eliminar directamente las coordenadas de Package. La migración exige Package vacío bajo bloqueo; no hay backfill automático.
 
-Aceptación: registrar sin ubicación; impedir asignación sin selección confirmada; conservar registros antiguos; representar 500 cm³ como 0,000500 m³; dimensiones y volumen calculado coherentes.
+- addressId obligatorio y geocodingAttemptId opcional, con integridad tenant/dirección/intento.
+- zoneId opcional y CHECK que exige zona cuando existe sector.
+- Dimensiones obligatorias en cm; volumen coherente calculado y almacenado en m³ con seis decimales.
+- Coordenadas de Package eliminadas; RouteStop conserva las suyas.
+- Persistencia probada con nueve comprobaciones SQL y tres E2E de lectura por tenant. Véase [informe GDB-03](gdb-03-report.md).
+
+Pendiente funcional: el caso de uso debe calcular volumen y rechazar asignaciones sin geocódigo confirmado; las FK por sí solas no implementan esas reglas. No marcar el flujo de asignación como terminado por aprobar las pruebas de esquema.
 
 ## GDB-04 — Calendario, ventanas y disponibilidad
 

@@ -1,6 +1,6 @@
 const assert = require('node:assert/strict');
 const { randomUUID } = require('node:crypto');
-const { readFileSync, readdirSync } = require('node:fs');
+const { readFileSync } = require('node:fs');
 const { join } = require('node:path');
 const { Pool } = require('pg');
 const {
@@ -102,9 +102,11 @@ async function run(mode) {
   try {
     // Simulate Prisma's metadata table for raw-SQL replay tests.
     await db.query('CREATE TABLE "_prisma_migrations" (id text PRIMARY KEY)');
-    const dirs = readdirSync(migrations)
-      .filter((x) => /^\d/.test(x))
-      .sort();
+    const dirs = [
+      '20260906213751_init_schema',
+      '20260914120000_unique_active_assignment',
+      '20260914130000_logistics_integrity',
+    ];
     await db.query(
       readFileSync(join(migrations, dirs[0], 'migration.sql'), 'utf8'),
     );

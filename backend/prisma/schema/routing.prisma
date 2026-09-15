@@ -45,7 +45,7 @@ model Vehicle {
   tenantId    String        @db.Uuid
   plate       String
   maxWeightKg Decimal       @db.Decimal(10, 3)
-  maxVolumeM3 Decimal       @db.Decimal(10, 3)
+  maxVolumeM3 Decimal       @db.Decimal(12, 6)
   status      VehicleStatus @default(ACTIVE)
 
   tenant      Tenant       @relation(fields: [tenantId], references: [id])

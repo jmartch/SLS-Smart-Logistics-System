@@ -31,17 +31,26 @@ describe('Tenant isolation (RLS)', () => {
     const shipmentTypeA = await admin.shipmentType.create({
       data: { tenantId: tenantAId, code: 'A-ST1', name: 'Standard' },
     });
+    const addressA = await admin.address.create({
+      data: {
+        tenantId: tenantAId,
+        originalText: 'Dirección sintética A',
+        municipalityCode: '08001',
+      },
+    });
     await admin.package.create({
       data: {
         tenantId: tenantAId,
+        addressId: addressA.id,
         zoneId: zoneA.id,
         shipmentTypeId: shipmentTypeA.id,
         trackingCode: 'TRACK-A-1',
         publicTrackingToken: 'TOKEN-A-1',
         weightKg: '1.5',
-        volumeM3: '0.1',
-        latitude: '10.0',
-        longitude: '-74.0',
+        lengthCm: '10',
+        widthCm: '10',
+        heightCm: '5',
+        volumeM3: '0.000500',
       },
     });
 
@@ -51,23 +60,35 @@ describe('Tenant isolation (RLS)', () => {
     const shipmentTypeB = await admin.shipmentType.create({
       data: { tenantId: tenantBId, code: 'B-ST1', name: 'Standard' },
     });
+    const addressB = await admin.address.create({
+      data: {
+        tenantId: tenantBId,
+        originalText: 'Dirección sintética B',
+        municipalityCode: '08001',
+      },
+    });
     await admin.package.create({
       data: {
         tenantId: tenantBId,
+        addressId: addressB.id,
         zoneId: zoneB.id,
         shipmentTypeId: shipmentTypeB.id,
         trackingCode: 'TRACK-B-1',
         publicTrackingToken: 'TOKEN-B-1',
         weightKg: '2.5',
-        volumeM3: '0.2',
-        latitude: '11.0',
-        longitude: '-75.0',
+        lengthCm: '10',
+        widthCm: '10',
+        heightCm: '5',
+        volumeM3: '0.000500',
       },
     });
   });
 
   afterAll(async () => {
     await admin.package.deleteMany({
+      where: { tenantId: { in: [tenantAId, tenantBId] } },
+    });
+    await admin.address.deleteMany({
       where: { tenantId: { in: [tenantAId, tenantBId] } },
     });
     await admin.shipmentType.deleteMany({

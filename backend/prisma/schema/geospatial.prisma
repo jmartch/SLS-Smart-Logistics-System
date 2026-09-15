@@ -84,6 +84,7 @@ model Address {
 
   tenant            Tenant             @relation(fields: [tenantId], references: [id], onDelete: Restrict, onUpdate: Cascade)
   geocodingAttempts GeocodingAttempt[]
+  packages          Package[]
 
   @@unique([tenantId, id])
   @@index([tenantId, municipalityCode])
@@ -108,7 +109,9 @@ model GeocodingAttempt {
 
   geocodingCandidates GeocodingCandidate[]
   reviews             GeocodingReview[]
+  packages            Package[]
 
+  @@unique([tenantId, id, addressId])
   @@unique([tenantId, id])
   @@unique([tenantId, id, datasetId])
   @@index([tenantId, addressId, createdAt])
