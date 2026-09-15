@@ -44,6 +44,11 @@ model Tenant {
   geocodingAttempts      GeocodingAttempt[]
   geocodingCandidates    GeocodingCandidate[]
   geocodingReviews       GeocodingReview[]
+  depots                 Depot[]
+  deliveryWindows        DeliveryWindow[]
+  vehicleShifts          VehicleShift[]
+  courierShifts          CourierShift[]
+  planningPackageResults PlanningPackageResult[]
 }
 
 model User {

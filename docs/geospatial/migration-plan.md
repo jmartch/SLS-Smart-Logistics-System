@@ -1,6 +1,6 @@
 # Plan de migraciones geoespaciales
 
-Fecha: 2026-09-14. Estado: GDB-00 auditado; GDB-01 implementado, probado en bases aisladas y aplicado a SLS según evidencia de terminal del usuario. GDB-02 tiene infraestructura y catálogo probados; aplicación a SLS confirmada por el usuario (véase [informe GDB-02](gdb-02-report.md)). GDB-03 tiene persistencia probada y aplicación confirmada por el usuario; integración funcional de asignación pendiente (véase [informe GDB-03](gdb-03-report.md)). GDB-04 a GDB-06 siguen en diseño. Véase [informe GDB-01](gdb-01-report.md).
+Fecha: 2026-09-14. Estado: GDB-00 auditado; GDB-01 implementado, probado en bases aisladas y aplicado a SLS según evidencia de terminal del usuario. GDB-02 tiene infraestructura y catálogo probados; aplicación a SLS confirmada por el usuario (véase [informe GDB-02](gdb-02-report.md)). GDB-03 tiene persistencia probada y aplicación confirmada por el usuario; integración funcional de asignación pendiente (véase [informe GDB-03](gdb-03-report.md)). GDB-04 tiene esquema e integridad adicional probados y aplicados a SLS (véase [informe GDB-04](gdb-04-report.md)); integración funcional pendiente. GDB-05 y GDB-06 siguen en diseño. Véase [informe GDB-01](gdb-01-report.md).
 
 ## Base verificada en el repositorio
 
@@ -63,6 +63,8 @@ Decisión actualizada: el usuario confirmó la base vacía y eligió eliminar di
 Pendiente funcional: el caso de uso debe calcular volumen y rechazar asignaciones sin geocódigo confirmado; las FK por sí solas no implementan esas reglas. No marcar el flujo de asignación como terminado por aprobar las pruebas de esquema.
 
 ## GDB-04 — Calendario, ventanas y disponibilidad
+
+Esquema e integridad adicional probados y aplicados a SLS; integración funcional pendiente. Véase [informe GDB-04](gdb-04-report.md).
 
 | Cambio | Campos y reglas |
 | --- | --- |

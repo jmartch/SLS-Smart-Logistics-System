@@ -1,0 +1,66 @@
+model Depot {
+  id String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId String @db.Uuid
+  name String
+  location Unsupported("geometry(Point,4326)")
+  timeZone String
+  openingHours Json
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  routes Route[]
+  @@unique([tenantId, id])
+  @@unique([tenantId, name])
+  @@index([tenantId])
+}
+
+model DeliveryWindow {
+  id String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId String @db.Uuid
+  packageId String @db.Uuid
+  startAt DateTime @db.Timestamptz(3)
+  endAt DateTime @db.Timestamptz(3)
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  package Package @relation(fields: [tenantId, packageId], references: [tenantId, id], onDelete: Restrict, onUpdate: Restrict)
+  routeStops RouteStop[]
+  @@unique([tenantId, id])
+  @@index([tenantId, packageId, startAt])
+}
+
+model VehicleShift {
+  id String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId String @db.Uuid
+  vehicleId String @db.Uuid
+  startAt DateTime @db.Timestamptz(3)
+  endAt DateTime @db.Timestamptz(3)
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  vehicle Vehicle @relation(fields: [tenantId, vehicleId], references: [tenantId, id], onDelete: Restrict, onUpdate: Restrict)
+  @@unique([tenantId, id])
+  @@index([tenantId, vehicleId, startAt])
+}
+
+model CourierShift {
+  id String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId String @db.Uuid
+  courierId String @db.Uuid
+  startAt DateTime @db.Timestamptz(3)
+  endAt DateTime @db.Timestamptz(3)
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  courier Courier @relation(fields: [tenantId, courierId], references: [tenantId, id], onDelete: Restrict, onUpdate: Restrict)
+  @@unique([tenantId, id])
+  @@index([tenantId, courierId, startAt])
+}
+
+model PlanningPackageResult {
+  id String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId String @db.Uuid
+  planningRequestId String @db.Uuid
+  packageId String @db.Uuid
+  outcome PlanningPackageOutcome
+  reasonCode String?
+  evidence Json
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  planningRequest RoutePlanningRequest @relation(fields: [tenantId, planningRequestId], references: [tenantId, id], onDelete: Restrict, onUpdate: Restrict)
+  package Package @relation(fields: [tenantId, packageId], references: [tenantId, id], onDelete: Restrict, onUpdate: Restrict)
+  @@unique([tenantId, planningRequestId, packageId])
+  @@index([tenantId, packageId])
+}

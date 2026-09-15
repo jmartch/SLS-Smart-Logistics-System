@@ -44,6 +44,7 @@ model GeoDataset {
   readyAt           DateTime?          @db.Timestamptz(3)
   addressReferences AddressReference[]
   geocodingAttempts GeocodingAttempt[]
+  planningRequests RoutePlanningRequest[]
 
   @@index([sourceType, status])
   @@index([checksum])
@@ -110,6 +111,7 @@ model GeocodingAttempt {
   geocodingCandidates GeocodingCandidate[]
   reviews             GeocodingReview[]
   packages            Package[]
+  routeStops          RouteStop[]
 
   @@unique([tenantId, id, addressId])
   @@unique([tenantId, id])
