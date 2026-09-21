@@ -1,0 +1,719 @@
+Pager usage is off.
+BEGIN
+SET
+ current_database | current_user |             version             | timezone | read_only 
+------------------+--------------+---------------------------------+----------+-----------
+ sls              | postgres     | 17.11 (Debian 17.11-1.pgdg13+2) | Etc/UTC  | on
+(1 row)
+
+ extname | extversion 
+---------+------------
+ plpgsql | 1.0
+(1 row)
+
+       migration_name       |                             checksum                             | finished | rolled_back 
+----------------------------+------------------------------------------------------------------+----------+-------------
+ 20260906213751_init_schema | 1540af573d3a5165961fb904d4886ea2840639c1e027b175d89e27f59076b50c | t        | f
+(1 row)
+
+ table_name | rows 
+------------+------
+ Assignment |    0
+(1 row)
+
+ table_name | rows 
+------------+------
+ AuditLog   |    0
+(1 row)
+
+ table_name | rows 
+------------+------
+ Courier    |    0
+(1 row)
+
+    table_name     | rows 
+-------------------+------
+ DeadLetterMessage |    0
+(1 row)
+
+   table_name    | rows 
+-----------------+------
+ DeliveryAttempt |    0
+(1 row)
+
+    table_name    | rows 
+------------------+------
+ DeliveryEvidence |    0
+(1 row)
+
+ table_name | rows 
+------------+------
+ Incident   |    0
+(1 row)
+
+  table_name  | rows 
+--------------+------
+ Notification |    0
+(1 row)
+
+      table_name      | rows 
+----------------------+------
+ NotificationTemplate |    0
+(1 row)
+
+ table_name  | rows 
+-------------+------
+ OutboxEvent |    0
+(1 row)
+
+ table_name | rows 
+------------+------
+ Package    |    0
+(1 row)
+
+      table_name      | rows 
+----------------------+------
+ PackageStatusHistory |    0
+(1 row)
+
+ table_name | rows 
+------------+------
+ Permission |    0
+(1 row)
+
+   table_name   | rows 
+----------------+------
+ ProcessedEvent |    0
+(1 row)
+
+ table_name | rows 
+------------+------
+ Role       |    0
+(1 row)
+
+   table_name   | rows 
+----------------+------
+ RolePermission |    0
+(1 row)
+
+ table_name | rows 
+------------+------
+ Route      |    0
+(1 row)
+
+      table_name      | rows 
+----------------------+------
+ RoutePlanningRequest |    0
+(1 row)
+
+ table_name | rows 
+------------+------
+ RouteStop  |    0
+(1 row)
+
+ table_name  | rows 
+-------------+------
+ RoutingRule |    0
+(1 row)
+
+ table_name | rows 
+------------+------
+ Sector     |    0
+(1 row)
+
+  table_name  | rows 
+--------------+------
+ ShipmentType |    0
+(1 row)
+
+ table_name | rows 
+------------+------
+ Tenant     |    0
+(1 row)
+
+ table_name | rows 
+------------+------
+ User       |    0
+(1 row)
+
+ table_name | rows 
+------------+------
+ UserRole   |    0
+(1 row)
+
+ table_name | rows 
+------------+------
+ Vehicle    |    0
+(1 row)
+
+ table_name | rows 
+------------+------
+ Zone       |    0
+(1 row)
+
+       relname        | rls | forced |  owner   
+----------------------+-----+--------+----------
+ Assignment           | t   | t      | postgres
+ AuditLog             | t   | t      | postgres
+ Courier              | t   | t      | postgres
+ DeadLetterMessage    | t   | t      | postgres
+ DeliveryAttempt      | t   | t      | postgres
+ DeliveryEvidence     | t   | t      | postgres
+ Incident             | t   | t      | postgres
+ Notification         | t   | t      | postgres
+ NotificationTemplate | t   | t      | postgres
+ OutboxEvent          | t   | t      | postgres
+ Package              | t   | t      | postgres
+ PackageStatusHistory | t   | t      | postgres
+ Permission           | f   | f      | postgres
+ ProcessedEvent       | t   | t      | postgres
+ Role                 | t   | t      | postgres
+ RolePermission       | t   | t      | postgres
+ Route                | t   | t      | postgres
+ RoutePlanningRequest | t   | t      | postgres
+ RouteStop            | t   | t      | postgres
+ RoutingRule          | t   | t      | postgres
+ Sector               | t   | t      | postgres
+ ShipmentType         | t   | t      | postgres
+ Tenant               | f   | f      | postgres
+ User                 | t   | t      | postgres
+ UserRole             | t   | t      | postgres
+ Vehicle              | t   | t      | postgres
+ Zone                 | t   | t      | postgres
+ _prisma_migrations   | f   | f      | postgres
+(28 rows)
+
+      tablename       | cmd |  roles   |                                qual                                 | with_check 
+----------------------+-----+----------+---------------------------------------------------------------------+------------
+ Assignment           | ALL | {public} | ("tenantId" = (current_setting('app.tenant_id'::text, true))::uuid) | 
+ AuditLog             | ALL | {public} | ("tenantId" = (current_setting('app.tenant_id'::text, true))::uuid) | 
+ Courier              | ALL | {public} | ("tenantId" = (current_setting('app.tenant_id'::text, true))::uuid) | 
+ DeadLetterMessage    | ALL | {public} | ("tenantId" = (current_setting('app.tenant_id'::text, true))::uuid) | 
+ DeliveryAttempt      | ALL | {public} | ("tenantId" = (current_setting('app.tenant_id'::text, true))::uuid) | 
+ DeliveryEvidence     | ALL | {public} | ("tenantId" = (current_setting('app.tenant_id'::text, true))::uuid) | 
+ Incident             | ALL | {public} | ("tenantId" = (current_setting('app.tenant_id'::text, true))::uuid) | 
+ Notification         | ALL | {public} | ("tenantId" = (current_setting('app.tenant_id'::text, true))::uuid) | 
+ NotificationTemplate | ALL | {public} | ("tenantId" = (current_setting('app.tenant_id'::text, true))::uuid) | 
+ OutboxEvent          | ALL | {public} | ("tenantId" = (current_setting('app.tenant_id'::text, true))::uuid) | 
+ Package              | ALL | {public} | ("tenantId" = (current_setting('app.tenant_id'::text, true))::uuid) | 
+ PackageStatusHistory | ALL | {public} | ("tenantId" = (current_setting('app.tenant_id'::text, true))::uuid) | 
+ ProcessedEvent       | ALL | {public} | ("tenantId" = (current_setting('app.tenant_id'::text, true))::uuid) | 
+ Role                 | ALL | {public} | ("tenantId" = (current_setting('app.tenant_id'::text, true))::uuid) | 
+ RolePermission       | ALL | {public} | ("tenantId" = (current_setting('app.tenant_id'::text, true))::uuid) | 
+ Route                | ALL | {public} | ("tenantId" = (current_setting('app.tenant_id'::text, true))::uuid) | 
+ RoutePlanningRequest | ALL | {public} | ("tenantId" = (current_setting('app.tenant_id'::text, true))::uuid) | 
+ RouteStop            | ALL | {public} | ("tenantId" = (current_setting('app.tenant_id'::text, true))::uuid) | 
+ RoutingRule          | ALL | {public} | ("tenantId" = (current_setting('app.tenant_id'::text, true))::uuid) | 
+ Sector               | ALL | {public} | ("tenantId" = (current_setting('app.tenant_id'::text, true))::uuid) | 
+ ShipmentType         | ALL | {public} | ("tenantId" = (current_setting('app.tenant_id'::text, true))::uuid) | 
+ User                 | ALL | {public} | ("tenantId" = (current_setting('app.tenant_id'::text, true))::uuid) | 
+ UserRole             | ALL | {public} | ("tenantId" = (current_setting('app.tenant_id'::text, true))::uuid) | 
+ Vehicle              | ALL | {public} | ("tenantId" = (current_setting('app.tenant_id'::text, true))::uuid) | 
+ Zone                 | ALL | {public} | ("tenantId" = (current_setting('app.tenant_id'::text, true))::uuid) | 
+(25 rows)
+
+ rolname  | rolsuper | rolbypassrls | rolcanlogin 
+----------+----------+--------------+-------------
+ postgres | t        | t            | t
+ sls_app  | f        | f            | t
+(2 rows)
+
+      table_name      | privilege_type 
+----------------------+----------------
+ Assignment           | DELETE
+ Assignment           | INSERT
+ Assignment           | SELECT
+ Assignment           | UPDATE
+ AuditLog             | DELETE
+ AuditLog             | INSERT
+ AuditLog             | SELECT
+ AuditLog             | UPDATE
+ Courier              | DELETE
+ Courier              | INSERT
+ Courier              | SELECT
+ Courier              | UPDATE
+ DeadLetterMessage    | DELETE
+ DeadLetterMessage    | INSERT
+ DeadLetterMessage    | SELECT
+ DeadLetterMessage    | UPDATE
+ DeliveryAttempt      | DELETE
+ DeliveryAttempt      | INSERT
+ DeliveryAttempt      | SELECT
+ DeliveryAttempt      | UPDATE
+ DeliveryEvidence     | DELETE
+ DeliveryEvidence     | INSERT
+ DeliveryEvidence     | SELECT
+ DeliveryEvidence     | UPDATE
+ Incident             | DELETE
+ Incident             | INSERT
+ Incident             | SELECT
+ Incident             | UPDATE
+ Notification         | DELETE
+ Notification         | INSERT
+ Notification         | SELECT
+ Notification         | UPDATE
+ NotificationTemplate | DELETE
+ NotificationTemplate | INSERT
+ NotificationTemplate | SELECT
+ NotificationTemplate | UPDATE
+ OutboxEvent          | DELETE
+ OutboxEvent          | INSERT
+ OutboxEvent          | SELECT
+ OutboxEvent          | UPDATE
+ Package              | DELETE
+ Package              | INSERT
+ Package              | SELECT
+ Package              | UPDATE
+ PackageStatusHistory | DELETE
+ PackageStatusHistory | INSERT
+ PackageStatusHistory | SELECT
+ PackageStatusHistory | UPDATE
+ Permission           | DELETE
+ Permission           | INSERT
+ Permission           | SELECT
+ Permission           | UPDATE
+ ProcessedEvent       | DELETE
+ ProcessedEvent       | INSERT
+ ProcessedEvent       | SELECT
+ ProcessedEvent       | UPDATE
+ Role                 | DELETE
+ Role                 | INSERT
+ Role                 | SELECT
+ Role                 | UPDATE
+ RolePermission       | DELETE
+ RolePermission       | INSERT
+ RolePermission       | SELECT
+ RolePermission       | UPDATE
+ Route                | DELETE
+ Route                | INSERT
+ Route                | SELECT
+ Route                | UPDATE
+ RoutePlanningRequest | DELETE
+ RoutePlanningRequest | INSERT
+ RoutePlanningRequest | SELECT
+ RoutePlanningRequest | UPDATE
+ RouteStop            | DELETE
+ RouteStop            | INSERT
+ RouteStop            | SELECT
+ RouteStop            | UPDATE
+ RoutingRule          | DELETE
+ RoutingRule          | INSERT
+ RoutingRule          | SELECT
+ RoutingRule          | UPDATE
+ Sector               | DELETE
+ Sector               | INSERT
+ Sector               | SELECT
+ Sector               | UPDATE
+ ShipmentType         | DELETE
+ ShipmentType         | INSERT
+ ShipmentType         | SELECT
+ ShipmentType         | UPDATE
+ Tenant               | DELETE
+ Tenant               | INSERT
+ Tenant               | SELECT
+ Tenant               | UPDATE
+ User                 | DELETE
+ User                 | INSERT
+ User                 | SELECT
+ User                 | UPDATE
+ UserRole             | DELETE
+ UserRole             | INSERT
+ UserRole             | SELECT
+ UserRole             | UPDATE
+ Vehicle              | DELETE
+ Vehicle              | INSERT
+ Vehicle              | SELECT
+ Vehicle              | UPDATE
+ Zone                 | DELETE
+ Zone                 | INSERT
+ Zone                 | SELECT
+ Zone                 | UPDATE
+ _prisma_migrations   | DELETE
+ _prisma_migrations   | INSERT
+ _prisma_migrations   | SELECT
+ _prisma_migrations   | UPDATE
+(112 rows)
+
+         relation          | cross_tenant_rows 
+---------------------------+-------------------
+ Assignment_courierId_fkey |                 0
+(1 row)
+
+         relation          | cross_tenant_rows 
+---------------------------+-------------------
+ Assignment_packageId_fkey |                 0
+(1 row)
+
+             relation              | cross_tenant_rows 
+-----------------------------------+-------------------
+ Assignment_responsibleUserId_fkey |                 0
+(1 row)
+
+        relation         | cross_tenant_rows 
+-------------------------+-------------------
+ Assignment_routeId_fkey |                 0
+(1 row)
+
+          relation           | cross_tenant_rows 
+-----------------------------+-------------------
+ Assignment_routeStopId_fkey |                 0
+(1 row)
+
+           relation            | cross_tenant_rows 
+-------------------------------+-------------------
+ Assignment_routingRuleId_fkey |                 0
+(1 row)
+
+         relation          | cross_tenant_rows 
+---------------------------+-------------------
+ Assignment_vehicleId_fkey |                 0
+(1 row)
+
+         relation          | cross_tenant_rows 
+---------------------------+-------------------
+ AuditLog_actorUserId_fkey |                 0
+(1 row)
+
+      relation       | cross_tenant_rows 
+---------------------+-------------------
+ Courier_userId_fkey |                 0
+(1 row)
+
+            relation            | cross_tenant_rows 
+--------------------------------+-------------------
+ DeliveryAttempt_courierId_fkey |                 0
+(1 row)
+
+            relation            | cross_tenant_rows 
+--------------------------------+-------------------
+ DeliveryAttempt_packageId_fkey |                 0
+(1 row)
+
+             relation             | cross_tenant_rows 
+----------------------------------+-------------------
+ DeliveryAttempt_routeStopId_fkey |                 0
+(1 row)
+
+                relation                 | cross_tenant_rows 
+-----------------------------------------+-------------------
+ DeliveryEvidence_deliveryAttemptId_fkey |                 0
+(1 row)
+
+        relation         | cross_tenant_rows 
+-------------------------+-------------------
+ Incident_packageId_fkey |                 0
+(1 row)
+
+            relation            | cross_tenant_rows 
+--------------------------------+-------------------
+ Incident_reportedByUserId_fkey |                 0
+(1 row)
+
+       relation        | cross_tenant_rows 
+-----------------------+-------------------
+ Incident_routeId_fkey |                 0
+(1 row)
+
+         relation          | cross_tenant_rows 
+---------------------------+-------------------
+ Incident_routeStopId_fkey |                 0
+(1 row)
+
+           relation           | cross_tenant_rows 
+------------------------------+-------------------
+ Notification_templateId_fkey |                 0
+(1 row)
+
+                 relation                  | cross_tenant_rows 
+-------------------------------------------+-------------------
+ PackageStatusHistory_changedByUserId_fkey |                 0
+(1 row)
+
+              relation               | cross_tenant_rows 
+-------------------------------------+-------------------
+ PackageStatusHistory_packageId_fkey |                 0
+(1 row)
+
+       relation        | cross_tenant_rows 
+-----------------------+-------------------
+ Package_sectorId_fkey |                 0
+(1 row)
+
+          relation           | cross_tenant_rows 
+-----------------------------+-------------------
+ Package_shipmentTypeId_fkey |                 0
+(1 row)
+
+      relation       | cross_tenant_rows 
+---------------------+-------------------
+ Package_zoneId_fkey |                 0
+(1 row)
+
+          relation          | cross_tenant_rows 
+----------------------------+-------------------
+ RolePermission_roleId_fkey |                 0
+(1 row)
+
+                  relation                   | cross_tenant_rows 
+---------------------------------------------+-------------------
+ RoutePlanningRequest_requestedByUserId_fkey |                 0
+(1 row)
+
+        relation        | cross_tenant_rows 
+------------------------+-------------------
+ RouteStop_routeId_fkey |                 0
+(1 row)
+
+       relation       | cross_tenant_rows 
+----------------------+-------------------
+ Route_courierId_fkey |                 0
+(1 row)
+
+           relation           | cross_tenant_rows 
+------------------------------+-------------------
+ Route_planningRequestId_fkey |                 0
+(1 row)
+
+       relation       | cross_tenant_rows 
+----------------------+-------------------
+ Route_vehicleId_fkey |                 0
+(1 row)
+
+      relation      | cross_tenant_rows 
+--------------------+-------------------
+ Sector_zoneId_fkey |                 0
+(1 row)
+
+       relation       | cross_tenant_rows 
+----------------------+-------------------
+ UserRole_roleId_fkey |                 0
+(1 row)
+
+       relation       | cross_tenant_rows 
+----------------------+-------------------
+ UserRole_userId_fkey |                 0
+(1 row)
+
+              check_name              | violations 
+--------------------------------------+------------
+ duplicate_active_assignment_groups   |          0
+ assignment_stop_route_mismatch       |          0
+ assignment_vehicle_mismatch          |          0
+ assignment_courier_mismatch          |          0
+ package_sector_zone_mismatch         |          0
+ invalid_package_capacity             |          0
+ invalid_vehicle_capacity             |          0
+ invalid_package_coordinates          |          0
+ invalid_stop_coordinates_or_sequence |          0
+(9 rows)
+
+ state | count 
+-------+-------
+(0 rows)
+
+ state | count 
+-------+-------
+(0 rows)
+
+ packages_with_deadline 
+------------------------
+                      0
+(1 row)
+
+      table_name      |  column_name   |          data_type          
+----------------------+----------------+-----------------------------
+ Assignment           | createdAt      | timestamp without time zone
+ Assignment           | endedAt        | timestamp without time zone
+ AuditLog             | createdAt      | timestamp without time zone
+ DeadLetterMessage    | failedAt       | timestamp without time zone
+ DeadLetterMessage    | redrivenAt     | timestamp without time zone
+ DeliveryAttempt      | attemptedAt    | timestamp without time zone
+ DeliveryEvidence     | createdAt      | timestamp without time zone
+ Incident             | reportedAt     | timestamp without time zone
+ Notification         | sentAt         | timestamp without time zone
+ OutboxEvent          | occurredAt     | timestamp without time zone
+ OutboxEvent          | publishedAt    | timestamp without time zone
+ Package              | deadline       | timestamp without time zone
+ PackageStatusHistory | createdAt      | timestamp without time zone
+ ProcessedEvent       | processedAt    | timestamp without time zone
+ Route                | completedAt    | timestamp without time zone
+ Route                | plannedAt      | timestamp without time zone
+ Route                | startedAt      | timestamp without time zone
+ RoutePlanningRequest | completedAt    | timestamp without time zone
+ RoutePlanningRequest | createdAt      | timestamp without time zone
+ Tenant               | createdAt      | timestamp without time zone
+ _prisma_migrations   | finished_at    | timestamp with time zone
+ _prisma_migrations   | rolled_back_at | timestamp with time zone
+ _prisma_migrations   | started_at     | timestamp with time zone
+(23 rows)
+
+      tablename       |                      indexname                      |                                                                         indexdef                                                                          
+----------------------+-----------------------------------------------------+-----------------------------------------------------------------------------------------------------------------------------------------------------------
+ Assignment           | Assignment_pkey                                     | CREATE UNIQUE INDEX "Assignment_pkey" ON public."Assignment" USING btree (id)
+ Assignment           | Assignment_tenantId_idx                             | CREATE INDEX "Assignment_tenantId_idx" ON public."Assignment" USING btree ("tenantId")
+ AuditLog             | AuditLog_pkey                                       | CREATE UNIQUE INDEX "AuditLog_pkey" ON public."AuditLog" USING btree (id)
+ AuditLog             | AuditLog_tenantId_idx                               | CREATE INDEX "AuditLog_tenantId_idx" ON public."AuditLog" USING btree ("tenantId")
+ Courier              | Courier_pkey                                        | CREATE UNIQUE INDEX "Courier_pkey" ON public."Courier" USING btree (id)
+ Courier              | Courier_tenantId_idx                                | CREATE INDEX "Courier_tenantId_idx" ON public."Courier" USING btree ("tenantId")
+ Courier              | Courier_userId_key                                  | CREATE UNIQUE INDEX "Courier_userId_key" ON public."Courier" USING btree ("userId")
+ DeadLetterMessage    | DeadLetterMessage_pkey                              | CREATE UNIQUE INDEX "DeadLetterMessage_pkey" ON public."DeadLetterMessage" USING btree (id)
+ DeadLetterMessage    | DeadLetterMessage_tenantId_idx                      | CREATE INDEX "DeadLetterMessage_tenantId_idx" ON public."DeadLetterMessage" USING btree ("tenantId")
+ DeliveryAttempt      | DeliveryAttempt_pkey                                | CREATE UNIQUE INDEX "DeliveryAttempt_pkey" ON public."DeliveryAttempt" USING btree (id)
+ DeliveryAttempt      | DeliveryAttempt_routeStopId_attemptNumber_key       | CREATE UNIQUE INDEX "DeliveryAttempt_routeStopId_attemptNumber_key" ON public."DeliveryAttempt" USING btree ("routeStopId", "attemptNumber")
+ DeliveryAttempt      | DeliveryAttempt_tenantId_idx                        | CREATE INDEX "DeliveryAttempt_tenantId_idx" ON public."DeliveryAttempt" USING btree ("tenantId")
+ DeliveryEvidence     | DeliveryEvidence_pkey                               | CREATE UNIQUE INDEX "DeliveryEvidence_pkey" ON public."DeliveryEvidence" USING btree (id)
+ DeliveryEvidence     | DeliveryEvidence_tenantId_idx                       | CREATE INDEX "DeliveryEvidence_tenantId_idx" ON public."DeliveryEvidence" USING btree ("tenantId")
+ Incident             | Incident_pkey                                       | CREATE UNIQUE INDEX "Incident_pkey" ON public."Incident" USING btree (id)
+ Incident             | Incident_tenantId_idx                               | CREATE INDEX "Incident_tenantId_idx" ON public."Incident" USING btree ("tenantId")
+ Notification         | Notification_pkey                                   | CREATE UNIQUE INDEX "Notification_pkey" ON public."Notification" USING btree (id)
+ Notification         | Notification_tenantId_idx                           | CREATE INDEX "Notification_tenantId_idx" ON public."Notification" USING btree ("tenantId")
+ NotificationTemplate | NotificationTemplate_pkey                           | CREATE UNIQUE INDEX "NotificationTemplate_pkey" ON public."NotificationTemplate" USING btree (id)
+ NotificationTemplate | NotificationTemplate_tenantId_eventType_channel_key | CREATE UNIQUE INDEX "NotificationTemplate_tenantId_eventType_channel_key" ON public."NotificationTemplate" USING btree ("tenantId", "eventType", channel)
+ NotificationTemplate | NotificationTemplate_tenantId_idx                   | CREATE INDEX "NotificationTemplate_tenantId_idx" ON public."NotificationTemplate" USING btree ("tenantId")
+ OutboxEvent          | OutboxEvent_eventId_key                             | CREATE UNIQUE INDEX "OutboxEvent_eventId_key" ON public."OutboxEvent" USING btree ("eventId")
+ OutboxEvent          | OutboxEvent_pkey                                    | CREATE UNIQUE INDEX "OutboxEvent_pkey" ON public."OutboxEvent" USING btree (id)
+ OutboxEvent          | OutboxEvent_tenantId_idx                            | CREATE INDEX "OutboxEvent_tenantId_idx" ON public."OutboxEvent" USING btree ("tenantId")
+ Package              | Package_pkey                                        | CREATE UNIQUE INDEX "Package_pkey" ON public."Package" USING btree (id)
+ Package              | Package_publicTrackingToken_key                     | CREATE UNIQUE INDEX "Package_publicTrackingToken_key" ON public."Package" USING btree ("publicTrackingToken")
+ Package              | Package_tenantId_idx                                | CREATE INDEX "Package_tenantId_idx" ON public."Package" USING btree ("tenantId")
+ Package              | Package_tenantId_trackingCode_key                   | CREATE UNIQUE INDEX "Package_tenantId_trackingCode_key" ON public."Package" USING btree ("tenantId", "trackingCode")
+ PackageStatusHistory | PackageStatusHistory_pkey                           | CREATE UNIQUE INDEX "PackageStatusHistory_pkey" ON public."PackageStatusHistory" USING btree (id)
+ PackageStatusHistory | PackageStatusHistory_tenantId_idx                   | CREATE INDEX "PackageStatusHistory_tenantId_idx" ON public."PackageStatusHistory" USING btree ("tenantId")
+ Permission           | Permission_code_key                                 | CREATE UNIQUE INDEX "Permission_code_key" ON public."Permission" USING btree (code)
+ Permission           | Permission_pkey                                     | CREATE UNIQUE INDEX "Permission_pkey" ON public."Permission" USING btree (id)
+ ProcessedEvent       | ProcessedEvent_pkey                                 | CREATE UNIQUE INDEX "ProcessedEvent_pkey" ON public."ProcessedEvent" USING btree (id)
+ ProcessedEvent       | ProcessedEvent_tenantId_eventId_consumerName_key    | CREATE UNIQUE INDEX "ProcessedEvent_tenantId_eventId_consumerName_key" ON public."ProcessedEvent" USING btree ("tenantId", "eventId", "consumerName")
+ ProcessedEvent       | ProcessedEvent_tenantId_idx                         | CREATE INDEX "ProcessedEvent_tenantId_idx" ON public."ProcessedEvent" USING btree ("tenantId")
+ Role                 | Role_pkey                                           | CREATE UNIQUE INDEX "Role_pkey" ON public."Role" USING btree (id)
+ Role                 | Role_tenantId_idx                                   | CREATE INDEX "Role_tenantId_idx" ON public."Role" USING btree ("tenantId")
+ Role                 | Role_tenantId_name_key                              | CREATE UNIQUE INDEX "Role_tenantId_name_key" ON public."Role" USING btree ("tenantId", name)
+ RolePermission       | RolePermission_pkey                                 | CREATE UNIQUE INDEX "RolePermission_pkey" ON public."RolePermission" USING btree ("tenantId", "roleId", "permissionId")
+ RolePermission       | RolePermission_tenantId_idx                         | CREATE INDEX "RolePermission_tenantId_idx" ON public."RolePermission" USING btree ("tenantId")
+ Route                | Route_pkey                                          | CREATE UNIQUE INDEX "Route_pkey" ON public."Route" USING btree (id)
+ Route                | Route_tenantId_idx                                  | CREATE INDEX "Route_tenantId_idx" ON public."Route" USING btree ("tenantId")
+ RoutePlanningRequest | RoutePlanningRequest_pkey                           | CREATE UNIQUE INDEX "RoutePlanningRequest_pkey" ON public."RoutePlanningRequest" USING btree (id)
+ RoutePlanningRequest | RoutePlanningRequest_tenantId_idx                   | CREATE INDEX "RoutePlanningRequest_tenantId_idx" ON public."RoutePlanningRequest" USING btree ("tenantId")
+ RouteStop            | RouteStop_pkey                                      | CREATE UNIQUE INDEX "RouteStop_pkey" ON public."RouteStop" USING btree (id)
+ RouteStop            | RouteStop_routeId_sequence_key                      | CREATE UNIQUE INDEX "RouteStop_routeId_sequence_key" ON public."RouteStop" USING btree ("routeId", sequence)
+ RouteStop            | RouteStop_tenantId_idx                              | CREATE INDEX "RouteStop_tenantId_idx" ON public."RouteStop" USING btree ("tenantId")
+ RoutingRule          | RoutingRule_pkey                                    | CREATE UNIQUE INDEX "RoutingRule_pkey" ON public."RoutingRule" USING btree (id)
+ RoutingRule          | RoutingRule_tenantId_idx                            | CREATE INDEX "RoutingRule_tenantId_idx" ON public."RoutingRule" USING btree ("tenantId")
+ Sector               | Sector_pkey                                         | CREATE UNIQUE INDEX "Sector_pkey" ON public."Sector" USING btree (id)
+ Sector               | Sector_tenantId_idx                                 | CREATE INDEX "Sector_tenantId_idx" ON public."Sector" USING btree ("tenantId")
+ Sector               | Sector_zoneId_code_key                              | CREATE UNIQUE INDEX "Sector_zoneId_code_key" ON public."Sector" USING btree ("zoneId", code)
+ ShipmentType         | ShipmentType_pkey                                   | CREATE UNIQUE INDEX "ShipmentType_pkey" ON public."ShipmentType" USING btree (id)
+ ShipmentType         | ShipmentType_tenantId_code_key                      | CREATE UNIQUE INDEX "ShipmentType_tenantId_code_key" ON public."ShipmentType" USING btree ("tenantId", code)
+ ShipmentType         | ShipmentType_tenantId_idx                           | CREATE INDEX "ShipmentType_tenantId_idx" ON public."ShipmentType" USING btree ("tenantId")
+ Tenant               | Tenant_pkey                                         | CREATE UNIQUE INDEX "Tenant_pkey" ON public."Tenant" USING btree (id)
+ User                 | User_pkey                                           | CREATE UNIQUE INDEX "User_pkey" ON public."User" USING btree (id)
+ User                 | User_tenantId_email_key                             | CREATE UNIQUE INDEX "User_tenantId_email_key" ON public."User" USING btree ("tenantId", email)
+ User                 | User_tenantId_idx                                   | CREATE INDEX "User_tenantId_idx" ON public."User" USING btree ("tenantId")
+ UserRole             | UserRole_pkey                                       | CREATE UNIQUE INDEX "UserRole_pkey" ON public."UserRole" USING btree ("tenantId", "userId", "roleId")
+ UserRole             | UserRole_tenantId_idx                               | CREATE INDEX "UserRole_tenantId_idx" ON public."UserRole" USING btree ("tenantId")
+ Vehicle              | Vehicle_pkey                                        | CREATE UNIQUE INDEX "Vehicle_pkey" ON public."Vehicle" USING btree (id)
+ Vehicle              | Vehicle_tenantId_idx                                | CREATE INDEX "Vehicle_tenantId_idx" ON public."Vehicle" USING btree ("tenantId")
+ Vehicle              | Vehicle_tenantId_plate_key                          | CREATE UNIQUE INDEX "Vehicle_tenantId_plate_key" ON public."Vehicle" USING btree ("tenantId", plate)
+ Zone                 | Zone_pkey                                           | CREATE UNIQUE INDEX "Zone_pkey" ON public."Zone" USING btree (id)
+ Zone                 | Zone_tenantId_code_key                              | CREATE UNIQUE INDEX "Zone_tenantId_code_key" ON public."Zone" USING btree ("tenantId", code)
+ Zone                 | Zone_tenantId_idx                                   | CREATE INDEX "Zone_tenantId_idx" ON public."Zone" USING btree ("tenantId")
+ _prisma_migrations   | _prisma_migrations_pkey                             | CREATE UNIQUE INDEX _prisma_migrations_pkey ON public._prisma_migrations USING btree (id)
+(68 rows)
+
+                   conname                   | convalidated |                                             pg_get_constraintdef                                             
+---------------------------------------------+--------------+--------------------------------------------------------------------------------------------------------------
+ Assignment_courierId_fkey                   | t            | FOREIGN KEY ("courierId") REFERENCES "Courier"(id) ON UPDATE CASCADE ON DELETE SET NULL
+ Assignment_packageId_fkey                   | t            | FOREIGN KEY ("packageId") REFERENCES "Package"(id) ON UPDATE CASCADE ON DELETE RESTRICT
+ Assignment_pkey                             | t            | PRIMARY KEY (id)
+ Assignment_responsibleUserId_fkey           | t            | FOREIGN KEY ("responsibleUserId") REFERENCES "User"(id) ON UPDATE CASCADE ON DELETE SET NULL
+ Assignment_routeId_fkey                     | t            | FOREIGN KEY ("routeId") REFERENCES "Route"(id) ON UPDATE CASCADE ON DELETE SET NULL
+ Assignment_routeStopId_fkey                 | t            | FOREIGN KEY ("routeStopId") REFERENCES "RouteStop"(id) ON UPDATE CASCADE ON DELETE SET NULL
+ Assignment_routingRuleId_fkey               | t            | FOREIGN KEY ("routingRuleId") REFERENCES "RoutingRule"(id) ON UPDATE CASCADE ON DELETE SET NULL
+ Assignment_tenantId_fkey                    | t            | FOREIGN KEY ("tenantId") REFERENCES "Tenant"(id) ON UPDATE CASCADE ON DELETE RESTRICT
+ Assignment_vehicleId_fkey                   | t            | FOREIGN KEY ("vehicleId") REFERENCES "Vehicle"(id) ON UPDATE CASCADE ON DELETE SET NULL
+ AuditLog_actorUserId_fkey                   | t            | FOREIGN KEY ("actorUserId") REFERENCES "User"(id) ON UPDATE CASCADE ON DELETE SET NULL
+ AuditLog_pkey                               | t            | PRIMARY KEY (id)
+ AuditLog_tenantId_fkey                      | t            | FOREIGN KEY ("tenantId") REFERENCES "Tenant"(id) ON UPDATE CASCADE ON DELETE RESTRICT
+ Courier_pkey                                | t            | PRIMARY KEY (id)
+ Courier_tenantId_fkey                       | t            | FOREIGN KEY ("tenantId") REFERENCES "Tenant"(id) ON UPDATE CASCADE ON DELETE RESTRICT
+ Courier_userId_fkey                         | t            | FOREIGN KEY ("userId") REFERENCES "User"(id) ON UPDATE CASCADE ON DELETE RESTRICT
+ DeadLetterMessage_pkey                      | t            | PRIMARY KEY (id)
+ DeadLetterMessage_tenantId_fkey             | t            | FOREIGN KEY ("tenantId") REFERENCES "Tenant"(id) ON UPDATE CASCADE ON DELETE RESTRICT
+ DeliveryAttempt_courierId_fkey              | t            | FOREIGN KEY ("courierId") REFERENCES "Courier"(id) ON UPDATE CASCADE ON DELETE RESTRICT
+ DeliveryAttempt_packageId_fkey              | t            | FOREIGN KEY ("packageId") REFERENCES "Package"(id) ON UPDATE CASCADE ON DELETE RESTRICT
+ DeliveryAttempt_pkey                        | t            | PRIMARY KEY (id)
+ DeliveryAttempt_routeStopId_fkey            | t            | FOREIGN KEY ("routeStopId") REFERENCES "RouteStop"(id) ON UPDATE CASCADE ON DELETE RESTRICT
+ DeliveryAttempt_tenantId_fkey               | t            | FOREIGN KEY ("tenantId") REFERENCES "Tenant"(id) ON UPDATE CASCADE ON DELETE RESTRICT
+ DeliveryEvidence_deliveryAttemptId_fkey     | t            | FOREIGN KEY ("deliveryAttemptId") REFERENCES "DeliveryAttempt"(id) ON UPDATE CASCADE ON DELETE RESTRICT
+ DeliveryEvidence_pkey                       | t            | PRIMARY KEY (id)
+ DeliveryEvidence_tenantId_fkey              | t            | FOREIGN KEY ("tenantId") REFERENCES "Tenant"(id) ON UPDATE CASCADE ON DELETE RESTRICT
+ Incident_packageId_fkey                     | t            | FOREIGN KEY ("packageId") REFERENCES "Package"(id) ON UPDATE CASCADE ON DELETE SET NULL
+ Incident_pkey                               | t            | PRIMARY KEY (id)
+ Incident_reportedByUserId_fkey              | t            | FOREIGN KEY ("reportedByUserId") REFERENCES "User"(id) ON UPDATE CASCADE ON DELETE RESTRICT
+ Incident_routeId_fkey                       | t            | FOREIGN KEY ("routeId") REFERENCES "Route"(id) ON UPDATE CASCADE ON DELETE SET NULL
+ Incident_routeStopId_fkey                   | t            | FOREIGN KEY ("routeStopId") REFERENCES "RouteStop"(id) ON UPDATE CASCADE ON DELETE SET NULL
+ Incident_tenantId_fkey                      | t            | FOREIGN KEY ("tenantId") REFERENCES "Tenant"(id) ON UPDATE CASCADE ON DELETE RESTRICT
+ NotificationTemplate_pkey                   | t            | PRIMARY KEY (id)
+ NotificationTemplate_tenantId_fkey          | t            | FOREIGN KEY ("tenantId") REFERENCES "Tenant"(id) ON UPDATE CASCADE ON DELETE RESTRICT
+ Notification_pkey                           | t            | PRIMARY KEY (id)
+ Notification_templateId_fkey                | t            | FOREIGN KEY ("templateId") REFERENCES "NotificationTemplate"(id) ON UPDATE CASCADE ON DELETE SET NULL
+ Notification_tenantId_fkey                  | t            | FOREIGN KEY ("tenantId") REFERENCES "Tenant"(id) ON UPDATE CASCADE ON DELETE RESTRICT
+ OutboxEvent_pkey                            | t            | PRIMARY KEY (id)
+ OutboxEvent_tenantId_fkey                   | t            | FOREIGN KEY ("tenantId") REFERENCES "Tenant"(id) ON UPDATE CASCADE ON DELETE RESTRICT
+ PackageStatusHistory_changedByUserId_fkey   | t            | FOREIGN KEY ("changedByUserId") REFERENCES "User"(id) ON UPDATE CASCADE ON DELETE SET NULL
+ PackageStatusHistory_packageId_fkey         | t            | FOREIGN KEY ("packageId") REFERENCES "Package"(id) ON UPDATE CASCADE ON DELETE RESTRICT
+ PackageStatusHistory_pkey                   | t            | PRIMARY KEY (id)
+ PackageStatusHistory_tenantId_fkey          | t            | FOREIGN KEY ("tenantId") REFERENCES "Tenant"(id) ON UPDATE CASCADE ON DELETE RESTRICT
+ Package_pkey                                | t            | PRIMARY KEY (id)
+ Package_sectorId_fkey                       | t            | FOREIGN KEY ("sectorId") REFERENCES "Sector"(id) ON UPDATE CASCADE ON DELETE SET NULL
+ Package_shipmentTypeId_fkey                 | t            | FOREIGN KEY ("shipmentTypeId") REFERENCES "ShipmentType"(id) ON UPDATE CASCADE ON DELETE RESTRICT
+ Package_tenantId_fkey                       | t            | FOREIGN KEY ("tenantId") REFERENCES "Tenant"(id) ON UPDATE CASCADE ON DELETE RESTRICT
+ Package_zoneId_fkey                         | t            | FOREIGN KEY ("zoneId") REFERENCES "Zone"(id) ON UPDATE CASCADE ON DELETE RESTRICT
+ Permission_pkey                             | t            | PRIMARY KEY (id)
+ ProcessedEvent_pkey                         | t            | PRIMARY KEY (id)
+ ProcessedEvent_tenantId_fkey                | t            | FOREIGN KEY ("tenantId") REFERENCES "Tenant"(id) ON UPDATE CASCADE ON DELETE RESTRICT
+ RolePermission_permissionId_fkey            | t            | FOREIGN KEY ("permissionId") REFERENCES "Permission"(id) ON UPDATE CASCADE ON DELETE RESTRICT
+ RolePermission_pkey                         | t            | PRIMARY KEY ("tenantId", "roleId", "permissionId")
+ RolePermission_roleId_fkey                  | t            | FOREIGN KEY ("roleId") REFERENCES "Role"(id) ON UPDATE CASCADE ON DELETE RESTRICT
+ RolePermission_tenantId_fkey                | t            | FOREIGN KEY ("tenantId") REFERENCES "Tenant"(id) ON UPDATE CASCADE ON DELETE RESTRICT
+ Role_pkey                                   | t            | PRIMARY KEY (id)
+ Role_tenantId_fkey                          | t            | FOREIGN KEY ("tenantId") REFERENCES "Tenant"(id) ON UPDATE CASCADE ON DELETE RESTRICT
+ RoutePlanningRequest_pkey                   | t            | PRIMARY KEY (id)
+ RoutePlanningRequest_requestedByUserId_fkey | t            | FOREIGN KEY ("requestedByUserId") REFERENCES "User"(id) ON UPDATE CASCADE ON DELETE RESTRICT
+ RoutePlanningRequest_tenantId_fkey          | t            | FOREIGN KEY ("tenantId") REFERENCES "Tenant"(id) ON UPDATE CASCADE ON DELETE RESTRICT
+ RouteStop_pkey                              | t            | PRIMARY KEY (id)
+ RouteStop_routeId_fkey                      | t            | FOREIGN KEY ("routeId") REFERENCES "Route"(id) ON UPDATE CASCADE ON DELETE RESTRICT
+ RouteStop_tenantId_fkey                     | t            | FOREIGN KEY ("tenantId") REFERENCES "Tenant"(id) ON UPDATE CASCADE ON DELETE RESTRICT
+ Route_courierId_fkey                        | t            | FOREIGN KEY ("courierId") REFERENCES "Courier"(id) ON UPDATE CASCADE ON DELETE RESTRICT
+ Route_pkey                                  | t            | PRIMARY KEY (id)
+ Route_planningRequestId_fkey                | t            | FOREIGN KEY ("planningRequestId") REFERENCES "RoutePlanningRequest"(id) ON UPDATE CASCADE ON DELETE RESTRICT
+ Route_tenantId_fkey                         | t            | FOREIGN KEY ("tenantId") REFERENCES "Tenant"(id) ON UPDATE CASCADE ON DELETE RESTRICT
+ Route_vehicleId_fkey                        | t            | FOREIGN KEY ("vehicleId") REFERENCES "Vehicle"(id) ON UPDATE CASCADE ON DELETE RESTRICT
+ RoutingRule_pkey                            | t            | PRIMARY KEY (id)
+ RoutingRule_tenantId_fkey                   | t            | FOREIGN KEY ("tenantId") REFERENCES "Tenant"(id) ON UPDATE CASCADE ON DELETE RESTRICT
+ Sector_pkey                                 | t            | PRIMARY KEY (id)
+ Sector_tenantId_fkey                        | t            | FOREIGN KEY ("tenantId") REFERENCES "Tenant"(id) ON UPDATE CASCADE ON DELETE RESTRICT
+ Sector_zoneId_fkey                          | t            | FOREIGN KEY ("zoneId") REFERENCES "Zone"(id) ON UPDATE CASCADE ON DELETE RESTRICT
+ ShipmentType_pkey                           | t            | PRIMARY KEY (id)
+ ShipmentType_tenantId_fkey                  | t            | FOREIGN KEY ("tenantId") REFERENCES "Tenant"(id) ON UPDATE CASCADE ON DELETE RESTRICT
+ Tenant_pkey                                 | t            | PRIMARY KEY (id)
+ UserRole_pkey                               | t            | PRIMARY KEY ("tenantId", "userId", "roleId")
+ UserRole_roleId_fkey                        | t            | FOREIGN KEY ("roleId") REFERENCES "Role"(id) ON UPDATE CASCADE ON DELETE RESTRICT
+ UserRole_tenantId_fkey                      | t            | FOREIGN KEY ("tenantId") REFERENCES "Tenant"(id) ON UPDATE CASCADE ON DELETE RESTRICT
+ UserRole_userId_fkey                        | t            | FOREIGN KEY ("userId") REFERENCES "User"(id) ON UPDATE CASCADE ON DELETE RESTRICT
+ User_pkey                                   | t            | PRIMARY KEY (id)
+ User_tenantId_fkey                          | t            | FOREIGN KEY ("tenantId") REFERENCES "Tenant"(id) ON UPDATE CASCADE ON DELETE RESTRICT
+ Vehicle_pkey                                | t            | PRIMARY KEY (id)
+ Vehicle_tenantId_fkey                       | t            | FOREIGN KEY ("tenantId") REFERENCES "Tenant"(id) ON UPDATE CASCADE ON DELETE RESTRICT
+ Zone_pkey                                   | t            | PRIMARY KEY (id)
+ Zone_tenantId_fkey                          | t            | FOREIGN KEY ("tenantId") REFERENCES "Tenant"(id) ON UPDATE CASCADE ON DELETE RESTRICT
+ _prisma_migrations_pkey                     | t            | PRIMARY KEY (id)
+(86 rows)
+
+SET
+ runtime_role | tenant_context | visible_packages_without_context 
+--------------+----------------+----------------------------------
+ sls_app      |                |                                0
+(1 row)
+
+RESET
+COMMIT

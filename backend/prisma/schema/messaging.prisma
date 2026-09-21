@@ -27,6 +27,7 @@ model NotificationTemplate {
   tenant        Tenant         @relation(fields: [tenantId], references: [id])
   notifications Notification[]
 
+  @@unique([tenantId, id])
   @@unique([tenantId, eventType, channel])
   @@index([tenantId])
 }
@@ -43,7 +44,7 @@ model Notification {
   sentAt        DateTime?
 
   tenant   Tenant                @relation(fields: [tenantId], references: [id])
-  template NotificationTemplate? @relation(fields: [templateId], references: [id])
+  template NotificationTemplate? @relation(fields: [tenantId, templateId], references: [tenantId, id], onDelete: Restrict, onUpdate: Cascade)
 
   @@index([tenantId])
 }
