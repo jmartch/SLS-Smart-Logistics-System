@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import BarcodeScanner from './BarcodeScanner';
+import ImageQrScanner from './ImageQrScanner';
 import type { CameraErrorReason } from './BarcodeScanner';
 import PackageForm from './PackageForm';
 import { validateRegisterPackageForm } from '../validation';
@@ -18,10 +19,11 @@ import './packages.css';
 
 type SubmitStatus = 'idle' | 'saving' | 'success';
 
-export default function RegisterPackageScreen() {
+export default function RegisterPackageScreen({ onBack }: { onBack: () => void }) {
   const [values, setValues] = useState<RegisterPackageFormValues>(EMPTY_REGISTER_PACKAGE_FORM);
   const [errors, setErrors] = useState<RegisterPackageFormErrors>({});
   const [scanning, setScanning] = useState(false);
+  const [imageScanning, setImageScanning] = useState(false);
   const [scannerNotice, setScannerNotice] = useState<string | null>(null);
   const [status, setStatus] = useState<SubmitStatus>('idle');
   const [apiErrorMessage, setApiErrorMessage] = useState<string | null>(null);
@@ -94,6 +96,12 @@ export default function RegisterPackageScreen() {
     }
   }
 
+  function handleImageDetected(rawText: string) {
+    setValues((v) => ({ ...v, trackingCode: rawText.trim() }));
+    setErrors((e) => ({ ...e, trackingCode: undefined }));
+    setImageScanning(false);
+  }
+
   async function handleSubmit() {
     const validationErrors = validateRegisterPackageForm(values);
     setErrors(validationErrors);
@@ -139,13 +147,38 @@ export default function RegisterPackageScreen() {
     setLastResult(null);
   }
 
+  function handleLoadMockData() {
+    setValues({
+      trackingCode: 'SLS-MOCK-2026-001',
+      zoneId: 'zone-centro',
+      sectorId: 'center-a',
+      shipmentTypeId: 'express',
+      weightKg: '2.5',
+      lengthCm: '30',
+      widthCm: '20',
+      heightCm: '15',
+      priority: 'HIGH',
+      deadline: '',
+      latitude: '19.432608',
+      longitude: '-99.133209',
+    });
+    setErrors({});
+    setApiErrorMessage(null);
+  }
+
   if (status === 'success' && lastResult) {
     return <SuccessScreen result={lastResult} onRegisterAnother={handleReset} />;
   }
 
   return (
     <div className="register-package-screen">
-      <h1>Registrar paquete</h1>
+      <header className="register-header">
+        <button type="button" className="back-button" onClick={onBack}>← Inicio</button>
+        <div>
+          <p className="eyebrow">NUEVO INGRESO</p>
+          <h1>Registrar paquete</h1>
+        </div>
+      </header>
 
       {scannerNotice && <p className="notice notice-warning">{scannerNotice}</p>}
       {apiErrorMessage && <p className="notice notice-error">{apiErrorMessage}</p>}
@@ -164,12 +197,18 @@ export default function RegisterPackageScreen() {
           setScannerNotice(null);
           setScanning(true);
         }}
+        onOpenImageScanner={() => {
+          setScannerNotice(null);
+          setImageScanning(true);
+        }}
+        onLoadMockData={handleLoadMockData}
         disabled={status === 'saving'}
       />
 
       {scanning && (
         <BarcodeScanner onDetected={handleDetected} onError={handleScannerError} onClose={() => setScanning(false)} />
       )}
+      {imageScanning && <ImageQrScanner onDetected={handleImageDetected} onClose={() => setImageScanning(false)} />}
     </div>
   );
 }

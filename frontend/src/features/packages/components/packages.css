@@ -2,9 +2,12 @@
   min-height: 100vh;
   background: #0f172a;
   color: #e2e8f0;
-  padding: 1.25rem 1rem 6rem;
+  padding: 1.25rem max(1rem, calc((100vw - 760px) / 2)) 6rem;
   font-family: system-ui, sans-serif;
 }
+.register-header { display: flex; gap: 1rem; align-items: flex-start; margin-bottom: 1rem; }
+.register-header h1 { margin: 0; }
+.back-button { border: 0; background: transparent; color: #94a3b8; padding: 0.3rem 0; }
 
 .register-package-screen h1 {
   font-size: 1.15rem;
@@ -25,6 +28,7 @@
   background: rgba(239, 68, 68, 0.15);
   color: #fca5a5;
 }
+.mock-button { align-self: flex-start; border: 1px dashed #64748b; border-radius: 0.5rem; background: transparent; color: #cbd5e1; padding: 0.55rem 0.75rem; font-size: 0.82rem; }
 
 .package-form {
   display: flex;
@@ -87,6 +91,7 @@
 .tracking-row .input {
   flex: 1;
 }
+.scan-actions { display: flex; gap: 0.5rem; }
 
 .scan-button {
   flex-shrink: 0;
@@ -101,6 +106,7 @@
 .scan-button:disabled {
   opacity: 0.5;
 }
+.scan-button-secondary { background: #334155; }
 
 .dimensions-row {
   display: grid;
@@ -193,4 +199,19 @@
 }
 .mono {
   font-family: monospace;
+}
+.image-scanner-overlay { align-items: center; justify-content: center; padding: 1rem; background: rgba(15, 23, 42, 0.86); }
+.image-scanner-card { width: min(100%, 480px); background: #0f172a; border: 1px solid #334155; border-radius: 1rem; padding: 1.25rem; }
+.image-scanner-header { padding: 0; }
+.image-scanner-header h2 { margin: 0; color: #f8fafc; }
+.image-scanner-copy { color: #cbd5e1; font-size: 0.9rem; margin: 1.25rem 0; }
+.upload-button { width: 100%; }
+.visually-hidden { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0, 0, 0, 0); }
+.image-qr-reader { height: 1px; overflow: hidden; }
+
+@media (max-width: 560px) {
+  .tracking-row { flex-direction: column; }
+  .scan-actions { flex-direction: column; }
+  .scan-button { padding: 0.7rem; }
+  .dimensions-row { grid-template-columns: 1fr; }
 }

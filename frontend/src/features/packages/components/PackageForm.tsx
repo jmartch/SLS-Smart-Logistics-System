@@ -20,6 +20,8 @@ interface PackageFormProps {
   onChange: (values: RegisterPackageFormValues) => void;
   onSubmit: () => void;
   onOpenScanner: () => void;
+  onOpenImageScanner: () => void;
+  onLoadMockData: () => void;
   disabled: boolean;
 }
 
@@ -34,6 +36,8 @@ export default function PackageForm({
   onChange,
   onSubmit,
   onOpenScanner,
+  onOpenImageScanner,
+  onLoadMockData,
   disabled,
 }: PackageFormProps) {
   function field<K extends keyof RegisterPackageFormValues>(key: K) {
@@ -53,6 +57,9 @@ export default function PackageForm({
     >
       {catalogsLoading && <p className="notice">Cargando zonas y tipos de envío...</p>}
       {catalogsError && <p className="notice notice-error">{catalogsError}</p>}
+      <button type="button" className="mock-button" onClick={onLoadMockData} disabled={formDisabled}>
+        Cargar datos de prueba
+      </button>
 
       <Field label="Número de guía" error={errors.trackingCode} required>
         <div className="tracking-row">
@@ -63,9 +70,10 @@ export default function PackageForm({
             placeholder="Escanea o escribe la guía"
             disabled={formDisabled}
           />
-          <button type="button" onClick={onOpenScanner} disabled={formDisabled} className="scan-button">
-            Escanear código
-          </button>
+          <div className="scan-actions">
+            <button type="button" onClick={onOpenImageScanner} disabled={formDisabled} className="scan-button">Leer QR de imagen</button>
+            <button type="button" onClick={onOpenScanner} disabled={formDisabled} className="scan-button scan-button-secondary">Usar cámara</button>
+          </div>
         </div>
       </Field>
 
