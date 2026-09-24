@@ -17,7 +17,7 @@
     "test:watch": "cross-env NODE_OPTIONS=--experimental-vm-modules jest --watch",
     "test:cov": "cross-env NODE_OPTIONS=--experimental-vm-modules jest --coverage",
     "test:debug": "node --inspect-brk -r tsconfig-paths/register -r ts-node/register node_modules/.bin/jest --runInBand",
-    "demo:chain": "ts-node src/modules/assignments/domain/assignment-validation/demo/assignment-chain.demo.ts"
+    "demo:chain": "ts-node src/modules/assignments/domain/assignment-validation/demo/assignment-chain.demo.ts",
     "test:e2e": "cross-env NODE_OPTIONS=--experimental-vm-modules jest --config ./test/jest-e2e.json",
     "test:gdb-01": "npm run build && node test/integration/gdb-01.cjs"
   },
