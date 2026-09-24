@@ -1,0 +1,126 @@
+enum TenantStatus {
+  ACTIVE
+  SUSPENDED
+}
+
+enum UserStatus {
+  ACTIVE
+  INACTIVE
+  SUSPENDED
+}
+
+model Tenant {
+  id        String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name      String
+  status    TenantStatus @default(ACTIVE)
+  createdAt DateTime     @default(now())
+
+  users                  User[]
+  roles                  Role[]
+  userRoles              UserRole[]
+  rolePermissions        RolePermission[]
+  zones                  Zone[]
+  sectors                Sector[]
+  routingRules           RoutingRule[]
+  shipmentTypes          ShipmentType[]
+  packages               Package[]
+  packageStatusHistories PackageStatusHistory[]
+  vehicles               Vehicle[]
+  couriers               Courier[]
+  routePlanningRequests  RoutePlanningRequest[]
+  routes                 Route[]
+  routeStops             RouteStop[]
+  assignments            Assignment[]
+  deliveryAttempts       DeliveryAttempt[]
+  deliveryEvidence       DeliveryEvidence[]
+  incidents              Incident[]
+  notificationTemplates  NotificationTemplate[]
+  notifications          Notification[]
+  outboxEvents           OutboxEvent[]
+  processedEvents        ProcessedEvent[]
+  deadLetterMessages     DeadLetterMessage[]
+  auditLogs              AuditLog[]
+  addresses              Address[]
+  geocodingAttempts      GeocodingAttempt[]
+  geocodingCandidates    GeocodingCandidate[]
+  geocodingReviews       GeocodingReview[]
+  depots                 Depot[]
+  deliveryWindows        DeliveryWindow[]
+  vehicleShifts          VehicleShift[]
+  courierShifts          CourierShift[]
+  planningPackageResults PlanningPackageResult[]
+  networkAttachments     NetworkAttachment[]
+  routeLegs              RouteLeg[]
+  routeLegEdges          RouteLegEdge[]
+}
+
+model User {
+  id           String     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId     String     @db.Uuid
+  email        String
+  passwordHash String
+  status       UserStatus @default(ACTIVE)
+
+  tenant                     Tenant                 @relation(fields: [tenantId], references: [id])
+  userRoles                  UserRole[]
+  changedPackageStatuses     PackageStatusHistory[]
+  courier                    Courier?
+  routePlanningRequests      RoutePlanningRequest[]
+  assignmentsResponsible     Assignment[]
+  reportedIncidents          Incident[]
+  auditLogs                  AuditLog[]
+  geocodingReviews           GeocodingReview[]
+  reviewedNetworkAttachments NetworkAttachment[]
+
+  @@unique([tenantId, id])
+  @@unique([tenantId, email])
+  @@index([tenantId])
+}
+
+model Role {
+  id       String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId String @db.Uuid
+  name     String
+
+  tenant          Tenant           @relation(fields: [tenantId], references: [id])
+  userRoles       UserRole[]
+  rolePermissions RolePermission[]
+
+  @@unique([tenantId, id])
+  @@unique([tenantId, name])
+  @@index([tenantId])
+}
+
+model Permission {
+  id          String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  code        String @unique
+  description String
+
+  rolePermissions RolePermission[]
+}
+
+model UserRole {
+  tenantId String @db.Uuid
+  userId   String @db.Uuid
+  roleId   String @db.Uuid
+
+  tenant Tenant @relation(fields: [tenantId], references: [id])
+  user   User   @relation(fields: [tenantId, userId], references: [tenantId, id], onDelete: Restrict, onUpdate: Cascade)
+  role   Role   @relation(fields: [tenantId, roleId], references: [tenantId, id], onDelete: Restrict, onUpdate: Cascade)
+
+  @@id([tenantId, userId, roleId])
+  @@index([tenantId])
+}
+
+model RolePermission {
+  tenantId     String @db.Uuid
+  roleId       String @db.Uuid
+  permissionId String @db.Uuid
+
+  tenant     Tenant     @relation(fields: [tenantId], references: [id])
+  role       Role       @relation(fields: [tenantId, roleId], references: [tenantId, id], onDelete: Restrict, onUpdate: Cascade)
+  permission Permission @relation(fields: [permissionId], references: [id])
+
+  @@id([tenantId, roleId, permissionId])
+  @@index([tenantId])
+}
