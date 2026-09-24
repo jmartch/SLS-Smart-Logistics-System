@@ -53,7 +53,7 @@ model Vehicle {
   maxVolumeM3 Decimal       @db.Decimal(12, 6)
   status      VehicleStatus @default(ACTIVE)
 
-  tenant      Tenant       @relation(fields: [tenantId], references: [id])
+  tenant      Tenant         @relation(fields: [tenantId], references: [id])
   routes      Route[]
   assignments Assignment[]
   shifts      VehicleShift[]
@@ -91,19 +91,19 @@ model RoutePlanningRequest {
   failureReason     String?
   createdAt         DateTime                   @default(now())
   completedAt       DateTime?
-  horizonStartAt    DateTime? @db.Timestamptz(3)
-  horizonEndAt      DateTime? @db.Timestamptz(3)
+  horizonStartAt    DateTime?                  @db.Timestamptz(3)
+  horizonEndAt      DateTime?                  @db.Timestamptz(3)
   timeZone          String?
   algorithm         String?
   algorithmVersion  String?
-  datasetId         String? @db.Uuid
+  datasetId         String?                    @db.Uuid
   datasetVersion    String?
 
-  tenant          Tenant  @relation(fields: [tenantId], references: [id])
-  requestedByUser User    @relation(fields: [tenantId, requestedByUserId], references: [tenantId, id], onDelete: Restrict, onUpdate: Cascade)
+  tenant          Tenant                  @relation(fields: [tenantId], references: [id])
+  requestedByUser User                    @relation(fields: [tenantId, requestedByUserId], references: [tenantId, id], onDelete: Restrict, onUpdate: Cascade)
   routes          Route[]
   packageResults  PlanningPackageResult[]
-  dataset         GeoDataset? @relation(fields: [datasetId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  dataset         GeoDataset?             @relation(fields: [datasetId], references: [id], onDelete: Restrict, onUpdate: Restrict)
 
   @@unique([tenantId, id])
   @@index([tenantId])
@@ -119,11 +119,11 @@ model Route {
   plannedAt         DateTime   @default(now())
   startedAt         DateTime?
   completedAt       DateTime?
-  serviceDate       DateTime? @db.Date
-  depotId           String? @db.Uuid
-  plannedStartAt    DateTime? @db.Timestamptz(3)
-  plannedEndAt      DateTime? @db.Timestamptz(3)
-  plannedDistanceM  Decimal? @db.Decimal(12, 2)
+  serviceDate       DateTime?  @db.Date
+  depotId           String?    @db.Uuid
+  plannedStartAt    DateTime?  @db.Timestamptz(3)
+  plannedEndAt      DateTime?  @db.Timestamptz(3)
+  plannedDistanceM  Decimal?   @db.Decimal(12, 2)
   plannedDurationS  Int?
 
   tenant          Tenant               @relation(fields: [tenantId], references: [id])
@@ -133,7 +133,8 @@ model Route {
   stops           RouteStop[]
   assignments     Assignment[]
   incidents       Incident[]
-  depot           Depot? @relation(fields: [tenantId, depotId], references: [tenantId, id], onDelete: Restrict, onUpdate: Restrict)
+  depot           Depot?               @relation(fields: [tenantId, depotId], references: [tenantId, id], onDelete: Restrict, onUpdate: Restrict)
+  legs            RouteLeg[]
 
   @@unique([tenantId, id])
   @@unique([tenantId, id, vehicleId, courierId])
@@ -141,18 +142,18 @@ model Route {
 }
 
 model RouteStop {
-  id        String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  tenantId  String         @db.Uuid
-  routeId   String         @db.Uuid
-  sequence  Int
-  latitude  Decimal        @db.Decimal(10, 6)
-  longitude Decimal        @db.Decimal(10, 6)
-  state     RouteStopState @default(PENDING)
-  arrivalAt DateTime? @db.Timestamptz(3)
-  serviceStartAt DateTime? @db.Timestamptz(3)
-  serviceEndAt DateTime? @db.Timestamptz(3)
-  geocodingAttemptId String? @db.Uuid
-  deliveryWindowId String? @db.Uuid
+  id                 String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId           String         @db.Uuid
+  routeId            String         @db.Uuid
+  sequence           Int
+  latitude           Decimal        @db.Decimal(10, 6)
+  longitude          Decimal        @db.Decimal(10, 6)
+  state              RouteStopState @default(PENDING)
+  arrivalAt          DateTime?      @db.Timestamptz(3)
+  serviceStartAt     DateTime?      @db.Timestamptz(3)
+  serviceEndAt       DateTime?      @db.Timestamptz(3)
+  geocodingAttemptId String?        @db.Uuid
+  deliveryWindowId   String?        @db.Uuid
 
   tenant           Tenant            @relation(fields: [tenantId], references: [id])
   route            Route             @relation(fields: [tenantId, routeId], references: [tenantId, id], onDelete: Restrict, onUpdate: Cascade)
@@ -160,7 +161,7 @@ model RouteStop {
   deliveryAttempts DeliveryAttempt[]
   incidents        Incident[]
   geocodingAttempt GeocodingAttempt? @relation(fields: [tenantId, geocodingAttemptId], references: [tenantId, id], onDelete: Restrict, onUpdate: Restrict)
-  deliveryWindow DeliveryWindow? @relation(fields: [tenantId, deliveryWindowId], references: [tenantId, id], onDelete: Restrict, onUpdate: Restrict)
+  deliveryWindow   DeliveryWindow?   @relation(fields: [tenantId, deliveryWindowId], references: [tenantId, id], onDelete: Restrict, onUpdate: Restrict)
 
   @@unique([tenantId, id])
   @@unique([tenantId, id, routeId])

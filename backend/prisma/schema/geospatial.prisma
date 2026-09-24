@@ -29,22 +29,27 @@ enum GeocodingReviewDecision {
 }
 
 model GeoDataset {
-  id                String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  name              String
-  sourceType        GeoDatasetSource
-  sourceReference   String
-  sourceDate        DateTime           @db.Timestamptz(3)
-  checksum          String             @db.VarChar(64)
-  license           String
-  coverage          String
-  importerVersion   String
-  status            GeoDatasetStatus   @default(STAGING)
-  failureReason     String?
-  createdAt         DateTime           @default(now()) @db.Timestamptz(3)
-  readyAt           DateTime?          @db.Timestamptz(3)
-  addressReferences AddressReference[]
-  geocodingAttempts GeocodingAttempt[]
-  planningRequests RoutePlanningRequest[]
+  id                 String                 @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name               String
+  sourceType         GeoDatasetSource
+  sourceReference    String
+  sourceDate         DateTime               @db.Timestamptz(3)
+  checksum           String                 @db.VarChar(64)
+  license            String
+  coverage           String
+  importerVersion    String
+  status             GeoDatasetStatus       @default(STAGING)
+  failureReason      String?
+  createdAt          DateTime               @default(now()) @db.Timestamptz(3)
+  readyAt            DateTime?              @db.Timestamptz(3)
+  addressReferences  AddressReference[]
+  geocodingAttempts  GeocodingAttempt[]
+  planningRequests   RoutePlanningRequest[]
+  roadNodes          RoadNode[]
+  roadEdges          RoadEdge[]
+  turnRestrictions   RoadTurnRestriction[]
+  networkAttachments NetworkAttachment[]
+  routeLegs          RouteLeg[]
 
   @@index([sourceType, status])
   @@index([checksum])
@@ -134,13 +139,15 @@ model GeocodingCandidate {
   location           Unsupported("geometry(Point,4326)")
   createdAt          DateTime                            @default(now()) @db.Timestamptz(3)
 
-  tenant           Tenant             @relation(fields: [tenantId], references: [id], onDelete: Restrict, onUpdate: Cascade)
-  attempt          GeocodingAttempt   @relation(fields: [tenantId, attemptId, datasetId], references: [tenantId, id, datasetId], onDelete: Restrict, onUpdate: Restrict)
-  addressReference AddressReference?  @relation(fields: [datasetId, addressReferenceId], references: [datasetId, id], onDelete: Restrict, onUpdate: Restrict)
-  selectedBy       GeocodingAttempt[] @relation("SelectedCandidate")
-  reviews          GeocodingReview[]
+  tenant             Tenant              @relation(fields: [tenantId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  attempt            GeocodingAttempt    @relation(fields: [tenantId, attemptId, datasetId], references: [tenantId, id, datasetId], onDelete: Restrict, onUpdate: Restrict)
+  addressReference   AddressReference?   @relation(fields: [datasetId, addressReferenceId], references: [datasetId, id], onDelete: Restrict, onUpdate: Restrict)
+  selectedBy         GeocodingAttempt[]  @relation("SelectedCandidate")
+  reviews            GeocodingReview[]
+  networkAttachments NetworkAttachment[]
 
   @@unique([tenantId, id])
+  @@unique([tenantId, id, datasetId])
   @@unique([tenantId, id, attemptId])
   @@unique([tenantId, attemptId, rank])
   @@index([addressReferenceId])

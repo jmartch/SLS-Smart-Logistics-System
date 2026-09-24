@@ -1,6 +1,6 @@
 # Plan de migraciones geoespaciales
 
-Fecha: 2026-09-14. Estado: GDB-00 auditado; GDB-01 implementado, probado en bases aisladas y aplicado a SLS según evidencia de terminal del usuario. GDB-02 tiene infraestructura y catálogo probados; aplicación a SLS confirmada por el usuario (véase [informe GDB-02](gdb-02-report.md)). GDB-03 tiene persistencia probada y aplicación confirmada por el usuario; integración funcional de asignación pendiente (véase [informe GDB-03](gdb-03-report.md)). GDB-04 tiene esquema e integridad adicional probados y aplicados a SLS (véase [informe GDB-04](gdb-04-report.md)); integración funcional pendiente. GDB-05 y GDB-06 siguen en diseño. Véase [informe GDB-01](gdb-01-report.md).
+Fecha: 2026-09-24. Estado: GDB-00 auditado; GDB-01 implementado, probado en bases aisladas y aplicado a SLS según evidencia de terminal del usuario. GDB-02 tiene infraestructura y catálogo probados; aplicación a SLS confirmada por el usuario (véase [informe GDB-02](gdb-02-report.md)). GDB-03 tiene persistencia probada y aplicación confirmada por el usuario; integración funcional de asignación pendiente (véase [informe GDB-03](gdb-03-report.md)). GDB-04 tiene esquema e integridad adicional probados y aplicados a SLS (véase [informe GDB-04](gdb-04-report.md)); integración funcional pendiente. GDB-05 tiene esquema, migración, Dijkstra, lectura de grafo y reconstrucción de geometría probados en una base aislada; su aplicación en SLS fue verificada directamente y la integración con el planificador sigue pendiente (véase [informe GDB-05](gdb-05-report.md)). GDB-06 sigue en diseño. Véase [informe GDB-01](gdb-01-report.md).
 
 ## Base verificada en el repositorio
 
@@ -84,6 +84,8 @@ Exigir servicio completo dentro de ventana y deadline, y regreso dentro de turno
 Aceptación: espera temprana permitida, servicio tardío rechazado, ventanas de días distintos respetadas, turno y capacidad válidos después de cada inserción. Pedidos no asignados conservan motivo; la ejecución puede completarse con pendientes.
 
 ## GDB-05 — Grafo versionado y caminos
+
+Estado: esquema y prototipo de búsqueda terminados y probados en una base PostGIS aislada. La migración está aplicada en SLS con checksum idéntico al archivo local. El planificador aún no persiste automáticamente los tramos calculados. Véase [informe GDB-05](gdb-05-report.md).
 
 | Modelo | Campos y restricciones |
 | --- | --- |

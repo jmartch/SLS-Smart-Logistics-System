@@ -49,6 +49,9 @@ model Tenant {
   vehicleShifts          VehicleShift[]
   courierShifts          CourierShift[]
   planningPackageResults PlanningPackageResult[]
+  networkAttachments     NetworkAttachment[]
+  routeLegs              RouteLeg[]
+  routeLegEdges          RouteLegEdge[]
 }
 
 model User {
@@ -58,15 +61,16 @@ model User {
   passwordHash String
   status       UserStatus @default(ACTIVE)
 
-  tenant                 Tenant                 @relation(fields: [tenantId], references: [id])
-  userRoles              UserRole[]
-  changedPackageStatuses PackageStatusHistory[]
-  courier                Courier?
-  routePlanningRequests  RoutePlanningRequest[]
-  assignmentsResponsible Assignment[]
-  reportedIncidents      Incident[]
-  auditLogs              AuditLog[]
-  geocodingReviews       GeocodingReview[]
+  tenant                     Tenant                 @relation(fields: [tenantId], references: [id])
+  userRoles                  UserRole[]
+  changedPackageStatuses     PackageStatusHistory[]
+  courier                    Courier?
+  routePlanningRequests      RoutePlanningRequest[]
+  assignmentsResponsible     Assignment[]
+  reportedIncidents          Incident[]
+  auditLogs                  AuditLog[]
+  geocodingReviews           GeocodingReview[]
+  reviewedNetworkAttachments NetworkAttachment[]
 
   @@unique([tenantId, id])
   @@unique([tenantId, email])
