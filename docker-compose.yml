@@ -1,5 +1,4 @@
 services:
-
   backend:
     build: ./backend
     container_name: sls-backend
@@ -15,7 +14,6 @@ services:
         condition: service_started
       rabbitmq:
         condition: service_healthy
-
   frontend:
     build: ./frontend
     container_name: sls-frontend
@@ -24,10 +22,8 @@ services:
     volumes:
       - ./frontend:/app
       - /app/node_modules
-
   postgres:
-    build: ./docker/postgres
-    image: sls-postgres-postgis:gdb02
+    image: postgis/postgis:17-3.6-alpine
     container_name: sls-postgres
     environment:
       POSTGRES_USER: postgres
