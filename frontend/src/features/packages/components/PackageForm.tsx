@@ -42,7 +42,7 @@ export default function PackageForm({
 }: PackageFormProps) {
   function field<K extends keyof RegisterPackageFormValues>(key: K) {
     return (e: ChangeEvent<HTMLInputElement | HTMLSelectElement>) =>
-      onChange({ ...values, [key]: e.target.value });
+      onChange({ ...values, [key]: e.target.value, ...(key === 'zoneId' ? { sectorId: '' } : {}) });
   }
 
   const formDisabled = disabled || catalogsLoading || !!catalogsError;
