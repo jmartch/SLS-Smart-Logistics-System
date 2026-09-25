@@ -1,7 +1,7 @@
 import { apiFetch } from '../../../shared/api/httpClient';
 import type { RegisterPackagePayload, RegisterPackageResult } from '../types';
 
-const USE_MOCK_DATA = import.meta.env.VITE_USE_MOCK_DATA !== 'false';
+const USE_MOCK_DATA = import.meta.env.VITE_USE_MOCK_DATA === 'true';
 
 export function registerPackage(payload: RegisterPackagePayload): Promise<RegisterPackageResult> {
   if (USE_MOCK_DATA) {
