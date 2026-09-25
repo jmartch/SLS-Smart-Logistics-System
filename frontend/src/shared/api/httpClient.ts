@@ -20,19 +20,25 @@ interface ErrorBody {
   fields?: Record<string, string>;
 }
 
+// TODO(AUTH-01): incorporar las credenciales mediante el módulo de sesión.
+// No leer ni almacenar tokens directamente en localStorage.
 export async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
   let response: Response;
+
   try {
     response = await fetch(`${BASE_URL}${path}`, {
       ...init,
-      credentials: 'include',
       headers: {
         'Content-Type': 'application/json',
         ...init?.headers,
       },
     });
   } catch {
-    throw new ApiError(0, 'NETWORK_ERROR', 'No se pudo conectar con el servidor.');
+    throw new ApiError(
+      0,
+      'NETWORK_ERROR',
+      'No se pudo conectar con el servidor.',
+    );
   }
 
   if (response.status === 204) {
