@@ -39,16 +39,18 @@ export default function BarcodeScanner({ onDetected, onError, onClose }: Barcode
     // Se dispara en cada frame sin lectura: es ruido normal, no un error real.
     const handleScanFailure = (): void => {};
 
+    let cancelled = false;
     async function start(): Promise<void> {
       try {
-        // Cámara trasera de forma estricta primero...
         await scanner.start({ facingMode: { exact: 'environment' } }, config, handleSuccess, handleScanFailure);
+        if (cancelled) await stopScanner();
       } catch {
+        if (cancelled) return;
         try {
-          // ...si el dispositivo no soporta "exact", se relaja la condición.
           await scanner.start({ facingMode: 'environment' }, config, handleSuccess, handleScanFailure);
+          if (cancelled) await stopScanner();
         } catch (err) {
-          onError(mapCameraError(err));
+          if (!cancelled) onError(mapCameraError(err));
         }
       }
     }
@@ -56,6 +58,7 @@ export default function BarcodeScanner({ onDetected, onError, onClose }: Barcode
     void start();
 
     return () => {
+      cancelled = true;
       void stopScanner();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
