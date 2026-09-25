@@ -2,6 +2,8 @@ import RegisterPackageScreen from './features/packages/components/RegisterPackag
 import { useState } from 'react';
 import './App.css';
 
+const USE_MOCK_DATA = import.meta.env.VITE_USE_MOCK_DATA === 'true';
+
 function App() {
   const [screen, setScreen] = useState<'home' | 'register'>('home');
 
@@ -23,7 +25,9 @@ function App() {
           Registrar paquete
         </button>
       </section>
-      <footer className="home-footer">Panel de operaciones · Datos de prueba activos</footer>
+      <footer className="home-footer">
+        Panel de operaciones · {USE_MOCK_DATA ? 'Datos de prueba activos' : 'API configurada'}
+      </footer>
     </main>
   );
 }
