@@ -14,12 +14,6 @@ export class ApiError extends Error {
   }
 }
 
-// TODO(AUTH-01): reemplazar por el mecanismo real una vez exista el módulo
-// de autenticación (contexto de sesión, cookie httpOnly, etc.).
-function getAuthToken(): string | null {
-  return localStorage.getItem('sls_auth_token');
-}
-
 interface ErrorBody {
   code?: string;
   message?: string;
@@ -31,9 +25,9 @@ export async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> 
   try {
     response = await fetch(`${BASE_URL}${path}`, {
       ...init,
+      credentials: 'include',
       headers: {
         'Content-Type': 'application/json',
-        Authorization: `Bearer ${getAuthToken() ?? ''}`,
         ...init?.headers,
       },
     });
