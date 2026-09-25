@@ -24,9 +24,11 @@
   padding: 0.3rem 0;
 }
 
-.register-package-screen h1 {
+.register-package-screen h1,
+.success-screen h1 {
   font-size: 1.15rem;
   margin-bottom: 1rem;
+  color: #f8fafc;
 }
 
 .notice {
@@ -93,6 +95,11 @@
 .field-error {
   font-size: 0.75rem;
   color: #f87171;
+}
+
+.field-hint {
+  font-size: 0.75rem;
+  color: #94a3b8;
 }
 
 .input {
@@ -205,6 +212,13 @@
 
 .scanner-viewport {
   flex: 1;
+}
+
+.scanner-loading {
+  align-items: center;
+  justify-content: center;
+  color: white;
+  font-weight: 600;
 }
 
 .success-screen {

@@ -14,6 +14,8 @@ interface PackageFormProps {
   errors: RegisterPackageFormErrors;
   zones: CatalogOption[];
   sectors: SectorOption[];
+  sectorsLoading: boolean;
+  sectorsError: string | null;
   shipmentTypes: CatalogOption[];
   catalogsLoading: boolean;
   catalogsError: string | null;
@@ -22,6 +24,7 @@ interface PackageFormProps {
   onOpenScanner: () => void;
   onOpenImageScanner: () => void;
   onLoadMockData: () => void;
+  showMockDataAction: boolean;
   disabled: boolean;
   onRetryCatalogs: () => void;
 }
@@ -31,6 +34,8 @@ export default function PackageForm({
   errors,
   zones,
   sectors,
+  sectorsLoading,
+  sectorsError,
   shipmentTypes,
   catalogsLoading,
   catalogsError,
@@ -39,6 +44,7 @@ export default function PackageForm({
   onOpenScanner,
   onOpenImageScanner,
   onLoadMockData,
+  showMockDataAction,
   disabled,
   onRetryCatalogs,
 }: PackageFormProps) {
@@ -71,13 +77,23 @@ export default function PackageForm({
           </button>
         </div>
       )}
-      <button type="button" className="mock-button" onClick={onLoadMockData} disabled={formDisabled}>
-        Cargar datos de prueba
-      </button>
+      {showMockDataAction && (
+        <button type="button" className="mock-button" onClick={onLoadMockData} disabled={formDisabled}>
+          Cargar datos de prueba
+        </button>
+      )}
 
-      <Field label="Número de guía" error={errors.trackingCode} required>
+      <div className="field">
+        <label htmlFor="trackingCode">
+          Número de guía <span className="required-mark">*</span>
+        </label>
         <div className="tracking-row">
           <input
+            id="trackingCode"
+            name="trackingCode"
+            required
+            aria-invalid={!!errors.trackingCode}
+            aria-describedby={errors.trackingCode ? 'trackingCode-error' : undefined}
             className={inputClass(errors.trackingCode)}
             value={values.trackingCode}
             onChange={field('trackingCode')}
@@ -89,7 +105,8 @@ export default function PackageForm({
             <button type="button" onClick={onOpenScanner} disabled={formDisabled} className="scan-button scan-button-secondary">Usar cámara</button>
           </div>
         </div>
-      </Field>
+        {errors.trackingCode && <span id="trackingCode-error" className="field-error">{errors.trackingCode}</span>}
+      </div>
 
       <Section title="Clasificación">
         <Field label="Zona" error={errors.zoneId} required>
@@ -107,7 +124,7 @@ export default function PackageForm({
             className={inputClass()}
             value={values.sectorId}
             onChange={field('sectorId')}
-            disabled={formDisabled || !values.zoneId}
+            disabled={formDisabled || !values.zoneId || sectorsLoading || !!sectorsError}
           >
             <option value="">Sin sector específico</option>
             {sectors.map((s) => (
@@ -116,6 +133,8 @@ export default function PackageForm({
               </option>
             ))}
           </select>
+          {sectorsLoading && <span className="field-hint" role="status">Cargando sectores...</span>}
+          {sectorsError && <span className="field-error">{sectorsError}</span>}
         </Field>
         <Field label="Tipo de envío" error={errors.shipmentTypeId} required>
           <select

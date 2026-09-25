@@ -33,7 +33,7 @@ export default function BarcodeScanner({ onDetected, onError, onClose }: Barcode
     const handleSuccess = (decodedText: string) => {
       if (hasResolvedRef.current) return; // ignora lecturas duplicadas en ráfaga
       hasResolvedRef.current = true;
-      void stopScanner().finally(() => onDetected(decodedText));
+      void stopScannerInstance(scanner).finally(() => onDetected(decodedText));
     };
 
     // Se dispara en cada frame sin lectura: es ruido normal, no un error real.
@@ -43,12 +43,12 @@ export default function BarcodeScanner({ onDetected, onError, onClose }: Barcode
     async function start(): Promise<void> {
       try {
         await scanner.start({ facingMode: { exact: 'environment' } }, config, handleSuccess, handleScanFailure);
-        if (cancelled) await stopScanner();
+        if (cancelled) await stopScannerInstance(scanner);
       } catch {
         if (cancelled) return;
         try {
           await scanner.start({ facingMode: 'environment' }, config, handleSuccess, handleScanFailure);
-          if (cancelled) await stopScanner();
+          if (cancelled) await stopScannerInstance(scanner);
         } catch (err) {
           if (!cancelled) onError(mapCameraError(err));
         }
@@ -59,29 +59,25 @@ export default function BarcodeScanner({ onDetected, onError, onClose }: Barcode
 
     return () => {
       cancelled = true;
-      void stopScanner();
+      void stopScannerInstance(scanner);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  async function stopScanner(): Promise<void> {
+  function handleClose(): void {
     const scanner = scannerRef.current;
-    if (!scanner) return;
-    try {
-      if (scanner.isScanning) {
-        await scanner.stop();
-      }
-      await scanner.clear();
-    } catch {
-      // Si ya estaba detenido, no hay nada que hacer.
+    if (!scanner) {
+      onClose();
+      return;
     }
+    void stopScannerInstance(scanner).finally(onClose);
   }
 
   return (
-    <div className="scanner-overlay">
+    <div className="scanner-overlay" role="dialog" aria-modal="true" aria-labelledby="barcode-scanner-title">
       <div className="scanner-header">
-        <span>Apunta al código de la guía</span>
-        <button type="button" onClick={() => void stopScanner().finally(onClose)}>
+        <span id="barcode-scanner-title">Apunta al código de la guía</span>
+        <button type="button" onClick={handleClose}>
           Cancelar
         </button>
       </div>
@@ -90,9 +86,20 @@ export default function BarcodeScanner({ onDetected, onError, onClose }: Barcode
   );
 }
 
+async function stopScannerInstance(scanner: Html5Qrcode): Promise<void> {
+  try {
+    if (scanner.isScanning) {
+      await scanner.stop();
+    }
+    await scanner.clear();
+  } catch {
+    // Si ya estaba detenido o limpio, no hay nada que hacer.
+  }
+}
+
 function mapCameraError(err: unknown): CameraErrorReason {
-  const name = err instanceof Error ? err.name : '';
-  if (name === 'NotAllowedError') return 'PERMISSION_DENIED';
-  if (name === 'NotFoundError' || name === 'OverconstrainedError') return 'NO_CAMERA';
+  const description = err instanceof Error ? `${err.name} ${err.message}` : String(err);
+  if (/NotAllowedError|Permission denied/i.test(description)) return 'PERMISSION_DENIED';
+  if (/NotFoundError|OverconstrainedError|not found/i.test(description)) return 'NO_CAMERA';
   return 'CAMERA_ERROR';
 }

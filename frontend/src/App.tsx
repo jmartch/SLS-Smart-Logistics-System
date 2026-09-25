@@ -1,8 +1,7 @@
 import RegisterPackageScreen from './features/packages/components/RegisterPackageScreen';
 import { useState } from 'react';
+import { USE_MOCK_DATA } from './shared/config/environment';
 import './App.css';
-
-const USE_MOCK_DATA = import.meta.env.VITE_USE_MOCK_DATA === 'true';
 
 function App() {
   const [screen, setScreen] = useState<'home' | 'register'>('home');

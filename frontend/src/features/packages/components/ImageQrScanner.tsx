@@ -47,6 +47,9 @@ export default function ImageQrScanner({ onDetected, onClose }: ImageQrScannerPr
         // El lector puede quedar limpio después de una lectura fallida.
       }
 
+      if (inputRef.current) {
+        inputRef.current.value = '';
+      }
       if (activeRef.current) {
         setReading(false);
       }
@@ -59,10 +62,10 @@ export default function ImageQrScanner({ onDetected, onClose }: ImageQrScannerPr
   }
 
   return (
-    <div className="scanner-overlay image-scanner-overlay">
+    <div className="scanner-overlay image-scanner-overlay" role="dialog" aria-modal="true" aria-labelledby="image-scanner-title">
       <div className="image-scanner-card">
         <div className="scanner-header image-scanner-header">
-          <div><p className="eyebrow">LECTURA QR</p><h2>Sube una imagen</h2></div>
+          <div><p className="eyebrow">LECTURA QR</p><h2 id="image-scanner-title">Sube una imagen</h2></div>
           <button type="button" onClick={handleClose}>
             Cerrar
           </button>

@@ -1,4 +1,4 @@
-const BASE_URL = import.meta.env.VITE_API_BASE_URL ?? '/api';
+import { API_BASE_URL } from '../config/environment';
 
 export class ApiError extends Error {
   readonly status: number;
@@ -26,12 +26,14 @@ export async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> 
   let response: Response;
 
   try {
-    response = await fetch(`${BASE_URL}${path}`, {
+    const headers = new Headers(init?.headers);
+    if (init?.body && !headers.has('Content-Type')) {
+      headers.set('Content-Type', 'application/json');
+    }
+
+    response = await fetch(`${API_BASE_URL}${path}`, {
       ...init,
-      headers: {
-        'Content-Type': 'application/json',
-        ...init?.headers,
-      },
+      headers,
     });
   } catch {
     throw new ApiError(

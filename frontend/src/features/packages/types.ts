@@ -5,6 +5,23 @@
 export const PACKAGE_PRIORITIES = ['LOW', 'NORMAL', 'HIGH', 'URGENT'] as const;
 export type PackagePriority = (typeof PACKAGE_PRIORITIES)[number];
 
+export const PACKAGE_STATES = [
+  'REGISTERED',
+  'CLASSIFIED',
+  'PENDING_ASSIGNMENT',
+  'ASSIGNED_TO_ROUTE',
+  'READY_FOR_DISPATCH',
+  'IN_TRANSIT',
+  'OUT_FOR_DELIVERY',
+  'DELIVERED',
+  'DELIVERY_FAILED',
+  'RESCHEDULED',
+  'RETURN_PENDING',
+  'RETURNED',
+  'CANCELLED',
+] as const;
+export type PackageState = (typeof PACKAGE_STATES)[number];
+
 export interface CatalogOption {
   id: string;
   code: string;
@@ -33,7 +50,7 @@ export interface RegisterPackageFormValues {
 
 export type RegisterPackageFormErrors = Partial<Record<keyof RegisterPackageFormValues, string>>;
 
-/** Cuerpo real que viaja a POST /api/packages. */
+/** Contrato provisional para POST /api/packages, pendiente de PKG-01/AUTH-01. */
 export interface RegisterPackagePayload {
   trackingCode: string;
   zoneId: string;
@@ -52,7 +69,7 @@ export interface RegisterPackagePayload {
 export interface RegisterPackageResult {
   id: string;
   trackingCode: string;
-  state: string;
+  state: PackageState;
 }
 
 export const EMPTY_REGISTER_PACKAGE_FORM: RegisterPackageFormValues = {
