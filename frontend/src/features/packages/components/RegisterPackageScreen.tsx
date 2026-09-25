@@ -28,6 +28,7 @@ export default function RegisterPackageScreen({ onBack }: { onBack: () => void }
   const [status, setStatus] = useState<SubmitStatus>('idle');
   const [apiErrorMessage, setApiErrorMessage] = useState<string | null>(null);
   const [lastResult, setLastResult] = useState<RegisterPackageResult | null>(null);
+  const [catalogReloadKey, setCatalogReloadKey] = useState(0);
 
   const [zones, setZones] = useState<CatalogOption[]>([]);
   const [shipmentTypes, setShipmentTypes] = useState<CatalogOption[]>([]);
@@ -35,7 +36,7 @@ export default function RegisterPackageScreen({ onBack }: { onBack: () => void }
   const [catalogsLoading, setCatalogsLoading] = useState(true);
   const [catalogsError, setCatalogsError] = useState<string | null>(null);
 
-  // Zonas y tipos de envío se cargan una sola vez al entrar a la pantalla.
+  // Carga los catálogos al entrar y después de cada reintento solicitado.
   useEffect(() => {
     let cancelled = false;
     async function loadCatalogs() {
@@ -57,7 +58,7 @@ export default function RegisterPackageScreen({ onBack }: { onBack: () => void }
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [catalogReloadKey]);
 
   // Los sectores dependen de la zona elegida; se recargan al cambiarla.
   useEffect(() => {
@@ -203,7 +204,12 @@ export default function RegisterPackageScreen({ onBack }: { onBack: () => void }
         }}
         onLoadMockData={handleLoadMockData}
         disabled={status === 'saving'}
+        onRetryCatalogs={() => {
+          setCatalogReloadKey((current) => current + 1);
+        }}
       />
+
+
 
       {scanning && (
         <BarcodeScanner onDetected={handleDetected} onError={handleScannerError} onClose={() => setScanning(false)} />

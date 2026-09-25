@@ -23,6 +23,7 @@ interface PackageFormProps {
   onOpenImageScanner: () => void;
   onLoadMockData: () => void;
   disabled: boolean;
+  onRetryCatalogs: () => void;
 }
 
 export default function PackageForm({
@@ -39,6 +40,7 @@ export default function PackageForm({
   onOpenImageScanner,
   onLoadMockData,
   disabled,
+  onRetryCatalogs,
 }: PackageFormProps) {
   function field<K extends keyof RegisterPackageFormValues>(key: K) {
     return (e: ChangeEvent<HTMLInputElement | HTMLSelectElement>) =>
@@ -56,7 +58,19 @@ export default function PackageForm({
       }}
     >
       {catalogsLoading && <p className="notice">Cargando zonas y tipos de envío...</p>}
-      {catalogsError && <p className="notice notice-error">{catalogsError}</p>}
+      {catalogsError && (
+        <div className="notice notice-error catalog-error">
+          <span>{catalogsError}</span>
+          <button
+            type="button"
+            className="retry-button"
+            onClick={onRetryCatalogs}
+            disabled={disabled || catalogsLoading}
+          >
+            Reintentar
+          </button>
+        </div>
+      )}
       <button type="button" className="mock-button" onClick={onLoadMockData} disabled={formDisabled}>
         Cargar datos de prueba
       </button>
