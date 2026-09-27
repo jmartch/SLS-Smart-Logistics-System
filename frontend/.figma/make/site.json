@@ -1,0 +1,10 @@
+{
+  "description": "Offers a customizable, visually appealing frontend interface with smooth navigation, responsive design, and interactive elements for enhanced user engagement.",
+  "robots": {
+    "index": false
+  },
+  "accessibility": {
+    "addBypassLinks": false,
+    "ignoreReducedMotion": false
+  }
+}
