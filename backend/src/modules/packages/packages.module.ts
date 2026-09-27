@@ -14,15 +14,11 @@ import { PrismaPackageLifecycleRepository } from './infrastructure/prisma-packag
         },
         {
             provide: TransitionPackageStateService,
-            useFactory: (
-                lifecycleRepository: PackageLifecycleRepository,
-            ) =>
-                new TransitionPackageStateService(
-                    lifecycleRepository,
-                ),
+            useFactory: (lifecycleRepository: PackageLifecycleRepository) =>
+                new TransitionPackageStateService(lifecycleRepository),
             inject: [PackageLifecycleRepository],
         },
     ],
     exports: [TransitionPackageStateService],
 })
-export class PackagesModule { }
+export class PackagesModule {}

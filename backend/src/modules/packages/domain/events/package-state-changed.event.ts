@@ -16,8 +16,7 @@ export const PackageEventType = {
     CANCELLED: 'PackageCancelled',
 } as const satisfies Record<PackageStateName, string>;
 
-export type PackageEventTypeName =
-    (typeof PackageEventType)[PackageStateName];
+export type PackageEventTypeName = (typeof PackageEventType)[PackageStateName];
 
 export interface PackageTransitionMetadata {
     readonly changedByUserId?: string;

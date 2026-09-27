@@ -1,7 +1,7 @@
 import type { PackageStateName } from './package-state.types';
 
 export interface PackageState {
-	readonly status: PackageStateName;
+    readonly status: PackageStateName;
 
-	canTransitionTo(targetState: PackageStateName): boolean;
+    canTransitionTo(targetState: PackageStateName): boolean;
 }

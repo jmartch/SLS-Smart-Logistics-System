@@ -5,8 +5,7 @@ import {
 } from '../domain/package-lifecycle.repository';
 import type { PackageStateName } from '../domain/package-state.types';
 
-export interface TransitionPackageStateCommand
-    extends PackageTransitionMetadata {
+export interface TransitionPackageStateCommand extends PackageTransitionMetadata {
     // tenantId must come from authenticated identity or trusted event metadata.
     readonly tenantId: string;
     readonly packageId: string;
@@ -16,7 +15,7 @@ export interface TransitionPackageStateCommand
 export class TransitionPackageStateService {
     constructor(
         private readonly lifecycleRepository: PackageLifecycleRepository,
-    ) { }
+    ) {}
 
     execute(
         command: TransitionPackageStateCommand,

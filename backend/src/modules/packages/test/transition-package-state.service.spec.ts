@@ -18,30 +18,32 @@ class InMemoryPackageLifecycleRepository extends PackageLifecycleRepository {
     lastIdentity?: LockedPackageIdentity;
     persistedEvents = 0;
 
-    async transitionAtomically(
+    transitionAtomically(
         identity: LockedPackageIdentity,
         operation: PackageLifecycleOperation,
     ): Promise<PackageLifecycleResult> {
         this.lastIdentity = identity;
 
-        if (!this.packageAggregate) {
-            return { kind: 'NOT_FOUND' };
-        }
+        return Promise.resolve().then(() => {
+            if (!this.packageAggregate) {
+                return { kind: 'NOT_FOUND' };
+            }
 
-        operation(this.packageAggregate);
+            operation(this.packageAggregate);
 
-        const [event] = this.packageAggregate.pullDomainEvents();
+            const [event] = this.packageAggregate.pullDomainEvents();
 
-        if (!event) {
-            throw new Error('Expected one package transition event');
-        }
+            if (!event) {
+                throw new Error('Expected one package transition event');
+            }
 
-        this.persistedEvents += 1;
+            this.persistedEvents += 1;
 
-        return {
-            kind: 'TRANSITIONED',
-            event,
-        };
+            return {
+                kind: 'TRANSITIONED',
+                event,
+            };
+        });
     }
 }
 
@@ -76,19 +78,22 @@ describe('TransitionPackageStateService', () => {
         });
         expect(repository.packageAggregate.state).toBe('ASSIGNED_TO_ROUTE');
         expect(repository.persistedEvents).toBe(1);
-        expect(result).toEqual({
-            kind: 'TRANSITIONED',
-            event: expect.objectContaining({
-                tenantId,
-                aggregateId: packageId,
-                eventType: 'PackageAssigned',
-                fromState: 'CLASSIFIED',
-                toState: 'ASSIGNED_TO_ROUTE',
-                changedByUserId,
-                reasonCode: 'ROUTE_ASSIGNED',
-                correlationId,
-                version: 1,
-            }),
+        expect(result.kind).toBe('TRANSITIONED');
+
+        if (result.kind !== 'TRANSITIONED') {
+            throw new Error('Expected TRANSITIONED result');
+        }
+
+        expect(result.event).toMatchObject({
+            tenantId,
+            aggregateId: packageId,
+            eventType: 'PackageAssigned',
+            fromState: 'CLASSIFIED',
+            toState: 'ASSIGNED_TO_ROUTE',
+            changedByUserId,
+            reasonCode: 'ROUTE_ASSIGNED',
+            correlationId,
+            version: 1,
         });
     });
 

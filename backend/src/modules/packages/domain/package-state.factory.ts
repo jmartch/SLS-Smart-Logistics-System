@@ -1,8 +1,5 @@
 import type { PackageState } from './package-state';
-import {
-    PackageStatus,
-    type PackageStateName,
-} from './package-state.types';
+import { PackageStatus, type PackageStateName } from './package-state.types';
 import { AssignedToRouteState } from './states/assigned-to-route.state';
 import { CancelledState } from './states/cancelled.state';
 import { ClassifiedState } from './states/classified.state';
@@ -17,9 +14,7 @@ import { RescheduledState } from './states/rescheduled.state';
 import { ReturnedState } from './states/returned.state';
 import { ReturnPendingState } from './states/return-pending.state';
 
-export function createPackageState(
-    stateName: PackageStateName,
-): PackageState {
+export function createPackageState(stateName: PackageStateName): PackageState {
     switch (stateName) {
         case PackageStatus.REGISTERED:
             return new RegisteredState();
@@ -49,7 +44,9 @@ export function createPackageState(
             return new CancelledState();
         default: {
             const exhaustiveState: never = stateName;
-            throw new Error(`Unsupported package state: ${exhaustiveState}`);
+            throw new Error(
+                `Unsupported package state: ${String(exhaustiveState)}`,
+            );
         }
     }
 }

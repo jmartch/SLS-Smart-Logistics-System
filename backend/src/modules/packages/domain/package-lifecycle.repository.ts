@@ -13,9 +13,9 @@ export type PackageLifecycleOperation = (
 export type PackageLifecycleResult =
     | { readonly kind: 'NOT_FOUND' }
     | {
-        readonly kind: 'TRANSITIONED';
-        readonly event: PackageStateChangedEvent;
-    };
+          readonly kind: 'TRANSITIONED';
+          readonly event: PackageStateChangedEvent;
+      };
 
 export abstract class PackageLifecycleRepository {
     abstract transitionAtomically(

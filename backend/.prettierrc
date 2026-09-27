@@ -16,6 +16,16 @@
       "options": {
         "tabWidth": 4
       }
+    },
+    {
+      "files": [
+        "src/modules/packages/**/*.ts",
+        "test/package-lifecycle.e2e-spec.ts",
+        "test/integration/gdb-06.cjs"
+      ],
+      "options": {
+        "tabWidth": 4
+      }
     }
   ]
 }

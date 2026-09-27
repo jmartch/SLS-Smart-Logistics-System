@@ -1,6 +1,6 @@
 import { InvalidPackageTransitionError } from '../domain/invalid-package-transition.error';
 import { PackageAggregate } from '../domain/package.aggregate';
-import { PackageStatus, type PackageStateName } from '../domain/package-state.types';
+import type { PackageStateName } from '../domain/package-state.types';
 
 const packageId = '10000000-0000-4000-8000-000000000001';
 const tenantId = '20000000-0000-4000-8000-000000000001';

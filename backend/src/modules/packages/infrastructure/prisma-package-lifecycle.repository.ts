@@ -18,8 +18,7 @@ interface LockedPackageRow {
 }
 
 @Injectable()
-export class PrismaPackageLifecycleRepository
-    extends PackageLifecycleRepository {
+export class PrismaPackageLifecycleRepository extends PackageLifecycleRepository {
     constructor(private readonly prisma: PrismaService) {
         super();
     }
@@ -110,8 +109,7 @@ export class PrismaPackageLifecycleRepository
                             packageId: event.aggregateId,
                             fromState: event.fromState,
                             toState: event.toState,
-                            changedByUserId:
-                                event.changedByUserId ?? null,
+                            changedByUserId: event.changedByUserId ?? null,
                             reasonCode: event.reasonCode ?? null,
                         },
                     },
