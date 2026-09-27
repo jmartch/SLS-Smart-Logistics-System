@@ -17,9 +17,14 @@ enum RoutePlanningRequestStatus {
 }
 
 enum RouteState {
+  DRAFT
+  PLANNING
   PLANNED
+  READY
   IN_PROGRESS
   COMPLETED
+  PLANNING_FAILED
+  INTERRUPTED
   CANCELLED
 }
 
@@ -115,7 +120,7 @@ model Route {
   planningRequestId String     @db.Uuid
   vehicleId         String     @db.Uuid
   courierId         String     @db.Uuid
-  state             RouteState @default(PLANNED)
+  state             RouteState @default(DRAFT)
   plannedAt         DateTime   @default(now())
   startedAt         DateTime?
   completedAt       DateTime?
