@@ -20,6 +20,8 @@ generated/
 /.agents/skills/*
 !/.agents/skills/sls-workflow-commits/
 !/.agents/skills/sls-workflow-commits/**
+!/.agents/skills/sls-module-workflow/
+!/.agents/skills/sls-module-workflow/**
 .claude/
 .windsurf/
 skills-lock.json
