@@ -19,6 +19,10 @@ services:
     container_name: sls-frontend
     ports:
       - "5173:5173"
+    environment:
+      # Los endpoints de catálogos y registro aún no existen en el backend.
+      # Mantiene funcional el prototipo hasta completar ZONE-01 y PKG-01.
+      VITE_USE_MOCK_DATA: "true"
     volumes:
       - ./frontend:/app
       - /app/node_modules
