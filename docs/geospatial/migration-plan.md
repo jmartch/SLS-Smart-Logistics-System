@@ -1,6 +1,6 @@
 # Plan de migraciones geoespaciales
 
-Fecha: 2026-09-24. Estado: GDB-00 auditado; GDB-01 implementado, probado en bases aisladas y aplicado a SLS según evidencia de terminal del usuario. GDB-02 tiene infraestructura y catálogo probados; aplicación a SLS confirmada por el usuario (véase [informe GDB-02](gdb-02-report.md)). GDB-03 tiene persistencia probada y aplicación confirmada por el usuario; integración funcional de asignación pendiente (véase [informe GDB-03](gdb-03-report.md)). GDB-04 tiene esquema e integridad adicional probados y aplicados a SLS (véase [informe GDB-04](gdb-04-report.md)); integración funcional pendiente. GDB-05 tiene esquema, migración, Dijkstra, lectura de grafo y reconstrucción de geometría probados en una base aislada; su aplicación en SLS fue verificada directamente y la integración con el planificador sigue pendiente (véase [informe GDB-05](gdb-05-report.md)). GDB-06 sigue en diseño. Véase [informe GDB-01](gdb-01-report.md).
+Fecha: 2026-09-26. Estado: GDB-00 auditado; GDB-01 implementado, probado en bases aisladas y aplicado a SLS según evidencia de terminal del usuario. GDB-02 tiene infraestructura y catálogo probados; aplicación a SLS confirmada por el usuario (véase [informe GDB-02](gdb-02-report.md)). GDB-03 tiene persistencia probada y aplicación confirmada por el usuario; integración funcional de asignación pendiente (véase [informe GDB-03](gdb-03-report.md)). GDB-04 tiene esquema e integridad adicional probados y aplicados a SLS (véase [informe GDB-04](gdb-04-report.md)); integración funcional pendiente. GDB-05 está **DONE para el alcance del prototipo académico**: esquema, migración, Dijkstra, reconstrucción geométrica y persistencia transaccional de tramos para rutas existentes están implementados y probados en una base PostGIS desechable. La integración con la creación automática de rutas pertenece a ASSIGN-01/GDB-04 (véase [informe GDB-05](gdb-05-report.md)). GDB-06 sigue en diseño. Véase [informe GDB-01](gdb-01-report.md).
 
 ## Base verificada en el repositorio
 
@@ -85,7 +85,7 @@ Aceptación: espera temprana permitida, servicio tardío rechazado, ventanas de 
 
 ## GDB-05 — Grafo versionado y caminos
 
-Estado: esquema y prototipo de búsqueda terminados y probados en una base PostGIS aislada. La migración está aplicada en SLS con checksum idéntico al archivo local. El planificador aún no persiste automáticamente los tramos calculados. Véase [informe GDB-05](gdb-05-report.md).
+Estado: **DONE para el alcance del prototipo académico**. La migración está aplicada en SLS con checksum idéntico al archivo local. Una ruta existente puede resolver depósito y paradas, calcular salida, trayectos intermedios y regreso, y persistir `RouteLeg` y `RouteLegEdge` atómicamente. `npm run test:gdb-05` reproduce la verificación completa en una base PostGIS aleatoria y desechable. Véase [informe GDB-05](gdb-05-report.md).
 
 | Modelo | Campos y restricciones |
 | --- | --- |
@@ -98,6 +98,17 @@ Estado: esquema y prototipo de búsqueda terminados y probados en una base PostG
 Referencias de rutas fijan versión de grafo y geocódigo. No borrar datasets referenciados. Importar primero a STAGING y publicar solo tras validar conectividad, sentidos y consistencia. Cruces geométricos sin conexión OSM no crean intersecciones artificiales.
 
 Aceptación: camino dirigido reproducible; conservación de aristas paralelas y segmentos; dataset sintético distinguible de OSM; actualizar el catálogo no modifica rutas históricas.
+
+Evidencia de cierre:
+
+- 14 suites y 100 pruebas unitarias aprobadas;
+- compilación del backend aprobada;
+- tres pruebas integrales reproducibles: recorrido completo, conservación de datos ante camino inexistente y aislamiento entre tenants;
+- nueve migraciones aplicadas desde cero en cada ejecución integral;
+- base temporal creada con nombre aleatorio y eliminada al finalizar;
+- reglas funcionales de ESLint aprobadas, omitiendo únicamente `prettier/prettier` para conservar el formato manual del E2E.
+
+La invocación desde el planificador que crea rutas, paradas y asignaciones se traslada a ASSIGN-01/GDB-04. Las restricciones de giro, el importador OSM real y la optimización para grafos urbanos quedan como trabajo posterior y no forman parte del cierre del prototipo GDB-05.
 
 ## GDB-06 — Estados y compatibilidad
 
@@ -113,7 +124,7 @@ Aceptación: transiciones válidas generan historial/eventos y las inválidas no
 2. GDB-01: integridad y concurrencia, con pruebas sobre base efímera.
 3. GDB-02/GDB-03: PostGIS, direcciones y recepción sin coordenadas.
 4. GDB-04/GDB-06: planificación y ciclo operativo.
-5. GDB-05: persistencia de OSM; antes puede desarrollarse Dijkstra sobre fixtures en memoria.
+5. GDB-05: grafo versionado, Dijkstra y persistencia de caminos sobre datasets sintéticos verificables. La importación OSM real queda para una etapa posterior.
 
 Cada entrega incluye migración nueva, esquema actualizado, validación/generación Prisma usando `prisma7.config.ts`, build y pruebas pertinentes. Probar desde base vacía y desde copia de datos de prueba con esquema anterior. No ejecutar tests que creen/borren fixtures en la base compartida. Las pruebas existentes de aislamiento mutan datos y deben dirigirse a una base dedicada.
 
