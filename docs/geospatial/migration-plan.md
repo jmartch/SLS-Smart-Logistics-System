@@ -1,6 +1,6 @@
 # Plan de migraciones geoespaciales
 
-Fecha: 2026-09-14. Estado: GDB-00 auditado; GDB-01 implementado, probado en bases aisladas y aplicado a SLS según evidencia de terminal del usuario. GDB-02 tiene infraestructura y catálogo probados; aplicación a SLS confirmada por el usuario (véase [informe GDB-02](gdb-02-report.md)). GDB-03 tiene persistencia probada y aplicación confirmada por el usuario; integración funcional de asignación pendiente (véase [informe GDB-03](gdb-03-report.md)). GDB-04 tiene esquema e integridad adicional probados y aplicados a SLS (véase [informe GDB-04](gdb-04-report.md)); integración funcional pendiente. GDB-05 y GDB-06 siguen en diseño. Véase [informe GDB-01](gdb-01-report.md).
+Fecha: 2026-09-26. Estado: GDB-00 auditado; GDB-01 implementado, probado en bases aisladas y aplicado a SLS según evidencia de terminal del usuario. GDB-02 tiene infraestructura y catálogo probados; aplicación a SLS confirmada por el usuario (véase [informe GDB-02](gdb-02-report.md)). GDB-03 tiene persistencia probada y aplicación confirmada por el usuario; integración funcional de asignación pendiente (véase [informe GDB-03](gdb-03-report.md)). GDB-04 tiene esquema e integridad adicional probados y aplicados a SLS (véase [informe GDB-04](gdb-04-report.md)); integración funcional pendiente. GDB-05 está **DONE para el alcance del prototipo académico**: esquema, migración, Dijkstra, reconstrucción geométrica y persistencia transaccional de tramos para rutas existentes están implementados y probados en una base PostGIS desechable. La integración con la creación automática de rutas pertenece a ASSIGN-01/GDB-04 (véase [informe GDB-05](gdb-05-report.md)). GDB-06 está **DONE para su alcance definido**: estados compatibles, patrón State para paquetes y persistencia atómica de estado, historial y outbox están implementados y probados en una base desechable (véase [informe GDB-06](gdb-06-report.md)). Véase también [informe GDB-01](gdb-01-report.md).
 
 ## Base verificada en el repositorio
 
@@ -85,6 +85,8 @@ Aceptación: espera temprana permitida, servicio tardío rechazado, ventanas de 
 
 ## GDB-05 — Grafo versionado y caminos
 
+Estado: **DONE para el alcance del prototipo académico**. La migración está aplicada en SLS con checksum idéntico al archivo local. Una ruta existente puede resolver depósito y paradas, calcular salida, trayectos intermedios y regreso, y persistir `RouteLeg` y `RouteLegEdge` atómicamente. `npm run test:gdb-05` reproduce la verificación completa en una base PostGIS aleatoria y desechable. Véase [informe GDB-05](gdb-05-report.md).
+
 | Modelo | Campos y restricciones |
 | --- | --- |
 | RoadNode | Dataset, ID interno, osmNodeId BigInt nullable, Point(4326). ID OSM serializado como string fuera de BD. |
@@ -97,13 +99,34 @@ Referencias de rutas fijan versión de grafo y geocódigo. No borrar datasets re
 
 Aceptación: camino dirigido reproducible; conservación de aristas paralelas y segmentos; dataset sintético distinguible de OSM; actualizar el catálogo no modifica rutas históricas.
 
+Evidencia de cierre:
+
+- 14 suites y 100 pruebas unitarias aprobadas;
+- compilación del backend aprobada;
+- tres pruebas integrales reproducibles: recorrido completo, conservación de datos ante camino inexistente y aislamiento entre tenants;
+- nueve migraciones aplicadas desde cero en cada ejecución integral;
+- base temporal creada con nombre aleatorio y eliminada al finalizar;
+- reglas funcionales de ESLint aprobadas, omitiendo únicamente `prettier/prettier` para conservar el formato manual del E2E.
+
+La invocación desde el planificador que crea rutas, paradas y asignaciones se traslada a ASSIGN-01/GDB-04. Las restricciones de giro, el importador OSM real y la optimización para grafos urbanos quedan como trabajo posterior y no forman parte del cierre del prototipo GDB-05.
+
 ## GDB-06 — Estados y compatibilidad
 
-Coordinar Prisma, dominio, API, eventos y fixtures: ASSIGNED pasa a ASSIGNED_TO_ROUTE; incorporar RETURN_PENDING/CANCELLED y los estados de ruta definidos en AGENTS.md. Una migración de enum no implementa el patrón State: deben existir operaciones y pruebas que controlen transiciones e historial.
+Estado: **DONE para el alcance definido de GDB-06**. Prisma y el dominio comparten los trece estados de paquete; `ASSIGNED` fue renombrado de forma compatible a `ASSIGNED_TO_ROUTE`, y se incorporaron `RETURN_PENDING` y `CANCELLED`. El enum de rutas contiene los nueve estados requeridos y usa `DRAFT` como valor inicial. Véase [informe GDB-06](gdb-06-report.md).
 
-Revisar productores/consumidores de eventos persistidos antes de renombrar valores. No mapear mensajes antiguos silenciosamente sin versión o compatibilidad explícita.
+`PackageAggregate` implementa el patrón State mediante clases concretas que controlan cada transición. Una operación válida genera un evento de dominio versión 1 y la implementación Prisma actualiza `Package`, inserta `PackageStatusHistory` y crea `OutboxEvent` dentro de una única transacción con bloqueo de fila y contexto de tenant. Una transición inválida, un fallo de persistencia o el acceso desde otro tenant no dejan escrituras parciales.
 
-Aceptación: transiciones válidas generan historial/eventos y las inválidas no escriben; ningún consumidor queda con nombres incompatibles.
+La prueba de compatibilidad mantiene sincronizados Prisma, el dominio y los tipos de evento. No existían consumidores de eventos de paquete que dependieran del nombre histórico `ASSIGNED`. La publicación hacia RabbitMQ y los consumidores versionados corresponden a EVT-01/RMQ-01; el endpoint HTTP se difiere hasta que AUTH-01 permita derivar el tenant desde una identidad confiable.
+
+Evidencia de cierre:
+
+- compilación del backend aprobada;
+- ESLint y Prettier aprobados para el alcance modificado;
+- 19 suites y 132 pruebas unitarias aprobadas;
+- cuatro pruebas integrales reproducibles sobre una base aleatoria y desechable;
+- diez migraciones aplicadas desde cero en la ejecución integral;
+- migración aplicada en `sls` y `prisma migrate status` actualizado;
+- estado, historial y outbox confirmados como una única operación atómica.
 
 ## Orden de entrega y verificación
 
@@ -111,7 +134,7 @@ Aceptación: transiciones válidas generan historial/eventos y las inválidas no
 2. GDB-01: integridad y concurrencia, con pruebas sobre base efímera.
 3. GDB-02/GDB-03: PostGIS, direcciones y recepción sin coordenadas.
 4. GDB-04/GDB-06: planificación y ciclo operativo.
-5. GDB-05: persistencia de OSM; antes puede desarrollarse Dijkstra sobre fixtures en memoria.
+5. GDB-05: grafo versionado, Dijkstra y persistencia de caminos sobre datasets sintéticos verificables. La importación OSM real queda para una etapa posterior.
 
 Cada entrega incluye migración nueva, esquema actualizado, validación/generación Prisma usando `prisma7.config.ts`, build y pruebas pertinentes. Probar desde base vacía y desde copia de datos de prueba con esquema anterior. No ejecutar tests que creen/borren fixtures en la base compartida. Las pruebas existentes de aislamiento mutan datos y deben dirigirse a una base dedicada.
 

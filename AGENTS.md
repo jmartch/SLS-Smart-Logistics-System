@@ -606,37 +606,68 @@ Tests must demonstrate behavior, not merely execute lines. Use factories/fixture
 
 ## 22. Development commands
 
-From the repository root:
+Docker Compose is the required execution environment for this repository. Run
+all application commands, package-manager commands, builds, formatters, linters,
+tests, Prisma commands, and development servers through their Compose service.
+Do not run `npm`, `npx`, NestJS, Prisma, Jest, ESLint, Prettier, Vite, or other
+project tooling directly on the host.
+
+This rule keeps the Node.js version, installed dependencies, environment
+variables, generated Prisma client, and file ownership consistent. Mixing host
+and container execution can leave bind-mounted artifacts such as `backend/dist`
+or generated files owned by a different user and cause `EACCES` errors on later
+commands.
+
+All commands below are run from the repository root. Start the required services
+before using `docker compose exec`:
 
 ```bash
-docker compose up --build
+docker compose up -d --build
 docker compose ps
 docker compose logs -f
 ```
 
-Backend checks from `backend/`:
+Backend checks:
 
 ```bash
-npm run build
-npm test
-npm run test:e2e
+docker compose exec backend npm run build
+docker compose exec backend npm test -- --runInBand
+docker compose exec backend npm run test:e2e
 ```
 
-Frontend checks from `frontend/`:
+`test:gdb-01` requires a separate disposable PostgreSQL/PostGIS server; never
+point it at the shared SLS database. Pass its administrative URL into the
+container as documented in `backend/test/integration/README.md`.
+
+Backend formatting and linting, only when the task authorizes modifying files:
 
 ```bash
-npm run build
-npm run lint
+docker compose exec backend npm run format
+docker compose exec backend npm run lint
 ```
 
-Prisma through Docker after schema changes:
+Frontend checks:
+
+```bash
+docker compose exec frontend npm run build
+docker compose exec frontend npm run lint
+```
+
+Prisma after schema changes:
 
 ```bash
 docker compose exec backend npx prisma generate
 docker compose exec backend npx prisma migrate dev --name <migration_name>
 ```
 
-Note that the current backend `lint` script includes `--fix` and modifies files. Do not run it during read-only review.
+For a one-off command when the service is not already running, use
+`docker compose run --rm <service> <command>` instead of executing the project
+tool on the host. Do not mix `exec` and host-side `npm`/`npx` commands to work
+around permissions. Diagnose the owner and origin of an existing artifact before
+changing permissions or deleting it.
+
+The current backend `lint` script includes `--fix` and modifies files. Do not run
+it during read-only review.
 
 ## 23. Git workflow
 
@@ -796,6 +827,8 @@ Before changing code:
 3. Identify tenant, event, and state implications.
 4. Preserve user changes and avoid unrelated rewrites.
 5. Confirm whether a described feature exists or is only target design.
+6. Run repository tooling through Docker Compose as specified in section 22;
+   never invoke project `npm` or `npx` commands directly on the host.
 
 During implementation:
 
@@ -809,7 +842,7 @@ During implementation:
 
 After implementation:
 
-1. Run the relevant build and tests.
+1. Run the relevant build and tests through Docker Compose.
 2. Report files changed and commands run.
 3. Report migrations, new environment variables, and operational steps.
 4. Update this task board only when status is verified.

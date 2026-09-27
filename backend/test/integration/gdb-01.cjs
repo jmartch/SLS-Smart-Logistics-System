@@ -1,11 +1,13 @@
 const assert = require('node:assert/strict');
 const { randomUUID } = require('node:crypto');
-const { readFileSync } = require('node:fs');
+const { readFileSync, readdirSync } = require('node:fs');
 const { join } = require('node:path');
 const { Pool } = require('pg');
 const {
-  PostgresAssignmentReservation,
-} = require('../../dist/src/modules/assignments/infrastructure/postgres-assignment-reservation');
+  PrismaAssignmentReservation,
+} = require('../../dist/src/modules/assignments/infrastructure/prisma-assignment-reservation');
+const { PrismaClient } = require('../../dist/generated/prisma/client');
+const { PrismaPg } = require('@prisma/adapter-pg');
 
 // Explicit opt-in. Always create/drop our own randomly named database, never the URL's database.
 if (!process.env.GDB_TEST_ADMIN_URL)
@@ -80,8 +82,27 @@ async function fixture(db) {
     stop,
   };
 }
-async function makePackage(db, f, weight = 6, volume = 1) {
+async function makePackage(
+  db,
+  f,
+  weight = 6,
+  volume = 1,
+  currentSchema = false,
+) {
   const id = randomUUID();
+  if (currentSchema) {
+    const address = randomUUID();
+    await db.query(
+      'INSERT INTO "Address" (id,"tenantId","originalText","municipalityCode") VALUES ($1,$2,$3,$4)',
+      [address, f.tenant, 'GDB fixture address', '08001'],
+    );
+    await db.query(
+      `INSERT INTO "Package" (id,"tenantId","zoneId","sectorId","shipmentTypeId","trackingCode","publicTrackingToken","weightKg","volumeM3","addressId","lengthCm","widthCm","heightCm")
+       VALUES ($1::uuid,$2,$3,$4,$5,$1::text,$1::text,$6,$7,$8,100,100,$7::numeric * 100)`,
+      [id, f.tenant, f.zone, f.sector, f.shipment, weight, volume, address],
+    );
+    return id;
+  }
   await db.query(
     `INSERT INTO "Package" (id,"tenantId","zoneId","sectorId","shipmentTypeId","trackingCode","publicTrackingToken","weightKg","volumeM3",latitude,longitude)
     VALUES ($1::uuid,$2,$3,$4,$5,$1::text,$1::text,$6,$7,11,-74)`,
@@ -99,14 +120,22 @@ async function run(mode) {
     connectionString: url.toString(),
     options: '-c role=sls_app',
   });
+  const prisma = new PrismaClient({ adapter: new PrismaPg(runtime) });
+  const currentSchema = mode === 'current';
+  const createPackage = (f, weight, volume) =>
+    makePackage(db, f, weight, volume, currentSchema);
   try {
     // Simulate Prisma's metadata table for raw-SQL replay tests.
     await db.query('CREATE TABLE "_prisma_migrations" (id text PRIMARY KEY)');
-    const dirs = [
-      '20260906213751_init_schema',
-      '20260914120000_unique_active_assignment',
-      '20260914130000_logistics_integrity',
-    ];
+    const dirs = currentSchema
+      ? readdirSync(migrations)
+          .filter((dir) => /^\d+_/.test(dir))
+          .sort()
+      : [
+          '20260906213751_init_schema',
+          '20260914120000_unique_active_assignment',
+          '20260914130000_logistics_integrity',
+        ];
     await db.query(
       readFileSync(join(migrations, dirs[0], 'migration.sql'), 'utf8'),
     );
@@ -114,8 +143,8 @@ async function run(mode) {
     if (mode === 'upgrade') {
       a = await fixture(db);
       b = await fixture(db);
-      p1 = await makePackage(db, a);
-      p2 = await makePackage(db, a);
+      p1 = await createPackage(a);
+      p2 = await createPackage(a);
       await db.query(
         `INSERT INTO "Assignment" ("tenantId","packageId","routeId","vehicleId","courierId","assignmentType",status)
         VALUES ($1,$2,$3,$4,$5,'INITIAL','ENDED')`,
@@ -129,10 +158,10 @@ async function run(mode) {
     if (!a) {
       a = await fixture(db);
       b = await fixture(db);
-      p1 = await makePackage(db, a);
-      p2 = await makePackage(db, a);
+      p1 = await createPackage(a);
+      p2 = await createPackage(a);
     }
-    const pb = await makePackage(db, b);
+    const pb = await createPackage(b);
     // All 32 tenant relations plus the stronger contextual keys have compound FKs.
     const cross =
       await db.query(`SELECT conname FROM pg_constraint k WHERE contype='f'
@@ -159,8 +188,15 @@ async function run(mode) {
     for (const [column, value] of [
       ['weightKg', 0],
       ['volumeM3', -1],
-      ['latitude', 91],
-      ['longitude', 181],
+      ...(currentSchema
+        ? [
+            ['lengthCm', 0],
+            ['heightCm', -1],
+          ]
+        : [
+            ['latitude', 91],
+            ['longitude', 181],
+          ]),
       ['weightKg', 'NaN'],
     ])
       await expectCode(
@@ -225,7 +261,9 @@ async function run(mode) {
     } finally {
       client.release();
     }
-    const reservations = new PostgresAssignmentReservation(runtime);
+    const role = await prisma.$queryRawUnsafe('SELECT current_user AS name');
+    assert.equal(role[0].name, 'sls_app');
+    const reservations = new PrismaAssignmentReservation(prisma);
     const results = await Promise.all(
       [p1, p2].map((packageId) =>
         reservations.reserve({
@@ -274,7 +312,7 @@ async function run(mode) {
           routeId: badRoute,
           routeStopId: a.stop,
         }),
-      '23503',
+      'P2003',
     );
     // Failed reassignment rolled back the historical close.
     const oldHistory = mode === 'upgrade' && assigned === p1 ? 1 : 0;
@@ -357,7 +395,7 @@ async function run(mode) {
       '23505',
     );
     // Independent volume limit and failed reservation preserving prior assignment.
-    const tooLarge = await makePackage(db, b, 1, 11);
+    const tooLarge = await createPackage(b, 1, 11);
     assert.equal(
       (
         await reservations.reserve({
@@ -369,8 +407,8 @@ async function run(mode) {
       'PENDING_ASSIGNMENT',
     );
     const volumeOrders = await Promise.all([
-      makePackage(db, b, 1, 6),
-      makePackage(db, b, 1, 6),
+      createPackage(b, 1, 6),
+      createPackage(b, 1, 6),
     ]);
     const volumeResults = await Promise.all(
       volumeOrders.map((packageId) =>
@@ -390,6 +428,7 @@ async function run(mode) {
       `PASS ${mode}: constraints, RLS/grants, concurrent capacity, atomic reassignment`,
     );
   } finally {
+    await prisma.$disconnect();
     await runtime.end();
     await db.end();
     await control.query(`DROP DATABASE "${name}"`);
@@ -399,6 +438,7 @@ async function run(mode) {
   try {
     await run('empty');
     await run('upgrade');
+    await run('current');
   } finally {
     await control.end();
   }
