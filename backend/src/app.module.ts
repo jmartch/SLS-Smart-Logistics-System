@@ -4,10 +4,16 @@ import { AppService } from './app.service';
 import { PrismaModule } from './database/prisma.module';
 import { AssignmentsModule } from './modules/assignments/assignments.module';
 import { RoutePlanningModule } from './modules/route-planning/route-planning.module';
+import { PackagesModule } from './modules/packages/packages.module';
 
 @Module({
-  imports: [PrismaModule, AssignmentsModule, RoutePlanningModule],
-  controllers: [AppController],
-  providers: [AppService],
+	imports: [
+		PrismaModule,
+		AssignmentsModule,
+		RoutePlanningModule,
+		PackagesModule,
+	],
+	controllers: [AppController],
+	providers: [AppService],
 })
-export class AppModule {}
+export class AppModule { }
