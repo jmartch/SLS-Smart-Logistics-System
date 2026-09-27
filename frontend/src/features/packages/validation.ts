@@ -30,7 +30,7 @@ export function validateRegisterPackageForm(
     errors.latitude = 'La latitud es obligatoria.';
   } else {
     const lat = Number(form.latitude);
-    if (Number.isNaN(lat) || lat < -90 || lat > 90) {
+    if (!Number.isFinite(lat) || lat < -90 || lat > 90) {
       errors.latitude = 'La latitud debe estar entre -90 y 90.';
     }
   }
@@ -38,7 +38,7 @@ export function validateRegisterPackageForm(
     errors.longitude = 'La longitud es obligatoria.';
   } else {
     const lng = Number(form.longitude);
-    if (Number.isNaN(lng) || lng < -180 || lng > 180) {
+    if (!Number.isFinite(lng) || lng < -180 || lng > 180) {
       errors.longitude = 'La longitud debe estar entre -180 y 180.';
     }
   }
@@ -48,7 +48,7 @@ export function validateRegisterPackageForm(
 
 function requirePositiveNumber(value: string, message: string, setError: (msg: string) => void): void {
   const n = Number(value);
-  if (value.trim() === '' || Number.isNaN(n) || n <= 0) {
+  if (value.trim() === '' || !Number.isFinite(n) || n <= 0) {
     setError(message);
   }
 }

@@ -135,6 +135,61 @@ button {
   letter-spacing: 0.04em;
 }
 
+.home-content {
+  width: min(680px, calc(100% - 2.5rem));
+  margin: auto;
+  padding: 4rem 0;
+}
+
+.eyebrow {
+  color: #ef6c38;
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  margin: 0 0 0.75rem;
+}
+
+.home-content h1 {
+  color: #102a43;
+  font-size: clamp(2.5rem, 6vw, 5rem);
+  line-height: 0.98;
+  margin: 0;
+  max-width: 680px;
+}
+
+.home-copy {
+  max-width: 480px;
+  margin: 1.5rem 0 2rem;
+  font-size: 1.1rem;
+}
+
+.primary-action,
+.upload-button {
+  border: 0;
+  background: #ef6c38;
+  color: white;
+  padding: 0.9rem 1.25rem;
+  font-weight: 700;
+  border-radius: 0.45rem;
+}
+
+.home-footer {
+  padding: 1.5rem clamp(1.25rem, 6vw, 5rem);
+  color: #667085;
+  font-size: 0.85rem;
+}
+
+.counter {
+  font-size: 16px;
+  padding: 5px 10px;
+  border-radius: 5px;
+  color: var(--accent);
+  background: var(--accent-bg);
+  border: 2px solid transparent;
+  transition: border-color 0.3s;
+  margin-bottom: 24px;
+}
+
 /* Contenido principal */
 
 .home-content {

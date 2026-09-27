@@ -1,12 +1,11 @@
-import { useEffect, useState } from 'react';
-import BarcodeScanner from './BarcodeScanner';
-import ImageQrScanner from './ImageQrScanner';
+import { lazy, Suspense, useEffect, useState } from 'react';
 import type { CameraErrorReason } from './BarcodeScanner';
 import PackageForm from './PackageForm';
 import { validateRegisterPackageForm } from '../validation';
 import { registerPackage } from '../api/packagesApi';
 import { fetchSectors, fetchShipmentTypes, fetchZones } from '../api/catalogApi';
 import { ApiError } from '../../../shared/api/httpClient';
+import { USE_MOCK_DATA } from '../../../shared/config/environment';
 import { EMPTY_REGISTER_PACKAGE_FORM } from '../types';
 import type {
   CatalogOption,
@@ -19,6 +18,9 @@ import './packages.css';
 
 type SubmitStatus = 'idle' | 'saving' | 'success';
 
+const BarcodeScanner = lazy(() => import('./BarcodeScanner'));
+const ImageQrScanner = lazy(() => import('./ImageQrScanner'));
+
 export default function RegisterPackageScreen({ onBack }: { onBack: () => void }) {
   const [values, setValues] = useState<RegisterPackageFormValues>(EMPTY_REGISTER_PACKAGE_FORM);
   const [errors, setErrors] = useState<RegisterPackageFormErrors>({});
@@ -28,14 +30,17 @@ export default function RegisterPackageScreen({ onBack }: { onBack: () => void }
   const [status, setStatus] = useState<SubmitStatus>('idle');
   const [apiErrorMessage, setApiErrorMessage] = useState<string | null>(null);
   const [lastResult, setLastResult] = useState<RegisterPackageResult | null>(null);
+  const [catalogReloadKey, setCatalogReloadKey] = useState(0);
 
   const [zones, setZones] = useState<CatalogOption[]>([]);
   const [shipmentTypes, setShipmentTypes] = useState<CatalogOption[]>([]);
   const [sectors, setSectors] = useState<SectorOption[]>([]);
+  const [sectorsLoading, setSectorsLoading] = useState(false);
+  const [sectorsError, setSectorsError] = useState<string | null>(null);
   const [catalogsLoading, setCatalogsLoading] = useState(true);
   const [catalogsError, setCatalogsError] = useState<string | null>(null);
 
-  // Zonas y tipos de envío se cargan una sola vez al entrar a la pantalla.
+  // Carga los catálogos al entrar y después de cada reintento solicitado.
   useEffect(() => {
     let cancelled = false;
     async function loadCatalogs() {
@@ -57,12 +62,12 @@ export default function RegisterPackageScreen({ onBack }: { onBack: () => void }
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [catalogReloadKey]);
 
   // Los sectores dependen de la zona elegida; se recargan al cambiarla.
   useEffect(() => {
     if (!values.zoneId) {
-      return; // sin zona seleccionada: no hay nada que sincronizar todavía
+      return;
     }
     let cancelled = false;
     fetchSectors(values.zoneId)
@@ -70,7 +75,12 @@ export default function RegisterPackageScreen({ onBack }: { onBack: () => void }
         if (!cancelled) setSectors(result);
       })
       .catch(() => {
-        if (!cancelled) setSectors([]);
+        if (!cancelled) {
+          setSectorsError('No se pudieron cargar los sectores. Puedes continuar sin seleccionar uno.');
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setSectorsLoading(false);
       });
     return () => {
       cancelled = true;
@@ -83,6 +93,15 @@ export default function RegisterPackageScreen({ onBack }: { onBack: () => void }
     setValues((v) => ({ ...v, trackingCode: rawText.trim() }));
     setErrors((e) => ({ ...e, trackingCode: undefined }));
     setScanning(false);
+  }
+
+  function handleFormChange(nextValues: RegisterPackageFormValues) {
+    if (nextValues.zoneId !== values.zoneId) {
+      setSectors([]);
+      setSectorsError(null);
+      setSectorsLoading(!!nextValues.zoneId);
+    }
+    setValues(nextValues);
   }
 
   function handleScannerError(reason: CameraErrorReason) {
@@ -140,7 +159,7 @@ export default function RegisterPackageScreen({ onBack }: { onBack: () => void }
   }
 
   function handleReset() {
-    setValues(EMPTY_REGISTER_PACKAGE_FORM);
+    handleFormChange(EMPTY_REGISTER_PACKAGE_FORM);
     setErrors({});
     setStatus('idle');
     setApiErrorMessage(null);
@@ -148,7 +167,7 @@ export default function RegisterPackageScreen({ onBack }: { onBack: () => void }
   }
 
   function handleLoadMockData() {
-    setValues({
+    handleFormChange({
       trackingCode: 'SLS-MOCK-2026-001',
       zoneId: 'zone-centro',
       sectorId: 'center-a',
@@ -159,8 +178,8 @@ export default function RegisterPackageScreen({ onBack }: { onBack: () => void }
       heightCm: '15',
       priority: 'HIGH',
       deadline: '',
-      latitude: '19.432608',
-      longitude: '-99.133209',
+      latitude: '10.968540',
+      longitude: '-74.781320',
     });
     setErrors({});
     setApiErrorMessage(null);
@@ -188,10 +207,12 @@ export default function RegisterPackageScreen({ onBack }: { onBack: () => void }
         errors={errors}
         zones={zones}
         sectors={values.zoneId ? sectors : []}
+        sectorsLoading={sectorsLoading}
+        sectorsError={sectorsError}
         shipmentTypes={shipmentTypes}
         catalogsLoading={catalogsLoading}
         catalogsError={catalogsError}
-        onChange={setValues}
+        onChange={handleFormChange}
         onSubmit={() => void handleSubmit()}
         onOpenScanner={() => {
           setScannerNotice(null);
@@ -202,13 +223,21 @@ export default function RegisterPackageScreen({ onBack }: { onBack: () => void }
           setImageScanning(true);
         }}
         onLoadMockData={handleLoadMockData}
+        showMockDataAction={USE_MOCK_DATA}
         disabled={status === 'saving'}
+        onRetryCatalogs={() => {
+          setCatalogReloadKey((current) => current + 1);
+        }}
       />
 
-      {scanning && (
-        <BarcodeScanner onDetected={handleDetected} onError={handleScannerError} onClose={() => setScanning(false)} />
+      {(scanning || imageScanning) && (
+        <Suspense fallback={<div className="scanner-overlay scanner-loading" role="status">Cargando lector...</div>}>
+          {scanning && (
+            <BarcodeScanner onDetected={handleDetected} onError={handleScannerError} onClose={() => setScanning(false)} />
+          )}
+          {imageScanning && <ImageQrScanner onDetected={handleImageDetected} onClose={() => setImageScanning(false)} />}
+        </Suspense>
       )}
-      {imageScanning && <ImageQrScanner onDetected={handleImageDetected} onClose={() => setImageScanning(false)} />}
     </div>
   );
 }

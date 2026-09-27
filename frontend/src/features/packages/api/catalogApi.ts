@@ -1,7 +1,7 @@
 import { apiFetch } from '../../../shared/api/httpClient';
+import { USE_MOCK_DATA } from '../../../shared/config/environment';
 import type { CatalogOption, SectorOption } from '../types';
 
-const USE_MOCK_DATA = import.meta.env.VITE_USE_MOCK_DATA !== 'false';
 const MOCK_ZONES: CatalogOption[] = [
   { id: 'zone-norte', code: 'NORTE', name: 'Zona norte' },
   { id: 'zone-centro', code: 'CENTRO', name: 'Zona centro' },
