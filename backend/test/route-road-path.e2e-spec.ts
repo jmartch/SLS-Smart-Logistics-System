@@ -62,11 +62,11 @@ describe('Persistencia integral de caminos GDB-05', () => {
                 throw new Error(`${variable} is required`);
             }
 
-            const databaseName = new URL(connectionString).pathname;
+            const databasePath = new URL(connectionString).pathname;
 
-            if (!databaseName.startsWith('/sls_gdb05_')) {
+            if (!/^\/sls_gdb05_[0-9a-f]{32}$/.test(databasePath)) {
                 throw new Error(
-                    `${variable} must point to a disposable sls_gdb05_* database`,
+                    `${variable} must point to a disposable database created by gdb-05.cjs`,
                 );
             }
         }

@@ -21,17 +21,32 @@ docker compose exec \
   backend npm run test:gdb-01
 ```
 
-El script crea una base con UUID por escenario y la elimina al terminar. Nunca aplica migraciones sobre la base indicada en la URL; esta se usa como conexión administrativa. No depende de `DATABASE_URL` ni de `RUNTIME_DATABASE_URL`.
+El script crea una única base `sls_gdb01_<uuid>`, aplica en ella todas las migraciones mediante `prisma migrate deploy`, ejecuta la suite Jest en banda y elimina la base al terminar. Nunca aplica migraciones sobre la base indicada en la URL; esta se usa como conexión administrativa. El runner construye internamente `DATABASE_URL` para administración y `RUNTIME_DATABASE_URL` con las credenciales de `sls_app`.
 
-Escenarios:
+La suite contiene dos variantes de fixture sobre esa misma base:
 
-- `empty`: primeras tres migraciones, desde base vacía.
-- `upgrade`: datos e historial creados antes de aplicar las restricciones GDB-01.
-- `current`: todas las migraciones del repositorio, con dirección y dimensiones en los paquetes. GDB-03 exige paquetes vacíos al migrar, por lo que los fixtures se crean después.
+- `fresh`: aplica todas las migraciones y prueba reservas sin historial previo.
+- `history`: aplica todas las migraciones y crea después una asignación `ENDED` para probar la reasignación y conservación del historial.
 
-Los tres ejecutan `PrismaAssignmentReservation` con el cliente generado y el adaptador PostgreSQL bajo `sls_app`. Se comprueban aislamiento RLS, permisos, claves compuestas, reservas concurrentes por peso y volumen, rechazo de duplicados y rollback/historial de reasignación. Los checks SQL esperan SQLSTATE; las operaciones Prisma esperan sus códigos correspondientes (por ejemplo, `P2003` para una FK inválida).
+Ambas variantes ejecutan `PrismaAssignmentReservation` con el cliente generado y el adaptador PostgreSQL bajo `sls_app`. Se comprueban aislamiento RLS, permisos, claves compuestas, reservas concurrentes por peso y volumen, rechazo de duplicados y rollback/historial de reasignación. Los checks SQL esperan SQLSTATE; una parada que no pertenece a la ruta devuelve el resultado contractual `NOT_FOUND` antes de intentar insertar.
+
+La ejecución vigente contiene 14 casos Jest: siete comportamientos para cada variante. `KEEP_GDB01_TEST_DB=1` conserva la base únicamente para diagnóstico deliberado.
 
 La cobertura corresponde a la primitiva de persistencia; no demuestra el flujo completo de Chain, estados, eventos ni planificación.
+
+## GDB-05 — Caminos y geometría PostGIS
+
+Desde la raíz del repositorio:
+
+```bash
+docker compose exec \
+  -e GDB_TEST_ADMIN_URL=postgresql://<usuario>:<clave>@<host-pruebas>:5432/postgres \
+  backend npm run test:gdb-05
+```
+
+El runner crea una base `sls_gdb05_<uuid>`, aplica todas las migraciones mediante `prisma migrate deploy` y ejecuta en banda `path-geometry.e2e-spec.ts` y `route-road-path.e2e-spec.ts` sobre la misma base. Ambas suites validan que `DATABASE_URL` y `RUNTIME_DATABASE_URL` apunten exactamente a la base aleatoria creada por el runner.
+
+La ejecución cubre cuatro pruebas: orden e inversión de geometrías, persistencia del recorrido completo, atomicidad cuando no existe camino y aislamiento entre tenants. El runner termina conexiones activas y elimina la base en `finally`, incluso si una migración o suite falla. `KEEP_GDB05_TEST_DB=1` conserva la base únicamente para diagnóstico deliberado.
 
 ## GDB-06 — Ciclo de vida de paquetes
 
