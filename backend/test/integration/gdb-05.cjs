@@ -65,6 +65,8 @@ async function main() {
                 '--config',
                 './test/jest-e2e.json',
                 '--runInBand',
+                '--runTestsByPath',
+                'test/path-geometry.e2e-spec.ts',
                 'test/route-road-path.e2e-spec.ts',
             ],
             {
@@ -79,7 +81,7 @@ async function main() {
             },
         );
 
-        console.log('PASS GDB-05: complete route path persisted');
+        console.log('PASS GDB-05: path geometry and complete route path persisted');
     } finally {
         if (databaseCreated) {
             if (process.env.KEEP_GDB05_TEST_DB === '1') {

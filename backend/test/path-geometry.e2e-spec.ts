@@ -21,12 +21,16 @@ describe('Road path geometry con PostGIS', () => {
   beforeAll(async () => {
     for (const variable of ['DATABASE_URL', 'RUNTIME_DATABASE_URL'] as const) {
       const connectionString = process.env[variable];
-      if (
-        !connectionString ||
-        new URL(connectionString).pathname !== '/sls_gdb05_test'
-      ) {
+
+      if (!connectionString) {
+        throw new Error(`${variable} is required`);
+      }
+
+      const databasePath = new URL(connectionString).pathname;
+
+      if (!/^\/sls_gdb05_[0-9a-f]{32}$/.test(databasePath)) {
         throw new Error(
-          `${variable} must point to the isolated sls_gdb05_test database`,
+          `${variable} must point to a disposable database created by gdb-05.cjs`,
         );
       }
     }
