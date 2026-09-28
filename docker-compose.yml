@@ -52,12 +52,24 @@ services:
     volumes:
       - rabbitmq_data:/var/lib/rabbitmq
     healthcheck:
-      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      test: [ "CMD", "rabbitmq-diagnostics", "-q", "ping" ]
       interval: 10s
       timeout: 5s
       retries: 5
       start_period: 20s
-
+  qr-helper:
+    profiles: ["tools"]
+    build: ./qr-helper
+    container_name: sls-qrhelper
+    command: npm run dev
+    volumes:
+      - ./qr-helper:/app
+      - /app/node_modules
+      - /app/.next
+    ports:
+      - "3002:3000"
+    environment:
+      - WATCHPACK_POLLING=true
 volumes:
   postgres_data:
   rabbitmq_data:
