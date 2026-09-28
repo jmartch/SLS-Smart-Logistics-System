@@ -16,6 +16,7 @@ import {
   Zap,
 } from "lucide-react"
 import { useState } from "react"
+import RegisterPackageScreen from "./features/packages/components/RegisterPackageScreen"
 
 const benefits = [
   {
@@ -61,11 +62,16 @@ const shipments = [
 
 export default function App() {
   const [menuOpen, setMenuOpen] = useState(false)
+  const [registrationOpen, setRegistrationOpen] = useState(false)
 
   const scrollToDemo = () => {
     document
       .querySelector("#operaciones")
       ?.scrollIntoView({ behavior: "smooth" })
+  }
+
+  if (registrationOpen) {
+    return <RegisterPackageScreen onBack={() => setRegistrationOpen(false)} />
   }
 
   return (
@@ -91,6 +97,16 @@ export default function App() {
           <a href="#contacto" onClick={() => setMenuOpen(false)}>
             Contacto
           </a>
+          <button
+            className="nav-registration"
+            type="button"
+            onClick={() => {
+              setMenuOpen(false)
+              setRegistrationOpen(true)
+            }}
+          >
+            Registrar paquete
+          </button>
         </nav>
 
         <button className="nav-cta" type="button" onClick={scrollToDemo}>

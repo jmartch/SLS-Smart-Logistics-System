@@ -170,6 +170,19 @@ button {
   transform: scaleX(1);
 }
 
+.nav-registration {
+  padding: 0.6rem 0;
+  color: var(--blue-dark);
+  background: transparent;
+  border: 0;
+  font-size: 0.9rem;
+  font-weight: 700;
+}
+
+.nav-registration:hover {
+  color: var(--navy);
+}
+
 .nav-cta,
 .primary-action {
   display: inline-flex;
@@ -869,6 +882,11 @@ button {
 
   .nav-links a {
     padding: 0.85rem 1rem;
+  }
+
+  .nav-registration {
+    padding: 0.85rem 1rem;
+    text-align: left;
   }
 
   .nav-cta {
