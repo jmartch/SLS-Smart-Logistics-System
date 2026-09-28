@@ -103,8 +103,8 @@ Evidencia de cierre:
 
 - 14 suites y 100 pruebas unitarias aprobadas;
 - compilación del backend aprobada;
-- tres pruebas integrales reproducibles: recorrido completo, conservación de datos ante camino inexistente y aislamiento entre tenants;
-- nueve migraciones aplicadas desde cero en cada ejecución integral;
+- cuatro pruebas integrales reproducibles: geometría ordenada, recorrido completo, conservación de datos ante camino inexistente y aislamiento entre tenants;
+- diez migraciones aplicadas desde cero en la ejecución integral vigente;
 - base temporal creada con nombre aleatorio y eliminada al finalizar;
 - reglas funcionales de ESLint aprobadas, omitiendo únicamente `prettier/prettier` para conservar el formato manual del E2E.
 

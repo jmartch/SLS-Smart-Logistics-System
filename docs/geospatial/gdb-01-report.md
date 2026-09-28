@@ -1,6 +1,6 @@
 # GDB-01 — Integridad logística y permisos
 
-Estado: implementación, verificación y aplicación a la base local `sls` completadas. Aplicación confirmada por la salida de terminal compartida por el usuario.
+Estado: implementación histórica aplicada a la base local `sls` y runner actual verificado sobre la cadena completa de migraciones. Los cambios del runner todavía no están confirmados en un commit; véase el [plan vigente](../plans/gdb-01.md).
 
 Este informe reemplaza el estado parcial de los informes de relaciones y de asignación activa. La migración inicial permanece intacta y el cambio previo del usuario en `backend/tsconfig.json` no fue modificado.
 
@@ -9,8 +9,8 @@ Este informe reemplaza el estado parcial de los informes de relaciones y de asig
 - `20260914120000_unique_active_assignment`: índice único parcial para una asignación ACTIVE por tenant/paquete.
 - `20260914130000_logistics_integrity`: relaciones compuestas, CHECK, permisos y RLS. Se ejecuta en una transacción; no elimina ni repara datos inconsistentes automáticamente.
 - Esquema Prisma actualizado con claves y relaciones que se pueden expresar en Prisma. Índice parcial, CHECK y políticas se mantienen explícitamente en SQL.
-- `PostgresAssignmentReservation`: adaptador de persistencia que reserva capacidad mediante transacción SERIALIZABLE y bloqueos de ruta, paquete y vehículos. Reintenta hasta cinco veces errores de serialización/deadlock, sin ocultar los demás errores.
-- Prueba reproducible `npm run test:gdb-01`, con bases de nombre aleatorio creadas y eliminadas por el propio script.
+- `PrismaAssignmentReservation`: adaptador de persistencia vigente que reserva capacidad mediante transacción SERIALIZABLE y bloqueos de ruta, paquete y vehículos. Reintenta hasta cinco veces errores de serialización/deadlock, sin ocultar los demás errores.
+- Prueba reproducible `npm run test:gdb-01`, con bases de nombre aleatorio creadas y eliminadas por el propio script después de aplicar todas las migraciones.
 
 ## Reglas comprobadas
 
@@ -43,6 +43,23 @@ Tenant/Permission se administran con un rol de plataforma separado, no mediante 
 
 ## Verificaciones ejecutadas
 
+### Verificación vigente — 2026-09-27
+
+El runner fue alineado con su objetivo funcional: probar la implementación actual de GDB-01 sobre el esquema actual. Crea una base desechable, aplica las 10 migraciones mediante `prisma migrate deploy`, crea fixtures compatibles con dirección y dimensiones y ejecuta `PrismaAssignmentReservation` bajo el rol `sls_app`.
+
+Resultados observados mediante Docker contra el servidor PostgreSQL/PostGIS de pruebas indicado explícitamente por el usuario:
+
+- Build Nest/TypeScript: correcto.
+- Una suite Jest correcta con 14/14 pruebas: siete comportamientos ejecutados para `fresh` y `history`.
+- Migraciones completas, restricciones, RLS/permisos, capacidad concurrente por peso y volumen y reasignación atómica.
+- `history` conserva una asignación `ENDED` previa creada sobre el esquema completo.
+- La parada perteneciente a otra ruta devuelve `NOT_FOUND` y no modifica el historial.
+- La base aleatoria fue eliminada después de la suite.
+
+Node emitió una advertencia no bloqueante de deprecación de `pg` por consultas superpuestas sobre el mismo cliente. No afectó los resultados; debe corregirse antes de migrar a `pg@9`.
+
+### Evidencia histórica
+
 - Prisma validate: correcto.
 - Prisma generate: correcto; cliente generado fuera de Git.
 - Build Nest/TypeScript: correcto.
@@ -55,10 +72,12 @@ Tenant/Permission se administran con un rol de plataforma separado, no mediante 
 
 ## Reproducción
 
-Desde backend, con una URL administrativa de un servidor de pruebas:
+Desde la raíz del repositorio, con una URL administrativa de un servidor de pruebas:
 
 ```bash
-GDB_TEST_ADMIN_URL='postgresql://usuario:clave@host:5432/postgres' npm run test:gdb-01
+docker compose exec \
+  -e GDB_TEST_ADMIN_URL=postgresql://usuario:clave@host:5432/postgres \
+  backend npm run test:gdb-01
 ```
 
 La URL debe permitir crear bases. El script solo elimina las bases aleatorias que creó, no la base indicada por la URL ni `sls`. Para probar en Docker, pasar esa variable al servicio backend y ejecutar el mismo script. Se recomienda un servidor de pruebas dedicado si no existe ya el rol `sls_app`, porque la migración inicial contiene creación de rol de alcance servidor.

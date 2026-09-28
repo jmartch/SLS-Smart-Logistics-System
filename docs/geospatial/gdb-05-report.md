@@ -1,8 +1,8 @@
 # GDB-05 — Grafo versionado y caminos
 
-Fecha de verificación: 2026-09-26.
+Fecha de verificación vigente: 2026-09-27.
 
-Estado: **DONE para el alcance del prototipo académico**. El esquema, la migración, Dijkstra, la reconstrucción geométrica y la persistencia transaccional de caminos para rutas existentes están implementados y verificados en PostgreSQL/PostGIS real. La conexión con el caso de uso que crea automáticamente rutas, paradas y asignaciones corresponde a ASSIGN-01/GDB-04 y no bloquea el cierre de GDB-05.
+Estado: **DONE para el alcance del prototipo académico y su runner integrado**. El esquema, la migración, Dijkstra, la reconstrucción geométrica y la persistencia transaccional de caminos para rutas existentes están implementados y verificados en PostgreSQL/PostGIS real. `path-geometry.e2e-spec.ts` y `route-road-path.e2e-spec.ts` se ejecutan ahora desde el mismo runner, sobre una única base aleatoria; véase el [plan GDB-05](../plans/gdb-05.md). La conexión con el caso de uso que crea automáticamente rutas, paradas y asignaciones corresponde a ASSIGN-01/GDB-04 y no bloquea el cierre funcional de GDB-05.
 
 ## Implementación
 
@@ -26,6 +26,23 @@ La resolución respeta el tenant y devuelve resultados explícitos para ruta ine
 
 ## Verificación reproducible
 
+### Ejecución integrada vigente — 2026-09-27
+
+`npm run test:gdb-05` se ejecutó mediante Docker contra un contenedor temporal `postgis/postgis:17-3.6-alpine`, separado de la base compartida. El runner creó `sls_gdb05_66c8b2ed7cfc4b8681e7a7f7b4f0f22c`, aplicó correctamente las 10 migraciones actuales con `prisma migrate deploy`, ejecutó ambas suites con `--runInBand --runTestsByPath` y eliminó la base al finalizar.
+
+Resultados observados:
+
+- `PASS test/path-geometry.e2e-spec.ts`;
+- `PASS test/route-road-path.e2e-spec.ts`;
+- 2 suites aprobadas, 4 pruebas aprobadas y 0 snapshots;
+- build Nest/TypeScript correcto;
+- mensaje final del runner correcto y base aleatoria eliminada;
+- contenedor PostGIS temporal detenido y eliminado después de la verificación.
+
+La comprobación de Prettier continúa advirtiendo sobre el formato manual histórico de `gdb-05.cjs` y `route-road-path.e2e-spec.ts`. La verificación funcional previa ya omitía `prettier/prettier` para el E2E; no se realizó una reformateada masiva ajena al cambio.
+
+### Evidencia histórica — 2026-09-26
+
 La verificación original se ejecutó en un contenedor temporal `postgis/postgis:17-3.6-alpine` con la base `sls_gdb05_test`. Las migraciones de prueba, los fixtures y las suites que escriben datos se ejecutaron únicamente allí; la base compartida se usó después solo para el preflight de lectura descrito más abajo.
 
 Resultados obtenidos:
@@ -46,13 +63,14 @@ Verificación de la integración de rutas:
 - módulo `route-planning`: 9 suites y 58 pruebas aprobadas;
 - `npm run build`: compilación correcta;
 - `git diff --check`: sin errores;
-- `npm run test:gdb-05`: crea una base PostGIS con nombre aleatorio, aplica las nueve migraciones, ejecuta las pruebas integrales y elimina la base incluso al finalizar el proceso.
+- `npm run test:gdb-05`: crea una base PostGIS con nombre aleatorio, aplica las 10 migraciones actuales, ejecuta las dos suites integrales y elimina la base incluso al finalizar el proceso.
 
-El E2E reproducible de GDB-05 ejecuta tres pruebas:
+El E2E reproducible de GDB-05 ejecuta cuatro pruebas:
 
-1. Recorrido completo: persiste salida del depósito, dos paradas y regreso, con tres `RouteLeg`, sus `RouteLegEdge`, 4500 metros y 540 segundos.
-2. Atomicidad ante camino inexistente: al retirar temporalmente el perfil vial de la arista de regreso, devuelve `PATH_NOT_FOUND` para el tramo 3 y conserva sin cambios los tramos y métricas previamente persistidos.
-3. Aislamiento entre tenants: un segundo tenant recibe `ROUTE_NOT_FOUND` y no puede consultar ni modificar los caminos de la ruta original.
+1. Geometría ordenada: carga aristas en orden e invierte una `LineString` almacenada en sentido contrario.
+2. Recorrido completo: persiste salida del depósito, dos paradas y regreso, con tres `RouteLeg`, sus `RouteLegEdge`, 4500 metros y 540 segundos.
+3. Atomicidad ante camino inexistente: al retirar temporalmente el perfil vial de la arista de regreso, devuelve `PATH_NOT_FOUND` para el tramo 3 y conserva sin cambios los tramos y métricas previamente persistidos.
+4. Aislamiento entre tenants: un segundo tenant recibe `ROUTE_NOT_FOUND` y no puede consultar ni modificar los caminos de la ruta original.
 
 El runner exige `GDB_TEST_ADMIN_URL`, genera una base `sls_gdb05_<uuid>`, ejecuta migraciones y Jest con `--experimental-vm-modules`, termina conexiones activas y elimina exclusivamente esa base desechable. La base compartida `sls` no participa en estas pruebas.
 
