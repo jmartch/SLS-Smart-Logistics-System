@@ -1,0 +1,31 @@
+{
+  "tabWidth": 2,
+  "useTabs": false,
+  "singleQuote": true,
+  "trailingComma": "all",
+  "endOfLine": "auto",
+  "overrides": [
+    {
+      "files": "src/modules/assignments/**/*.ts",
+      "options": {
+        "tabWidth": 4
+      }
+    },
+    {
+      "files": "test/demo/assignment-chain.demo.ts",
+      "options": {
+        "tabWidth": 4
+      }
+    },
+    {
+      "files": [
+        "src/modules/packages/**/*.ts",
+        "test/package-lifecycle.e2e-spec.ts",
+        "test/integration/gdb-06.cjs"
+      ],
+      "options": {
+        "tabWidth": 4
+      }
+    }
+  ]
+}

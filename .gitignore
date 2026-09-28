@@ -1,0 +1,32 @@
+# Environment
+.env
+.env.*
+!.env.example
+
+# Dependencies
+node_modules/
+
+# Build
+dist/
+
+# Prisma generated client
+generated/
+
+# AI agent files
+.agents/
+!/.agents/
+/.agents/*
+!/.agents/skills/
+/.agents/skills/*
+!/.agents/skills/sls-workflow-commits/
+!/.agents/skills/sls-workflow-commits/**
+!/.agents/skills/sls-module-workflow/
+!/.agents/skills/sls-module-workflow/**
+.claude/
+.windsurf/
+skills-lock.json
+docs/superpowers/
+tmp/
+
+# Logs
+*.log

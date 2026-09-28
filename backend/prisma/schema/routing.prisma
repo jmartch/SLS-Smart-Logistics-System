@@ -1,0 +1,206 @@
+enum VehicleStatus {
+  ACTIVE
+  INACTIVE
+  MAINTENANCE
+}
+
+enum CourierStatus {
+  ACTIVE
+  INACTIVE
+}
+
+enum RoutePlanningRequestStatus {
+  PENDING
+  IN_PROGRESS
+  COMPLETED
+  FAILED
+}
+
+enum RouteState {
+  DRAFT
+  PLANNING
+  PLANNED
+  READY
+  IN_PROGRESS
+  COMPLETED
+  PLANNING_FAILED
+  INTERRUPTED
+  CANCELLED
+}
+
+enum RouteStopState {
+  PENDING
+  COMPLETED
+  FAILED
+}
+
+enum AssignmentType {
+  INITIAL
+  REASSIGNMENT
+}
+
+enum AssignmentStatus {
+  ACTIVE
+  ENDED
+  CANCELLED
+}
+
+enum PlanningPackageOutcome {
+  ASSIGNED
+  PENDING
+}
+
+model Vehicle {
+  id          String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId    String        @db.Uuid
+  plate       String
+  maxWeightKg Decimal       @db.Decimal(10, 3)
+  maxVolumeM3 Decimal       @db.Decimal(12, 6)
+  status      VehicleStatus @default(ACTIVE)
+
+  tenant      Tenant         @relation(fields: [tenantId], references: [id])
+  routes      Route[]
+  assignments Assignment[]
+  shifts      VehicleShift[]
+
+  @@unique([tenantId, id])
+  @@unique([tenantId, plate])
+  @@index([tenantId])
+}
+
+model Courier {
+  id       String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId String        @db.Uuid
+  userId   String        @db.Uuid
+  status   CourierStatus @default(ACTIVE)
+
+  tenant           Tenant            @relation(fields: [tenantId], references: [id])
+  user             User              @relation(fields: [tenantId, userId], references: [tenantId, id], onDelete: Restrict, onUpdate: Cascade)
+  routes           Route[]
+  assignments      Assignment[]
+  deliveryAttempts DeliveryAttempt[]
+  shifts           CourierShift[]
+
+  @@unique([tenantId, id])
+  @@unique([userId])
+  @@unique([tenantId, userId])
+  @@index([tenantId])
+}
+
+model RoutePlanningRequest {
+  id                String                     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId          String                     @db.Uuid
+  requestedByUserId String                     @db.Uuid
+  status            RoutePlanningRequestStatus @default(PENDING)
+  parameters        Json
+  failureReason     String?
+  createdAt         DateTime                   @default(now())
+  completedAt       DateTime?
+  horizonStartAt    DateTime?                  @db.Timestamptz(3)
+  horizonEndAt      DateTime?                  @db.Timestamptz(3)
+  timeZone          String?
+  algorithm         String?
+  algorithmVersion  String?
+  datasetId         String?                    @db.Uuid
+  datasetVersion    String?
+
+  tenant          Tenant                  @relation(fields: [tenantId], references: [id])
+  requestedByUser User                    @relation(fields: [tenantId, requestedByUserId], references: [tenantId, id], onDelete: Restrict, onUpdate: Cascade)
+  routes          Route[]
+  packageResults  PlanningPackageResult[]
+  dataset         GeoDataset?             @relation(fields: [datasetId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+
+  @@unique([tenantId, id])
+  @@index([tenantId])
+}
+
+model Route {
+  id                String     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId          String     @db.Uuid
+  planningRequestId String     @db.Uuid
+  vehicleId         String     @db.Uuid
+  courierId         String     @db.Uuid
+  state             RouteState @default(DRAFT)
+  plannedAt         DateTime   @default(now())
+  startedAt         DateTime?
+  completedAt       DateTime?
+  serviceDate       DateTime?  @db.Date
+  depotId           String?    @db.Uuid
+  plannedStartAt    DateTime?  @db.Timestamptz(3)
+  plannedEndAt      DateTime?  @db.Timestamptz(3)
+  plannedDistanceM  Decimal?   @db.Decimal(12, 2)
+  plannedDurationS  Int?
+
+  tenant          Tenant               @relation(fields: [tenantId], references: [id])
+  planningRequest RoutePlanningRequest @relation(fields: [tenantId, planningRequestId], references: [tenantId, id], onDelete: Restrict, onUpdate: Cascade)
+  vehicle         Vehicle              @relation(fields: [tenantId, vehicleId], references: [tenantId, id], onDelete: Restrict, onUpdate: Cascade)
+  courier         Courier              @relation(fields: [tenantId, courierId], references: [tenantId, id], onDelete: Restrict, onUpdate: Cascade)
+  stops           RouteStop[]
+  assignments     Assignment[]
+  incidents       Incident[]
+  depot           Depot?               @relation(fields: [tenantId, depotId], references: [tenantId, id], onDelete: Restrict, onUpdate: Restrict)
+  legs            RouteLeg[]
+
+  @@unique([tenantId, id])
+  @@unique([tenantId, id, vehicleId, courierId])
+  @@index([tenantId])
+}
+
+model RouteStop {
+  id                 String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId           String         @db.Uuid
+  routeId            String         @db.Uuid
+  sequence           Int
+  latitude           Decimal        @db.Decimal(10, 6)
+  longitude          Decimal        @db.Decimal(10, 6)
+  state              RouteStopState @default(PENDING)
+  arrivalAt          DateTime?      @db.Timestamptz(3)
+  serviceStartAt     DateTime?      @db.Timestamptz(3)
+  serviceEndAt       DateTime?      @db.Timestamptz(3)
+  geocodingAttemptId String?        @db.Uuid
+  deliveryWindowId   String?        @db.Uuid
+
+  tenant           Tenant            @relation(fields: [tenantId], references: [id])
+  route            Route             @relation(fields: [tenantId, routeId], references: [tenantId, id], onDelete: Restrict, onUpdate: Cascade)
+  assignments      Assignment[]
+  deliveryAttempts DeliveryAttempt[]
+  incidents        Incident[]
+  geocodingAttempt GeocodingAttempt? @relation(fields: [tenantId, geocodingAttemptId], references: [tenantId, id], onDelete: Restrict, onUpdate: Restrict)
+  deliveryWindow   DeliveryWindow?   @relation(fields: [tenantId, deliveryWindowId], references: [tenantId, id], onDelete: Restrict, onUpdate: Restrict)
+
+  @@unique([tenantId, id])
+  @@unique([tenantId, id, routeId])
+  @@unique([routeId, sequence])
+  @@index([tenantId])
+}
+
+model Assignment {
+  id                     String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId               String           @db.Uuid
+  packageId              String           @db.Uuid
+  routeId                String?          @db.Uuid
+  routeStopId            String?          @db.Uuid
+  vehicleId              String?          @db.Uuid
+  courierId              String?          @db.Uuid
+  routingRuleId          String?          @db.Uuid
+  responsibleUserId      String?          @db.Uuid
+  assignmentType         AssignmentType
+  status                 AssignmentStatus @default(ACTIVE)
+  reasonCode             String?
+  ruleExpressionSnapshot String?
+  createdAt              DateTime         @default(now())
+  endedAt                DateTime?
+
+  tenant          Tenant       @relation(fields: [tenantId], references: [id])
+  package         Package      @relation(fields: [tenantId, packageId], references: [tenantId, id], onDelete: Restrict, onUpdate: Cascade)
+  route           Route?       @relation(fields: [tenantId, routeId, vehicleId, courierId], references: [tenantId, id, vehicleId, courierId], onDelete: Restrict, onUpdate: Restrict)
+  routeStop       RouteStop?   @relation(fields: [tenantId, routeStopId, routeId], references: [tenantId, id, routeId], onDelete: Restrict, onUpdate: Restrict)
+  vehicle         Vehicle?     @relation(fields: [tenantId, vehicleId], references: [tenantId, id], onDelete: Restrict, onUpdate: Cascade)
+  courier         Courier?     @relation(fields: [tenantId, courierId], references: [tenantId, id], onDelete: Restrict, onUpdate: Cascade)
+  routingRule     RoutingRule? @relation(fields: [tenantId, routingRuleId], references: [tenantId, id], onDelete: Restrict, onUpdate: Cascade)
+  responsibleUser User?        @relation(fields: [tenantId, responsibleUserId], references: [tenantId, id], onDelete: Restrict, onUpdate: Cascade)
+
+  // Partial unique index for ACTIVE rows is maintained in the SQL migration.
+  // A full @@unique would incorrectly prevent assignment history.
+  @@index([tenantId])
+}
