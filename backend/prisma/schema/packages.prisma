@@ -40,6 +40,12 @@ model Package {
   priority               PackagePriority @default(NORMAL)
   deadline               DateTime?
   serviceDurationSeconds Int?
+  senderName             String
+  senderPhone            String
+  senderEmail            String?
+  recipientName          String
+  recipientPhone         String
+  recipientEmail         String?
 
   tenant           Tenant                  @relation(fields: [tenantId], references: [id])
   address          Address                 @relation(fields: [tenantId, addressId], references: [tenantId, id], onDelete: Restrict, onUpdate: Restrict)
