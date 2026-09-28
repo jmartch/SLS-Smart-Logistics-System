@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import QRCode from 'react-qr-code';
 import { Download, RefreshCw, CheckCircle, AlertCircle, Copy, Code } from 'lucide-react';
 
@@ -28,45 +28,52 @@ const SAMPLE_JSONS = {
     }
 };
 
+function validateJsonText(value: string): {
+    isValidJson: boolean;
+    errorMessage: string;
+} {
+    if (!value.trim()) {
+        return {
+            isValidJson: false,
+            errorMessage: 'El texto no puede estar vacío',
+        };
+    }
+
+    try {
+        JSON.parse(value);
+        return { isValidJson: true, errorMessage: '' };
+    } catch (error: unknown) {
+        return {
+            isValidJson: false,
+            errorMessage: error instanceof Error ? error.message : 'JSON inválido',
+        };
+    }
+}
+
 export default function JsonQrGenerator() {
+    type ErrorCorrectionLevel = 'L' | 'M' | 'Q' | 'H';
     const [jsonText, setJsonText] = useState(JSON.stringify(SAMPLE_JSONS.simple, null, 2));
-    const [isValidJson, setIsValidJson] = useState(true);
-    const [errorMessage, setErrorMessage] = useState('');
     const [copied, setCopied] = useState(false);
     const [fgColor, setFgColor] = useState('#0f172a');
     const [bgColor, setBgColor] = useState('#ffffff');
-    const [level, setLevel] = useState('M'); // Error correction level: L, M, Q, H
+    const [level, setLevel] = useState<ErrorCorrectionLevel>('M');
 
-    // Validar JSON en tiempo real cada vez que el usuario escribe
-    useEffect(() => {
-        if (!jsonText.trim()) {
-            setIsValidJson(false);
-            setErrorMessage('El texto no puede estar vacío');
-            return;
-        }
-
-        try {
-            JSON.parse(jsonText);
-            setIsValidJson(true);
-            setErrorMessage('');
-        } catch (err) {
-            setIsValidJson(false);
-            setErrorMessage(err.message);
-        }
-    }, [jsonText]);
+    const { isValidJson, errorMessage } = validateJsonText(jsonText);
 
     // Formatear/embellecer el JSON
     const handleFormat = () => {
         try {
             const parsed = JSON.parse(jsonText);
             setJsonText(JSON.stringify(parsed, null, 2));
-        } catch (e) {
-            // No hace nada si el JSON no es válido
+        } catch {
+            // El botón permanece deshabilitado mientras el JSON sea inválido.
         }
     };
 
     // Cargar un ejemplo prefijado
-    const loadPreset = (key) => {
+    type SampleKey = keyof typeof SAMPLE_JSONS;
+
+    const loadPreset = (key: SampleKey) => {
         setJsonText(JSON.stringify(SAMPLE_JSONS[key], null, 2));
     };
 
@@ -77,7 +84,9 @@ export default function JsonQrGenerator() {
 
         const svgData = new XMLSerializer().serializeToString(svg);
         const canvas = document.createElement("canvas");
-        const ctx = canvas.getContext("2d");
+        const ctx = canvas.getContext('2d');
+        if (!ctx) return;
+
         const img = new Image();
 
         // Crear Blob SVG para renderizar en el Canvas en alta resolución
@@ -181,8 +190,8 @@ export default function JsonQrGenerator() {
                             onChange={(e) => setJsonText(e.target.value)}
                             placeholder="Pega o escribe tu JSON aquí..."
                             className={`w-full h-full min-h-[300px] p-4 font-mono text-sm bg-slate-900 rounded-lg border focus:outline-none focus:ring-2 resize-y transition ${isValidJson
-                                    ? 'border-slate-700 focus:ring-blue-500 focus:border-blue-500 text-slate-200'
-                                    : 'border-rose-500/50 focus:ring-rose-500 text-rose-200'
+                                ? 'border-slate-700 focus:ring-blue-500 focus:border-blue-500 text-slate-200'
+                                : 'border-rose-500/50 focus:ring-rose-500 text-rose-200'
                                 }`}
                             spellCheck={false}
                         />
@@ -249,7 +258,7 @@ export default function JsonQrGenerator() {
                                 <label className="block mb-1 text-slate-400">Nivel Corrección</label>
                                 <select
                                     value={level}
-                                    onChange={(e) => setLevel(e.target.value)}
+                                    onChange={(e) => setLevel(e.target.value as ErrorCorrectionLevel)}
                                     className="w-full h-8 bg-slate-900 border border-slate-700 rounded text-slate-200 px-1 focus:outline-none"
                                 >
                                     <option value="L">L (7%)</option>
