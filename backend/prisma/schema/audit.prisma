@@ -10,7 +10,8 @@ model AuditLog {
   createdAt     DateTime @default(now())
 
   tenant    Tenant @relation(fields: [tenantId], references: [id])
-  actorUser User?  @relation(fields: [actorUserId], references: [id])
+  actorUser User?  @relation(fields: [tenantId, actorUserId], references: [tenantId, id], onDelete: Restrict, onUpdate: Cascade)
 
+  @@unique([tenantId, id])
   @@index([tenantId])
 }

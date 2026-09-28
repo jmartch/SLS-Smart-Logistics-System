@@ -8,6 +8,7 @@ model Zone {
   sectors  Sector[]
   packages Package[]
 
+  @@unique([tenantId, id])
   @@unique([tenantId, code])
   @@index([tenantId])
 }
@@ -20,9 +21,11 @@ model Sector {
   name     String
 
   tenant   Tenant    @relation(fields: [tenantId], references: [id])
-  zone     Zone      @relation(fields: [zoneId], references: [id])
+  zone     Zone      @relation(fields: [tenantId, zoneId], references: [tenantId, id], onDelete: Restrict, onUpdate: Cascade)
   packages Package[]
 
+  @@unique([tenantId, id])
+  @@unique([tenantId, id, zoneId])
   @@unique([zoneId, code])
   @@index([tenantId])
 }
@@ -38,6 +41,7 @@ model RoutingRule {
   tenant      Tenant       @relation(fields: [tenantId], references: [id])
   assignments Assignment[]
 
+  @@unique([tenantId, id])
   @@index([tenantId])
 }
 
@@ -51,6 +55,7 @@ model ShipmentType {
   tenant   Tenant    @relation(fields: [tenantId], references: [id])
   packages Package[]
 
+  @@unique([tenantId, id])
   @@unique([tenantId, code])
   @@index([tenantId])
 }
