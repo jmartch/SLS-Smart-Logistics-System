@@ -9,7 +9,7 @@
 | Estado general | `DONE` para el alcance definido |
 | Rama observada | `feature/geocoding-algorithms` |
 | Última auditoría | 2026-09-29 |
-| Commit auditado | `333011b` como base; implementación aún sin commit |
+| Commits | `4878298`, `bbae803`, `387bd32`, `8842c7d`, `fcd6aec` |
 | Informe | [docs/modules/geocode-01-report.md](../modules/geocode-01-report.md) |
 
 ## Alcance
@@ -259,6 +259,7 @@ Las siete suites unitarias y de arquitectura, el build y los seis escenarios e2e
 | 2026-09-29 | Ambigüedad persistente del paso 6 | Se añadieron dos referencias exactas empatadas para una dirección y se comprobó que se conservan como candidatos sin selección automática. | Usuario: 1 suite y 5/5 pruebas e2e aprobadas; `REVIEW_REQUIRED` aprobado junto con los cuatro escenarios anteriores; base `sls_geocode01_58b7a6fcf24b4ce8838cc8acadcaba7a` eliminada. | sin commit |
 | 2026-09-29 | Paso 6 cerrado | Un trigger temporal forzó el fallo al insertar el candidato; la consulta administrativa comprobó que la transacción no dejó intento ni candidatos parciales. | Usuario: 1 suite y 6/6 pruebas e2e aprobadas; build y 10 migraciones aprobados; base `sls_geocode01_96065cb7eb7c44e7b573716de7de5f3b` y contenedor dedicado eliminados. | sin commit |
 | 2026-09-29 | Paso 7 y módulo cerrados | Se ejecutaron juntas las siete suites del módulo y se sincronizaron plan, informe y README de integración. | Usuario: 7 suites y 36/36 pruebas aprobadas; build aprobado. Evidencia e2e vigente: 6/6. | sin commit |
+| 2026-09-29 | Commits registrados | Implementación, pruebas, infraestructura desechable, documentación y registro final en `AppModule` quedaron confirmados en commits enfocados. | Historial Git inspeccionado después del commit correctivo; no quedan cambios funcionales pendientes de `GEOCODE-01`. | `4878298`, `bbae803`, `387bd32`, `8842c7d`, `fcd6aec` |
 
 ## Cierre
 
@@ -268,4 +269,4 @@ Las siete suites unitarias y de arquitectura, el build y los seis escenarios e2e
 - [x] Round-trip de coordenadas sin inversión comprobado.
 - [x] Informe actualizado con evidencia vigente.
 - [x] Trabajo fuera de alcance documentado.
-- [x] Estado del plan contrastado con código, pruebas y commits; implementación todavía sin commit.
+- [x] Estado del plan contrastado con código, pruebas y commits relacionados registrados.

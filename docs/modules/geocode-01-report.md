@@ -77,7 +77,15 @@ compartido y de solo lectura para runtime.
 - Archivos: este informe, el plan y `backend/test/integration/README.md`.
 - Resultado: dominio, aplicación, infraestructura, arquitectura y e2e coinciden con el alcance declarado.
 - Evidencia: 7 suites y 36/36 pruebas del módulo, 6/6 e2e y build aprobados.
-- Pendiente: los cambios aún no están confirmados en un commit.
+- Pendiente: ninguno para el alcance definido.
+
+## Commits relacionados
+
+- `4878298` — `test(geocoding): verify deterministic geocoding workflow`
+- `bbae803` — `feat(geocoding): implement deterministic local geocoding`
+- `387bd32` — `test(gdb): add reusable postgis test environment`
+- `8842c7d` — `docs(geocoding): document GEOCODE-01 implementation`
+- `fcd6aec` — `fix(geocoding): register module in app`
 
 ## Decisiones técnicas
 
