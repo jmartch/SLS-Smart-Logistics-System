@@ -236,6 +236,54 @@ Rules:
 - Export only the providers that form a module's intentional public interface.
 - Avoid circular dependencies and global modules except for truly cross-cutting infrastructure.
 
+### Clean Architecture boundaries
+
+The backend applies **Clean Architecture** inside the modular monolith. Organize
+code by business capability first and preserve the following dependency direction
+inside each capability:
+
+```text
+Presentation -> Application -> Domain
+Infrastructure -> Application/Domain
+```
+
+Mandatory boundaries:
+
+- `domain/` contains entities, aggregates, value objects, domain services,
+  policies, domain events, and contracts that belong to the domain.
+- `domain/` must not import NestJS, Prisma, HTTP DTOs, controllers, RabbitMQ,
+  email providers, storage providers, or infrastructure implementations.
+- `application/` contains use cases, commands, application results, and the
+  ports required to execute those use cases.
+- Application use cases coordinate the business workflow. A persistence
+  adapter must not decide the use-case flow, invoke validation policy on behalf
+  of the use case, or determine business outcomes beyond translating persisted
+  state and infrastructure failures.
+- `application/` may depend on `domain/`, but it must not import concrete
+  implementations from `infrastructure/` or framework-specific presentation
+  code.
+- `infrastructure/` implements ports owned by the inner layers and contains
+  Prisma, SQL, RabbitMQ, email, storage, and other external integrations.
+- `presentation/` validates and maps external input, obtains trusted identity
+  and tenant context, invokes one application use case, and maps its result. It
+  must not contain authoritative business rules.
+- NestJS modules are composition roots. They may know both ports and adapters
+  solely to wire dependencies, but application and domain classes must remain
+  instantiable without NestJS.
+- Transactional consistency may use an application-owned unit-of-work or
+  transactional port. Do not move business policy into a Prisma adapter merely
+  to keep an operation atomic.
+- Repository and gateway contracts must model capabilities needed by the inner
+  layers rather than expose Prisma models, transaction clients, or framework
+  types.
+- Add automated import-boundary rules or architecture tests as modules are
+  introduced. At minimum, reject imports from `domain/` to `application/`,
+  `infrastructure/`, or `presentation/`, and from `application/` to
+  `infrastructure/` or `presentation/`.
+- Existing code that does not yet satisfy these boundaries is technical debt,
+  not a precedent. Refactor it in a focused task without mixing unrelated
+  feature work.
+
 ## 9. Multi-tenancy
 
 Every company is a `Tenant`. All tenant-owned entities must include `tenantId` directly or through an enforceable parent relation.
