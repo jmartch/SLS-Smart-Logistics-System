@@ -22,7 +22,8 @@
     "test:e2e": "cross-env NODE_OPTIONS=--experimental-vm-modules jest --config ./test/jest-e2e.json",
     "test:gdb-01": "npm run build && node test/integration/gdb-01.cjs",
     "test:gdb-05": "npm run build && node test/integration/gdb-05.cjs",
-    "test:gdb-06": "npm run build && node test/integration/gdb-06.cjs"
+    "test:gdb-06": "npm run build && node test/integration/gdb-06.cjs",
+    "test:geocode-01": "npm run build && node test/integration/geocode-01.cjs"
   },
   "dependencies": {
     "@nestjs/common": "^11.0.1",
