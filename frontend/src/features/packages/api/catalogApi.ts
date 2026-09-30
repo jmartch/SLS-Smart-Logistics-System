@@ -21,17 +21,17 @@ const MOCK_SECTORS: SectorOption[] = [
 
 // Contrato asumido, pendiente de confirmar con backend (ZONE-01 / catálogo de
 // tipos de envío todavía no están implementados según AGENTS.md §26).
-export async function fetchZones(): Promise<CatalogOption[]> {
+export function fetchZones(): Promise<CatalogOption[]> {
   if (USE_MOCK_DATA) return Promise.resolve(MOCK_ZONES);
   return fetchCatalog<CatalogOption>('/zones');
 }
 
-export async function fetchSectors(zoneId: string): Promise<SectorOption[]> {
+export function fetchSectors(zoneId: string): Promise<SectorOption[]> {
   if (USE_MOCK_DATA) return Promise.resolve(MOCK_SECTORS.filter((sector) => sector.zoneId === zoneId));
   return fetchCatalog<SectorOption>(`/zones/${zoneId}/sectors`);
 }
 
-export async function fetchShipmentTypes(): Promise<CatalogOption[]> {
+export function fetchShipmentTypes(): Promise<CatalogOption[]> {
   if (USE_MOCK_DATA) return Promise.resolve(MOCK_SHIPMENT_TYPES);
   return fetchCatalog<CatalogOption>('/shipment-types');
 }
