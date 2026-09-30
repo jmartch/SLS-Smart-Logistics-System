@@ -3,6 +3,7 @@ import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { PrismaModule } from './database/prisma.module';
 import { AssignmentsModule } from './modules/assignments/assignments.module';
+import { GeocodingModule } from './modules/geocoding/geocoding.module';
 import { PackagesModule } from './modules/packages/packages.module';
 import { RoutePlanningModule } from './modules/route-planning/route-planning.module';
 
@@ -10,6 +11,7 @@ import { RoutePlanningModule } from './modules/route-planning/route-planning.mod
   imports: [
     PrismaModule,
     AssignmentsModule,
+    GeocodingModule,
     PackagesModule,
     RoutePlanningModule,
   ],
