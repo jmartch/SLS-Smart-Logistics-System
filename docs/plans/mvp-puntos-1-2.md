@@ -1,5 +1,7 @@
 # Reparto del MVP — puntos 1 y 2
 
+Hoja de ruta completa: [implementación del MVP: avance, pendientes y orden recomendado](mvp-implementation.md). Este documento conserva el detalle de reparto de los puntos 1 y 2.
+
 Fecha: 2026-09-29. Base auditada: `develop`, `8cdb2c4`. Árbol limpio antes de esta edición documental.
 
 ## Encargos
