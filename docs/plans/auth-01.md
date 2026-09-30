@@ -8,13 +8,28 @@
 | Dominio | Identidad, autenticación, autorización y contexto tenant |
 | Estado general | `TODO` |
 | Rama observada | `develop` |
-| Última auditoría | 2026-09-28 |
-| Commit auditado | `5b3aa39` |
-| Informe | `docs/modules/auth-01-report.md` |
+| Última auditoría | 2026-09-29 |
+| Commit auditado | `8cdb2c4` |
+| Asignación | Juanangel; asignación confirmada por Humberto |
+| Informe | [AUTH-01](../modules/auth-01-report.md) |
+
+## Coordinación vigente con TENANT-01
+
+Humberto confirmó que Juanangel es responsable de AUTH-01 y TENANT-01. Ambos planes mantienen entregas separadas. El [plan TENANT-01](tenant-01.md) es canónico para el contrato de contexto, aislamiento y adaptación de repositorios; este plan conserva login, sesión, permisos, empleados y alta controlada de empresa. Véase la [guía de reparto](mvp-puntos-1-2.md).
+
+AUTH-01 produce una identidad verificada; TENANT-01 convierte esa identidad en el contexto requerido por los casos de uso y sus adaptadores. El paso 6 de este plan integra TENANT-01: no implica una segunda implementación del contexto ni de RLS. Alta de empresa y primer administrador permanecen aquí, aunque su código se distribuya entre tenants/users/auth.
+
+Antes del login aún no existe sesión: el identificador público de empresa solo selecciona el ámbito de búsqueda de credenciales. La combinación empresa + credenciales debe verificarse antes de producir identidad. Como `sls_app` solo puede leer su propio Tenant y no puede crear empresas ni permisos, deben diseñarse puertos acotados para resolución inicial y aprovisionamiento de plataforma. No usar `postgres`, permisos globales o BYPASSRLS para las peticiones ordinarias. Documentar también el bootstrap del primer actor de plataforma y la auditoría de estas operaciones.
+
+La primera entrega conjunta es el contrato de identidad/contexto, permisos y errores. Vivian y Humberto puede usar dobles de esos puertos en unitarias mientras llega la integración HTTP, sin habilitar un tenant arbitrario en producción.
 
 ## Recomendación de inicio
 
 Conviene iniciar este módulo ahora: es una dependencia directa de `PKG-01` y de cualquier endpoint que opere datos de una empresa. La persistencia base ya existe, pero el trabajo debe empezar como un corte vertical pequeño y seguro. No se recomienda implementar un autorregistro público genérico de empresas o empleados en el MVP.
+
+## Responsables confirmados — 2026-09-30
+
+Juanangel es responsable de este módulo. Juanangel mantiene AUTH/TENANT, Vivian PKG/VEH, Humberto ZONE y Santiago frontend. Las tareas de pantallas e integración web de este plan se coordinan con Santiago; el responsable backend publica contratos y participa en la verificación conjunta. Las etiquetas `USER`/`CODEX_MECHANICAL` conservan su significado y no son nombres de personas. Esta confirmación sustituye propuestas de asignación anteriores sin acreditar implementación.
 
 ## Alcance
 
@@ -59,7 +74,7 @@ Conviene iniciar este módulo ahora: es una dependencia directa de `PKG-01` y de
 - `backend/prisma/migrations/20260914130000_logistics_integrity/migration.sql`: restricciones tenant-aware, RLS y permisos runtime.
 - `backend/src/database/run-with-tenant.ts`: contexto transaccional tenant existente.
 - `frontend/src/shared/api/httpClient.ts`: integración de sesión pendiente y prohibición documentada de `localStorage`.
-- Dependencias previas: `DATA-01` está implementado en lo necesario para identidad; `TENANT-01` está parcialmente implementado y debe completarse dentro del corte.
+- Dependencias previas: existen esquema y migraciones de identidad; [TENANT-01](tenant-01.md) aporta el contexto y aislamiento, con cierre conjunto de integración HTTP. La auditoría actual no reaplicó migraciones ni comprobó la base compartida.
 
 ## Diagnóstico actual
 
@@ -67,7 +82,7 @@ La persistencia de identidad existe y está migrada: empresa, usuario, roles, pe
 
 El tablero de `AGENTS.md` está desactualizado respecto a `DATA-01`: no debe rehacerse el esquema completo. Antes de añadir columnas o migraciones, el equipo debe decidir el identificador de empresa usado en login y la estrategia exacta de sesión.
 
-El árbol contiene `qr-helper/` sin seguimiento. Se considera trabajo ajeno y queda excluido.
+En la auditoría de 2026-09-29 el árbol estaba limpio en `develop`, commit `8cdb2c4`. La nota previa sobre `qr-helper/` sin seguimiento ya no describe este checkout. Esta revisión comprueba código y migraciones versionadas, no su aplicación al entorno compartido. No se ejecutaron pruebas y la asignación a un compañero no implica avance implementado en esta rama.
 
 ## División delegable
 
@@ -99,11 +114,30 @@ Los frentes B, C y D pueden delegarse a personas distintas después de cerrar A.
 
 ## Paso actual
 
+### Detalle de ejecución y dependencias por paso
+
+Esta tabla complementa los objetivos, responsables, estados y aceptación del plan verificable. En todos los pasos la evidencia nueva está pendiente; registrar decisiones/resultados en el informe al avanzar. Las rutas propuestas se crean solo cuando tienen responsabilidad real. Los lotes mecánicos posibles son documentación, referencias y wiring ya determinado; no incluyen diseñar seguridad, consultas o migraciones.
+
+| Paso | Depende de | Archivos esperados | Instrucción concreta y razón | Comprobación / decisión restante |
+| --- | --- | --- | --- | --- |
+| 1 | Auditoría actual | `docs/adr/`; `docs/modules/auth-01-contract.md` (nuevo) | Publicar acceso, sesión, permisos y errores junto con TENANT-01 para desbloquear a Vivian. | Ejemplos de dos empresas con igual correo; decidir identificador, sesión, bootstrap de plataforma y resolución previa al login. |
+| 2 | 1 | `backend/src/modules/auth/test/`; `users/test/`; `tenants/test/` | Escribir pruebas de credenciales, expiración/revocación, suspensión, permisos, roles ajenos y atomicidad antes de lógica. | Casos de denegación verifican ausencia de efectos, no solo status HTTP. |
+| 3 | 1–2 | `backend/prisma/schema/identity.prisma`; esquema de sesión si procede; `backend/prisma/migrations/` | Añadir únicamente identificador/sesión/actor plataforma exigidos; revisar datos y RLS existentes. | Migración en base desechable; conservar restricciones, grants y compatibilidad de datos. |
+| 4 | 3; contrato de actor plataforma | `modules/tenants/{domain,application,infrastructure,presentation}/`; puertos de users/auth | Orquestar empresa, primer administrador, rol y auditoría atómicos; adapter de aprovisionamiento con capacidad acotada. | Fallo inducido revierte todo; tenant ordinario no ejecuta plataforma; no ampliar permisos del runtime general. |
+| 5 | 2–3; contrato TENANT | `modules/auth/{domain,application,infrastructure,presentation}/` | Implementar login/logout/me, hashing y sesión; controlar intentos de login y errores genéricos. | Cookie segura, CSRF/CORS según estrategia, expiración, logout efectivo y cuenta/empresa suspendida; no logs de secretos. |
+| 6 | 5; pasos de contexto TENANT-01 | Guardas/decoradores en `modules/auth/presentation/`; contratos de TENANT | Integrar identidad verificada con el contexto canónico y permisos en HTTP. | Pruebas tenant A/B con guardas reales; no construir un segundo helper ni confiar en body/header. |
+| 7 | 4–6 | `modules/users/{domain,application,infrastructure,presentation}/` | Crear/listar/desactivar empleados y asignar roles; exportar consulta acotada para elegibilidad de mensajeros VEH-01. | Usuario/rol de otra empresa rechazado; definir protección del último administrador y efecto de desactivación sobre sesiones/operación. |
+| 8 | 5–7; contrato UI-01 | `frontend/src/features/auth/`; vistas de administración; `shared/api/httpClient.ts` | Integrar sesión y pantallas mínimas con el plan UI existente; publicar antes los contratos a Vivian y Humberto. | Recarga, expiración, logout, 401/403, carga/error/vacío; no depender de mocks para cerrar. |
+| 9 | 4–8 | `backend/test/`; `backend/test/integration/`; scripts y Makefile; tests frontend | Añadir runner con base aleatoria y ejecutar builds/unitarias/E2E vía Compose siguiendo la guía de integración. | API real A/B, privilegios plataforma, rollback y sesión; publicar comando de runner solo tras implementarlo. |
+| 10 | 9 | Este plan; informe AUTH; README y ADR | Registrar resultado por paso y actualizar solo estados demostrados. | Separar implementado, ejecutado, documentado y confirmado en commit; no arrastrar conteos antiguos. |
+
+Para build/unitarias usar `docker compose exec backend npm run build` y `docker compose exec backend npm test -- --runInBand`; frontend mediante `docker compose exec frontend npm run build` y sus pruebas pertinentes. Preparar primero el runner propio siguiendo [la guía de integración](../../backend/test/integration/README.md); no lanzar fixtures sobre SLS compartido. Incluir pruebas automáticas de fronteras: dominio sin frameworks/capas externas y aplicación sin infraestructura/presentación.
+
 ### Paso 1 — Cerrar el contrato de acceso
 
 **Por qué:** el esquema permite el mismo correo en empresas diferentes. Por eso `email + password` por sí solo no identifica de manera inequívoca una cuenta y no conviene que cada equipo improvise cómo resolver la empresa o transportar la sesión.
 
-**Debe aplicar el usuario/equipo:**
+**Debe aplicar Juanangel, coordinando con el equipo:**
 
 1. Elegir un identificador público e inmutable para la empresa, preferiblemente `slug`, distinto del UUID interno.
 2. Confirmar para el MVP una sesión web en cookie segura y decidir si será opaca almacenada en servidor o un JWT corto en cookie con mecanismo de revocación/rotación.
@@ -141,6 +175,7 @@ Comprobación de que ningún DTO tenant-owned acepta tenantId como autoridad.
 | Fecha | Paso | Cambio observado | Verificación | Commit |
 | --- | --- | --- | --- | --- |
 | 2026-09-28 | Auditoría inicial | Persistencia de identidad, migraciones, RLS y ayuda tenant presentes; módulos funcionales de auth/tenants/users ausentes. | Inspección de esquema, migraciones, backend, dependencias y frontend. | `5b3aa39`; documentación aún sin commit |
+| 2026-09-29 | Reparto y dependencias | AUTH-01 asignado según usuario; TENANT-01 separado como plan canónico y asignación propuesta al mismo compañero. | Inspección estática; módulos auth/tenants/users siguen ausentes en este checkout; no se ejecutaron pruebas. | Base `8cdb2c4`; esta actualización sin commit |
 
 ## Cierre
 
