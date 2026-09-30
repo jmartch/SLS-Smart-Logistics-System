@@ -1,5 +1,7 @@
 # Mapa de páginas del frontend SLS
 
+Responsable: Santiago. Coordinación backend: Juanangel (AUTH/TENANT), Vivian (PKG/VEH) y Humberto (ZONE y planificación/clustering). Reparto confirmado por Humberto el 2026-09-30.
+
 Este documento organiza la interfaz del MVP por trabajo real de cada rol. No afirma que las páginas estén implementadas: diferencia el estado observado de la propuesta y mantiene las dependencias con el backend.
 
 Plan relacionado: [`docs/plans/ui-01-04.md`](../plans/ui-01-04.md).
