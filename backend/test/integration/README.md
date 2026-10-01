@@ -10,6 +10,21 @@ No usar el servidor compartido de SLS: aunque los runners no aplican migraciones
 ni fixtures sobre la base administrativa indicada en la URL, la migración
 inicial configura el rol `sls_app` a nivel del servidor.
 
+Desde la raíz del repositorio, el flujo recomendado levanta el servidor temporal
+dedicado, selecciona un runner permitido y conserva la ejecución dentro de
+Docker Compose:
+
+```bash
+make integration-test TEST=geocode-01
+make integration-db-down
+```
+
+Los valores admitidos actualmente son `gdb-01`, `gdb-05`, `gdb-06` y
+`geocode-01`. Deben ejecutarse secuencialmente porque comparten el servidor y
+las migraciones administran el rol `sls_app` a nivel de instancia. Los comandos
+directos documentados abajo siguen disponibles cuando se proporciona un
+servidor de pruebas externo.
+
 ## GDB-01 — Integración de reservas
 
 Desde la raíz del repositorio, ejecutar la prueba mediante el servicio `backend`
@@ -76,3 +91,28 @@ Esta prueba demuestra el patrón State, el aislamiento por tenant y la atomicida
 local en PostgreSQL. No publica mensajes en RabbitMQ ni demuestra idempotencia,
 reintentos o DLQ; esas responsabilidades corresponden a RMQ-01, IDEMP-01 y
 DLQ-01.
+
+## GEOCODE-01 — Geocodificación local determinista
+
+Desde la raíz del repositorio:
+
+```bash
+make integration-test TEST=geocode-01
+make integration-db-down
+```
+
+El runner compila el backend, crea una base `sls_geocode01_<uuid>`, aplica todas
+las migraciones y ejecuta `test/geocoding.e2e-spec.ts` con el cliente runtime
+`sls_app`. La base se elimina en `finally`, incluso cuando la suite falla.
+
+La suite vigente contiene seis escenarios: coincidencia exacta y round-trip de
+coordenadas, resultado `NOT_FOUND`, rechazo de dataset `STAGING`, aislamiento
+entre tenants, persistencia de candidatos ambiguos como `REVIEW_REQUIRED` y
+rollback completo cuando falla la inserción de candidatos. Un trigger creado
+solo dentro de la base desechable fuerza este último fallo; no modifica las
+migraciones ni el esquema de producción.
+
+`KEEP_GEOCODE01_TEST_DB=1` conserva deliberadamente la base para diagnóstico.
+La suite demuestra geocodificación local contra un catálogo sintético; no
+implementa un proveedor externo, importación OSM, Haversine ni planificación de
+rutas.

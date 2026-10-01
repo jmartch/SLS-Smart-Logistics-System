@@ -50,7 +50,7 @@ Adaptar las fases al módulo; no crear capas o pasos vacíos. Considerar, cuando
 5. aplicación y puertos;
 6. infraestructura, persistencia o mensajería;
 7. integración y aislamiento por tenant;
-8. verificación reproducible;
+8. verificación funcional reproducible;
 9. documentación, evidencia y cierre.
 
 Cada paso debe registrar:
@@ -67,6 +67,18 @@ Cada paso debe registrar:
 - decisiones y trabajo restante.
 
 Mantener los pasos suficientemente pequeños para completarlos y comprobarlos en una sesión, pero no fragmentar una sola decisión coherente en tareas artificiales.
+
+## Verificación proporcional
+
+Priorizar evidencia que demuestre el comportamiento y los riesgos reales del módulo: pruebas relevantes, build o type-check, migraciones, integración, aislamiento por tenant y contratos de arquitectura cuando correspondan.
+
+La comprobación de formato no es una fase ni una puerta obligatoria por defecto. No mantener un paso en `TESTING`, impedir el avance ni pedir ejecutar Prettier o un formatter solo porque hubo cambios de código. Incluirla únicamente cuando:
+
+- el usuario la solicite;
+- el repositorio, CI o criterio de aceptación vigente la exija explícitamente para el cierre; o
+- un problema concreto de estilo impida compilar, probar o revisar el cambio.
+
+Cuando aplique, tratar el formato como una comprobación mecánica y proporcional, preferiblemente acotada a los archivos del módulo. No exigir repetir toda la suite después de un cambio exclusivamente de formato salvo que una regla vigente o un riesgo observable lo justifique.
 
 ## Contrato de interacción
 
@@ -117,7 +129,7 @@ Antes de editar:
 2. enumerar la transformación, rutas y exclusiones;
 3. comprobar que no pisa cambios ajenos;
 4. usar ediciones deterministas y revisar el diff;
-5. ejecutar comprobaciones proporcionales mediante Docker Compose según `AGENTS.md`;
+5. ejecutar comprobaciones funcionales proporcionales mediante Docker Compose según `AGENTS.md`; comprobar formato solo bajo los criterios de "Verificación proporcional";
 6. actualizar plan e informe con resultados reales.
 
 No crear commits por invocar este skill. Si el usuario pide commits, aplicar también `sls-workflow-commits` cuando esté disponible y mantener cada commit enfocado.
