@@ -22,6 +22,8 @@ generated/
 !/.agents/skills/sls-workflow-commits/**
 !/.agents/skills/sls-module-workflow/
 !/.agents/skills/sls-module-workflow/**
+!/.agents/skills/sls-test-normalization/
+!/.agents/skills/sls-test-normalization/**
 .claude/
 .windsurf/
 skills-lock.json
