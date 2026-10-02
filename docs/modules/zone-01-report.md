@@ -123,6 +123,22 @@ Comandos y evidencia en Compose:
 - Clean Architecture verificado mediante `test/zones-architecture.spec.ts`.
 - Prettier ejecutado en todos los archivos creados.
 - Commits relacionados: `7730cc9` (puerto, servicios y tests de sectores), `c8b6ddd` (puerto, servicios y persistencia de shipment types) y `8f7297d` (tests de persistencia y module wiring).
+
+### Consolidación de servicios de aplicación por entidad — 2026-10-02
+
+Para reducir la fatiga de archivos sin perder cohesión ni violar Clean Architecture, se consolidaron los 9 micro-servicios CRUD en 3 servicios orientados a recurso:
+1. `application/zone-catalog.service.ts`: consolida `create`, `list` y `findById` de zonas. Suite consolidada en `test/zone-catalog.service.spec.ts` (11 casos).
+2. `application/sector-catalog.service.ts`: consolida `create`, `listByZone` y `findById` de sectores. Suite consolidada en `test/sector-catalog.service.spec.ts` (12 casos).
+3. `application/shipment-type-catalog.service.ts`: consolida `create`, `list` y `findById` de tipos de envío. Suite consolidada en `test/shipment-type-catalog.service.spec.ts` (12 casos).
+4. `zones.module.ts` y `test/zones.module.spec.ts`: actualizados para proveer y exportar los 3 servicios consolidados junto a los 3 adapters Prisma.
+5. Eliminación de 18 archivos obsoletos individuales (9 servicios y 9 specs).
+
+Comandos y evidencia en Compose:
+- `docker compose run --rm backend npm test -- --runInBand src/modules/zones/test/`: 10 suites y 83 tests aprobados en zones (reducción de 16 a 10 suites conservando toda la cobertura).
+- `docker compose run --rm backend npm test -- --runInBand`: 36 suites y 251 tests aprobados en todo el backend (100% pasando sin regresiones).
+- `docker compose run --rm backend npm run build`: compilación limpia con código 0.
+- Clean Architecture verificado mediante `test/zones-architecture.spec.ts`.
+- Commit relacionado: `46a749a` (consolidación por entidad de servicios de catálogo y tests).
 - Siguiente trabajo: controladores HTTP y DTOs de validación para los endpoints del catálogo según `zone-01-contract.md`.
 
 ## Estado en el entorno compartido

@@ -239,6 +239,7 @@ Conservar salida real, base/servidor de prueba, casos cubiertos y fallos pendien
 | 2026-10-02 | Fronteras, servicios de lectura y adapter Prisma | Implementados zones-architecture.spec.ts, ListZonesService, FindZoneService, PrismaZoneCatalogAdapter y ZonesModule | 8 suites y 44 tests de zones aprobados; build y suite completa (34 suites/212 tests) aprobados en Compose | `39d12ad`, `82da30d` |
 | 2026-10-02 | Sectores: puerto, servicios y adapter | Implementados SectorCatalogPort, CreateSectorService, ListSectorsByZoneService, FindSectorService y PrismaSectorCatalogAdapter con suites normalizadas | 12 suites y 63 tests de zones aprobados; build de backend aprobado en Compose | `7730cc9`, `8f7297d` |
 | 2026-10-02 | Tipos de envío y cableado completo | Implementados ShipmentTypeCatalogPort, CreateShipmentTypeService, ListShipmentTypesService, FindShipmentTypeService, PrismaShipmentTypeCatalogAdapter y ZonesModule actualizado con tests | 16 suites y 84 tests de zones aprobados; build y suite completa (42 suites/252 tests) aprobados en Compose | `c8b6ddd`, `8f7297d` |
+| 2026-10-02 | Consolidación por entidad | Consolidación de 9 servicios individuales en ZoneCatalogService, SectorCatalogService y ShipmentTypeCatalogService; reducción de 12 archivos | 10 suites y 83 tests de zones aprobados; suite completa de 36 suites y 251 tests aprobada en Compose | `46a749a` |
 
 ## Cierre
 
