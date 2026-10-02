@@ -1,6 +1,6 @@
 # ZONE-01 — Zonas, sectores y catálogos para recepción
 
-Estado: `IN_PROGRESS`; dominio y creación de zona con doble de puerto verificados, persistencia/HTTP pendientes.
+Estado: `IN_PROGRESS`; dominio, aplicación consolidada, persistencia Prisma y capa HTTP con versionamiento URI `/api/v1` verificados; integración E2E pendiente.
 
 Plan canónico: [ZONE-01](../plans/zone-01.md). Coordinación: [puntos 1 y 2](../plans/mvp-puntos-1-2.md).
 
@@ -139,7 +139,33 @@ Comandos y evidencia en Compose:
 - `docker compose run --rm backend npm run build`: compilación limpia con código 0.
 - Clean Architecture verificado mediante `test/zones-architecture.spec.ts`.
 - Commit relacionado: `46a749a` (consolidación por entidad de servicios de catálogo y tests).
-- Siguiente trabajo: controladores HTTP y DTOs de validación para los endpoints del catálogo según `zone-01-contract.md`.
+
+### Capa de presentación HTTP y versionamiento v1 — 2026-10-02
+
+Se implementó la capa HTTP completa para los catálogos y el versionamiento global del API:
+1. **Versionamiento global URI (`/api/v1`)**:
+   - `backend/src/main.ts`: configurado `setGlobalPrefix('api')` y `enableVersioning({ type: VersioningType.URI, defaultVersion: '1' })`. Todos los endpoints de la API quedan expuestos de forma estándar bajo `/api/v1/*`.
+   - `frontend/src/shared/config/environment.ts` y `.env.example`: actualizado `API_BASE_URL` a `/api/v1` (o `http://localhost:3000/api/v1`).
+   - `frontend/src/features/packages/api/catalogApi.spec.ts`: pruebas de mock actualizadas a `/api/v1` (2 tests pasando).
+2. **Contexto seguro de tenant (`@CurrentTenant()`)**:
+   - `backend/src/modules/zones/presentation/current-tenant.decorator.ts`: extrae el `tenantId` desde `request.user.tenantId` (autenticación) con fallback a `x-tenant-id` o `tenant-id` para pruebas de integración/Postman. Valida formato UUID con `isValidTenantId` y lanza `UnauthorizedException` (401 `UNAUTHENTICATED`) si está ausente o no es UUID válido. Suite en `test/current-tenant.decorator.spec.ts` (5 tests).
+3. **Mapeo de errores de dominio y catálogos**:
+   - `backend/src/modules/zones/presentation/catalog-http-errors.ts`: traduce errores de validación de dominio (`InvalidCatalogCodeError`, `InvalidCatalogNameError`) a `BadRequestException` (400 `VALIDATION_ERROR`), y códigos de conflicto de negocio a `ConflictException` (409 `CATALOG_CODE_CONFLICT`) o `NotFoundException` (404 `CATALOG_RESOURCE_NOT_FOUND`).
+4. **Controladores y endpoints de catálogo**:
+   - `backend/src/modules/zones/presentation/zones.controller.ts`: expone `GET /zones`, `POST /zones`, `GET /zones/:zoneId`, `GET /zones/:zoneId/sectors`, `POST /zones/:zoneId/sectors`, `GET /zones/:zoneId/sectors/:sectorId`. Valida pertenencia de sector a zona y aislamiento por empresa. Suite en `test/zones.controller.spec.ts` (10 tests).
+   - `backend/src/modules/zones/presentation/shipment-types.controller.ts`: expone `GET /shipment-types` (con filtro opcional `?includeInactive=true`), `POST /shipment-types`, `GET /shipment-types/:id`. Suite en `test/shipment-types.controller.spec.ts` (6 tests).
+5. **Registro en módulos**:
+   - `backend/src/modules/zones/zones.module.ts`: registra `ZonesController` y `ShipmentTypesController`.
+   - `backend/src/app.module.ts`: registra `ZonesModule` en los imports de la aplicación principal.
+   - `test/zones.module.spec.ts`: verifica la instanciación de servicios, adapters y controllers dentro del módulo NestJS.
+
+Comandos y evidencia en Compose:
+- `docker compose run --rm backend npm test -- --runInBand src/modules/zones/test/`: 13 suites y 110 tests aprobados en zones.
+- `docker compose run --rm backend npm test -- --runInBand`: 39 suites y 278 tests aprobados en todo el backend (100% pasando sin regresiones).
+- `docker compose run --rm frontend npm test -- --run`: 2 suites y 8 tests aprobados en el frontend.
+- `docker compose run --rm backend npm run build`: compilación limpia (`nest build`) con código 0.
+- Clean Architecture verificado mediante `test/zones-architecture.spec.ts`.
+- Siguiente trabajo: suites de pruebas de integración E2E con base de datos real (Paso 5).
 
 ## Estado en el entorno compartido
 

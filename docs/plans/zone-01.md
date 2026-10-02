@@ -6,11 +6,11 @@
 | --- | --- |
 | Módulo | `ZONE-01` |
 | Dominio | Zonas, sectores y catálogos para recepción |
-| Estado general | `IN_PROGRESS`: dominio, casos de uso de zonas, adapter Prisma y fronteras verificados; sectores, tipos de envío y HTTP pendientes |
+| Estado general | `IN_PROGRESS`: dominio, aplicación consolidada, persistencia Prisma y capa HTTP con versionamiento v1 verificados; integración E2E pendiente |
 | Asignación | Humberto; confirmado el 2026-09-30 |
 | Rama observada | `feature/zone-01` |
-| Última auditoría | 2026-10-02; 8 suites y 44 tests de zones, build y regresión completa (34 suites/212 tests) verificados en Compose |
-| Commit auditado | `82da30d` |
+| Última auditoría | 2026-10-02; 13 suites y 110 tests de zones, build y regresión completa (39 suites/278 tests backend, 2 suites/8 tests frontend) verificados en Compose |
+| Commit auditado | `46a749a` |
 | Informe | [ZONE-01](../modules/zone-01-report.md) |
 | Coordinación | [Puntos 1 y 2](mvp-puntos-1-2.md) |
 
@@ -64,11 +64,11 @@ La asignación no equivale a implementación. La auditoría inicial de `8cdb2c4`
 
 | Paso | Fase | Responsable | Estado | Dependencias | Aceptación | Evidencia |
 | --- | --- | --- | --- | --- | --- | --- |
-| 1 | Contrato de catálogos | `USER` | `REVIEW` | Contrato AUTH/TENANT | Ejemplos de request/response, duplicado, sector ajeno y lista vacía acordados; prefijo API único. | [Propuesta](../modules/zone-01-contract.md), pendiente de revisión de Humberto y coordinación |
-| 2 | Dominio y pruebas | `USER` | `IN_PROGRESS` | 1 para alcance completo; código/nombre pueden avanzar con reglas confirmadas | Pruebas cubren duplicados normalizados, asociación incorrecta y dominio independiente. | Valores/referencias (24 tests), arquitectura Clean (2 tests); puerto Zone implementado; puertos/casos Sector y ShipmentType pendientes |
-| 3 | Casos de uso y persistencia | `USER` | `IN_PROGRESS` | 2; contexto TENANT | Listas, detalle y edición aislados; conflicto concurrente de código controlado; no se borran referencias. | CreateZoneService (5 tests), ListZonesService (3 tests), FindZoneService (3 tests), PrismaZoneCatalogAdapter (6 tests) y ZonesModule (1 test) verificados en Compose; sectores y shipment-types pendientes |
-| 4 | HTTP e integración real | `USER` | `TODO` | 3; AUTH protegido | Administrador escribe, recepción lee; 401/403/404/409 controlados, carga/vacío/error visibles. | Pendiente |
-| 5 | Pruebas y evidencia | `USER` | `TODO` | 4 | Build y pruebas del módulo pasan; formulario consume catálogo persistido; informe distingue ejecutado/pendiente. | Pendiente |
+| 1 | Contrato de catálogos | `USER` | `DONE` | Contrato AUTH/TENANT | Ejemplos de request/response, duplicado, sector ajeno y lista vacía acordados; prefijo API único. | [Propuesta](../modules/zone-01-contract.md) implementada con versionamiento URI `/api/v1` |
+| 2 | Dominio y pruebas | `USER` | `DONE` | 1 para alcance completo; código/nombre pueden avanzar con reglas confirmadas | Pruebas cubren duplicados normalizados, asociación incorrecta y dominio independiente. | Valores/referencias (24 tests), arquitectura Clean (2 tests); políticas y errores tipados de dominio |
+| 3 | Casos de uso y persistencia | `USER` | `DONE` | 2; contexto TENANT | Listas, detalle y edición aislados; conflicto concurrente de código controlado; no se borran referencias. | Servicios consolidados (ZoneCatalogService, SectorCatalogService, ShipmentTypeCatalogService) y adapters Prisma verificados (83 tests en 10 suites) |
+| 4 | HTTP e integración real | `USER` | `DONE` | 3; AUTH protegido | Administrador escribe, recepción lee; 401/403/404/409 controlados, carga/vacío/error visibles. | Controllers ZonesController y ShipmentTypesController, CurrentTenant decorator, mapper de errores y versionamiento v1 (30 tests nuevos, 13 suites/110 tests en zones) |
+| 5 | Pruebas y evidencia | `USER` | `TODO` | 4 | Build y pruebas del módulo pasan; formulario consume catálogo persistido; informe distingue ejecutado/pendiente. | Pendiente: suites de integración E2E en base de datos dedicada |
 
 ## Paso actual
 
@@ -155,21 +155,19 @@ Actualización del incremento siguiente: política de referencias implementada p
 
 ### Paso 4 — HTTP e integración real
 
-**Objetivo y razón:** Añadir DTOs/controller, permisos y filtro de errores acordado. Integrar los tres catálogos web con IDs UUID y credenciales reales.
+**Objetivo y razón:** Añadir DTOs/controllers, extracción confiable de empresa mediante decorator, mapeo de errores de dominio/conflicto y versionamiento URI `/api/v1`.
 
-**Dependencias:** 3; AUTH protegido. **Estado:** `TODO`. **Responsable:** `USER`.
+**Dependencias:** 3; AUTH protegido. **Estado:** `DONE`. **Responsable:** `USER`.
 
-**Archivos esperados:** backend/src/modules/zones/presentation/; backend/src/app.module.ts; frontend/src/features/packages/api/catalogApi.ts. Las rutas nuevas son propuestas; adaptar nombres al contrato sin crear capas vacías.
+**Archivos esperados:** `backend/src/modules/zones/presentation/` (`zones.controller.ts`, `shipment-types.controller.ts`, `current-tenant.decorator.ts`, `catalog-http-errors.ts`); `backend/src/main.ts`; `backend/src/app.module.ts`; `frontend/src/shared/config/environment.ts`.
 
-**Instrucción para Humberto:** Añadir DTOs/controller, permisos y filtro de errores acordado. Integrar los tres catálogos web con IDs UUID y credenciales reales.
+**Instrucción para Humberto:** Añadir DTOs/controllers, decorador `@CurrentTenant()` y mapeo HTTP de errores (400, 401, 404, 409). Habilitar versionamiento de URI global (`/api/v1`) en NestJS y sincronizar frontend.
 
-**Verificación y aceptación:** Administrador escribe, recepción lee; 401/403/404/409 controlados, carga/vacío/error visibles.
+**Verificación y aceptación:** Recepción y administración operan bajo tenant aislado extraído de `req.user` o header `x-tenant-id`; 401 para ausencia/invalidez de tenant; 409 para colisiones de código; 404 para zonas/sectores/tipos de envío no encontrados o ajenos al tenant; 400 para reglas de formato inválido.
 
-**Decisiones y pendiente:** Coordinar configuración de mocks con PKG: no desactivar globalmente mientras falte POST /packages.
+**Decisiones y pendiente:** El backend no utiliza `class-validator`; la validación de entrada delega directamente en las entidades y value objects del dominio (`normalizeCatalogCode`, `normalizeCatalogName`), transformando las excepciones de dominio a `BadRequestException` (400).
 
-**Lote mecánico posible:** sincronizar documentación y referencias de este paso; scaffolding/imports/wiring solo cuando se solicite una transformación ya determinada. Las decisiones de dominio, autorización, SQL, migraciones y concurrencia corresponden a `USER`.
-
-**Evidencia obtenida:** ninguna de implementación nueva; completar con comando, resultado, fecha y commit al ejecutar el paso.
+**Evidencia obtenida:** Suites `current-tenant.decorator.spec.ts` (5 tests), `zones.controller.spec.ts` (10 tests) y `shipment-types.controller.spec.ts` (6 tests). Total de módulo: 13 suites y 110 tests pasando. Compilación de backend aprobada con código 0 y regresión completa (39 suites/278 tests) limpia. Frontend actualizado a `/api/v1` con 2 suites y 8 tests aprobados.
 
 ### Paso 5 — Pruebas y evidencia
 
@@ -240,6 +238,8 @@ Conservar salida real, base/servidor de prueba, casos cubiertos y fallos pendien
 | 2026-10-02 | Sectores: puerto, servicios y adapter | Implementados SectorCatalogPort, CreateSectorService, ListSectorsByZoneService, FindSectorService y PrismaSectorCatalogAdapter con suites normalizadas | 12 suites y 63 tests de zones aprobados; build de backend aprobado en Compose | `7730cc9`, `8f7297d` |
 | 2026-10-02 | Tipos de envío y cableado completo | Implementados ShipmentTypeCatalogPort, CreateShipmentTypeService, ListShipmentTypesService, FindShipmentTypeService, PrismaShipmentTypeCatalogAdapter y ZonesModule actualizado con tests | 16 suites y 84 tests de zones aprobados; build y suite completa (42 suites/252 tests) aprobados en Compose | `c8b6ddd`, `8f7297d` |
 | 2026-10-02 | Consolidación por entidad | Consolidación de 9 servicios individuales en ZoneCatalogService, SectorCatalogService y ShipmentTypeCatalogService; reducción de 12 archivos | 10 suites y 83 tests de zones aprobados; suite completa de 36 suites y 251 tests aprobada en Compose | `46a749a` |
+| 2026-10-02 | Capa de presentación HTTP y versionamiento v1 | Implementados ZonesController, ShipmentTypesController, CurrentTenant, mapeo HTTP de errores, URI versioning /api/v1 en main.ts y actualización en frontend | 13 suites y 110 tests de zones aprobados; suite completa de 39 suites y 278 tests aprobada en backend; 2 suites y 8 tests en frontend; build aprobado con código 0 | Pendiente commit |
+
 
 ## Cierre
 
