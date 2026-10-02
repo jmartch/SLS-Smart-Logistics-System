@@ -6,6 +6,7 @@ import { AssignmentsModule } from './modules/assignments/assignments.module';
 import { GeocodingModule } from './modules/geocoding/geocoding.module';
 import { PackagesModule } from './modules/packages/packages.module';
 import { RoutePlanningModule } from './modules/route-planning/route-planning.module';
+import { ZonesModule } from './modules/zones/zones.module';
 
 @Module({
   imports: [
@@ -14,8 +15,9 @@ import { RoutePlanningModule } from './modules/route-planning/route-planning.mod
     GeocodingModule,
     PackagesModule,
     RoutePlanningModule,
+    ZonesModule,
   ],
   controllers: [AppController],
   providers: [AppService],
 })
-export class AppModule {}
+export class AppModule { }

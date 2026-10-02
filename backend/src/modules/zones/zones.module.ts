@@ -6,9 +6,12 @@ import { ZoneCatalogService } from './application/zone-catalog.service';
 import { PrismaSectorCatalogAdapter } from './infrastructure/prisma-sector-catalog.adapter';
 import { PrismaShipmentTypeCatalogAdapter } from './infrastructure/prisma-shipment-type-catalog.adapter';
 import { PrismaZoneCatalogAdapter } from './infrastructure/prisma-zone-catalog.adapter';
+import { ZonesController } from './presentation/zones.controller';
+import { ShipmentTypesController } from './presentation/shipment-types.controller';
 
 @Module({
   imports: [PrismaModule],
+  controllers: [ZonesController, ShipmentTypesController],
   providers: [
     PrismaZoneCatalogAdapter,
     PrismaSectorCatalogAdapter,
@@ -41,4 +44,4 @@ import { PrismaZoneCatalogAdapter } from './infrastructure/prisma-zone-catalog.a
     PrismaShipmentTypeCatalogAdapter,
   ],
 })
-export class ZonesModule {}
+export class ZonesModule { }
