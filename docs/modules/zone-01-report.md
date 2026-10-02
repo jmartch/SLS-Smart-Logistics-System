@@ -98,7 +98,32 @@ Comandos y evidencia en Compose:
 - `docker compose run --rm backend npm run build`: código de salida 0.
 - Prettier aplicado a todos los archivos nuevos.
 - Commits relacionados: `39d12ad` (implementación de dominio, aplicación y adapter) y `82da30d` (pruebas unitarias y de arquitectura).
-- Siguiente trabajo: puertos y casos de uso para Sector y ShipmentType, o integración de controladores/DTOs HTTP cuando el contrato sea aprobado.
+
+### Sectores: puertos, casos de uso y adapter Prisma — 2026-10-02
+
+Se implementó el ciclo de aplicación y persistencia para sectores:
+1. `application/ports/sector-catalog.port.ts`: contrato agnóstico con `listByZone`, `findByTenant` y `createByTenant`. Retorna tipos propios y modela colisiones de código (`CATALOG_CODE_CONFLICT`) y zona inexistente (`ZONE_NOT_FOUND`).
+2. `application/create-sector.service.ts`: normaliza código y nombre con reglas de dominio, valida existencia y pertenencia de la zona en el tenant de operación y delega al puerto. Suite en `test/create-sector.service.spec.ts` (6 casos: creación normalizada, rechazo por código vacío, rechazo por nombre vacío, conflicto de código, zona inexistente y propagación de error).
+3. `application/list-sectors-by-zone.service.ts` y `application/find-sector.service.ts`: servicios de consulta aislados por tenant. Suites en `test/list-sectors-by-zone.service.spec.ts` (3 casos) y `test/find-sector.service.spec.ts` (3 casos).
+4. `infrastructure/prisma-sector-catalog.adapter.ts`: adapter Prisma implementando `SectorCatalogPort` con `runWithTenant`, verificación previa de existencia de zona padre antes de crear, y captura de `P2002`. Suite en `test/prisma-sector-catalog.adapter.spec.ts` (7 casos).
+
+### Tipos de envío: puertos, casos de uso, adapter Prisma y ZonesModule — 2026-10-02
+
+Se implementó el ciclo completo para tipos de envío y la integración en el módulo:
+1. `application/ports/shipment-type-catalog.port.ts`: contrato de catálogo con `listByTenant`, `findByTenant` y `createByTenant`, incluyendo soporte para filtrado opcional de inactivos (`includeInactive`).
+2. `application/create-shipment-type.service.ts`: normaliza código y nombre, aplica `active` por defecto en `true` y delega al puerto. Suite en `test/create-shipment-type.service.spec.ts` (5 casos).
+3. `application/list-shipment-types.service.ts` y `application/find-shipment-type.service.ts`: servicios de consulta con filtro de inactivos y búsqueda por ID. Suites en `test/list-shipment-types.service.spec.ts` (4 casos) y `test/find-shipment-type.service.spec.ts` (3 casos).
+4. `infrastructure/prisma-shipment-type-catalog.adapter.ts`: adapter Prisma implementando `ShipmentTypeCatalogPort` con `runWithTenant`, ordenamiento estable `[{ code: 'asc' }, { id: 'asc' }]` y filtro `active: true` por defecto. Suite en `test/prisma-shipment-type-catalog.adapter.spec.ts` (7 casos).
+5. `zones.module.ts`: actualizado para exportar y registrar los tres adapters de persistencia y los nueve servicios de aplicación como providers independientes. Verificado en `test/zones.module.spec.ts`.
+
+Comandos y evidencia en Compose:
+- `docker compose run --rm backend npm test -- --runInBand src/modules/zones/test/`: 16 suites y 84 tests aprobados en el módulo zones.
+- `docker compose run --rm backend npm test -- --runInBand`: 42 suites y 252 tests aprobados en todo el backend (regresión total sin fallos).
+- `docker compose run --rm backend npm run build`: salida exitosa con código 0.
+- Clean Architecture verificado mediante `test/zones-architecture.spec.ts`.
+- Prettier ejecutado en todos los archivos creados.
+- Commits relacionados: `7730cc9` (puerto, servicios y tests de sectores), `c8b6ddd` (puerto, servicios y persistencia de shipment types) y `8f7297d` (tests de persistencia y module wiring).
+- Siguiente trabajo: controladores HTTP y DTOs de validación para los endpoints del catálogo según `zone-01-contract.md`.
 
 ## Estado en el entorno compartido
 

@@ -139,7 +139,7 @@ Actualización del incremento siguiente: política de referencias implementada p
 
 **Objetivo y razón:** Implementar administración/consulta de catálogos con adapters Prisma, conflictos estables y filtros tenant. Reutilizar índices compuestos; documentar migración solo si falta una capacidad acordada.
 
-**Dependencias:** 2; contexto TENANT. **Estado:** `TODO`. **Responsable:** `USER`.
+**Dependencias:** 2; contexto TENANT. **Estado:** `IN_PROGRESS`. **Responsable:** `USER`.
 
 **Archivos esperados:** backend/src/modules/zones/application/; infrastructure/; zones.module.ts; backend/prisma/schema/catalog.prisma si procede. Las rutas nuevas son propuestas; adaptar nombres al contrato sin crear capas vacías.
 
@@ -237,6 +237,8 @@ Conservar salida real, base/servidor de prueba, casos cubiertos y fallos pendien
 | 2026-10-02 | Puerto Zone | Usuario reporta compilación correcta; ZoneCatalogPort presente, sin frameworks, con resultados tipados y tenant requerido | Inspección y build de Compose posterior con código 0; tests no repetidos para este contrato de tipos | `39d12ad` |
 | 2026-10-02 | Creación de zona en aplicación | Usuario implementó CreateZoneService; suite con cinco casos y mocks tipados nuevos siguiendo sls-test-normalization | Compose: 3 suites/29 tests aprobados, formato aplicado solo al nuevo test y build aprobado | `39d12ad`, `82da30d` |
 | 2026-10-02 | Fronteras, servicios de lectura y adapter Prisma | Implementados zones-architecture.spec.ts, ListZonesService, FindZoneService, PrismaZoneCatalogAdapter y ZonesModule | 8 suites y 44 tests de zones aprobados; build y suite completa (34 suites/212 tests) aprobados en Compose | `39d12ad`, `82da30d` |
+| 2026-10-02 | Sectores: puerto, servicios y adapter | Implementados SectorCatalogPort, CreateSectorService, ListSectorsByZoneService, FindSectorService y PrismaSectorCatalogAdapter con suites normalizadas | 12 suites y 63 tests de zones aprobados; build de backend aprobado en Compose | `7730cc9`, `8f7297d` |
+| 2026-10-02 | Tipos de envío y cableado completo | Implementados ShipmentTypeCatalogPort, CreateShipmentTypeService, ListShipmentTypesService, FindShipmentTypeService, PrismaShipmentTypeCatalogAdapter y ZonesModule actualizado con tests | 16 suites y 84 tests de zones aprobados; build y suite completa (42 suites/252 tests) aprobados en Compose | `c8b6ddd`, `8f7297d` |
 
 ## Cierre
 
