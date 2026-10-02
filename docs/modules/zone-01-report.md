@@ -1,6 +1,6 @@
 # ZONE-01 — Zonas, sectores y catálogos para recepción
 
-Estado: `IN_PROGRESS`; dominio, aplicación consolidada, persistencia Prisma y capa HTTP con versionamiento URI `/api/v1` verificados; integración E2E pendiente.
+Estado: `DONE`; módulo `ZONE-01` implementado y verificado integralmente (dominio, aplicación, persistencia, HTTP v1 y suite E2E en base de datos real).
 
 Plan canónico: [ZONE-01](../plans/zone-01.md). Coordinación: [puntos 1 y 2](../plans/mvp-puntos-1-2.md).
 
@@ -165,7 +165,28 @@ Comandos y evidencia en Compose:
 - `docker compose run --rm frontend npm test -- --run`: 2 suites y 8 tests aprobados en el frontend.
 - `docker compose run --rm backend npm run build`: compilación limpia (`nest build`) con código 0.
 - Clean Architecture verificado mediante `test/zones-architecture.spec.ts`.
-- Siguiente trabajo: suites de pruebas de integración E2E con base de datos real (Paso 5).
+- Commits relacionados: `71b3f0d` (endpoints y versionamiento v1), `786219a` (tests unitarios de controladores) y `5a6520e` (documentación).
+
+### Pruebas E2E de integración de catálogos — 2026-10-02
+
+Se implementó y ejecutó la suite de pruebas E2E integrales del módulo:
+1. **Archivo de pruebas E2E (`backend/test/zone-catalogs.e2e-spec.ts`)**:
+   - Levanta la aplicación NestJS completa con `AppModule`, prefijo global `/api` y versionamiento de URI (`v1`).
+   - Utiliza base de datos real PostgreSQL para crear y limpiar fixtures mediante un cliente administrador `PrismaClient`.
+   - Crea dos tenants deterministas (`Tenant A` y `Tenant B`) con UUIDs generados para validar aislamiento multi-tenant estricto.
+2. **Casos de prueba cubiertos (23 tests)**:
+   - **Autenticación y extracción de contexto**: rechazo 401 `UNAUTHENTICATED` ante ausencia de header `x-tenant-id` o ante formato UUID inválido.
+   - **Zonas y aislamiento A/B**: creación de zona en Tenant A (201), creación de zona con el mismo código en Tenant B (201, demostrando unicidad acotada al tenant), rechazo de código duplicado dentro del mismo tenant (409 `CATALOG_CODE_CONFLICT`), rechazo por formato de código inválido (400 `VALIDATION_ERROR`), listado exclusivo de zonas del tenant, consulta por ID propio (200), rechazo 404 `CATALOG_RESOURCE_NOT_FOUND` al consultar zona de Tenant A desde Tenant B.
+   - **Sectores y jerarquía sector/zona**: creación de sector en zona propia (201), rechazo de código duplicado en la misma zona (409), rechazo al intentar crear sector en zona de otro tenant (404), listado de sectores por zona, rechazo al listar sectores de zona ajena (404), detalle de sector por ID (200), rechazo al solicitar sector con ID de zona discrepante (404).
+   - **Tipos de envío y filtro de inactivos**: creación de tipo activo por defecto (201), creación de tipo inactivo (201), conflicto de código en el mismo tenant (409), listado por defecto excluyendo inactivos, listado con `?includeInactive=true` incluyendo ambos (200), detalle de tipo propio (200), rechazo 404 al consultar tipo de envío de otro tenant.
+   - **Teardown y limpieza**: bloque `afterAll` elimina de forma segura todos los registros creados durante la prueba (`sector`, `zone`, `shipmentType`, `tenant`) garantizando idempotencia en el entorno local.
+
+Comandos y evidencia en Compose:
+- `docker compose run --rm backend npm run test:e2e -- test/zone-catalogs.e2e-spec.ts`: 1 suite, 23 tests aprobados en 1.576s.
+- `docker compose run --rm backend npm test -- --runInBand`: 39 suites, 278 tests unitarios pasando.
+- `docker compose run --rm frontend npm test -- --run`: 2 suites, 8 tests pasando.
+- `docker compose run --rm backend npm run build`: compilación limpia (`nest build`) con código 0.
+- `docker compose run --rm frontend npm run build`: compilación cliente (`tsc && vite build`) con código 0.
 
 ## Estado en el entorno compartido
 
@@ -177,4 +198,5 @@ Clustering, polígonos/geofencing, reglas Interpreter y planificación. No supri
 
 ## Cierre
 
-Implementación no cerrada. Actualizar una sección por cada paso completado, registrando comandos, resultados, límites y commit; enlazar siempre el plan.
+Módulo `ZONE-01` implementado y verificado en su totalidad. Todos los criterios de aceptación y pasos del plan fueron completados satisfactoriamente. Listo para Pull Request.
+

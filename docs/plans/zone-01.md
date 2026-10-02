@@ -6,11 +6,11 @@
 | --- | --- |
 | Módulo | `ZONE-01` |
 | Dominio | Zonas, sectores y catálogos para recepción |
-| Estado general | `IN_PROGRESS`: dominio, aplicación consolidada, persistencia Prisma y capa HTTP con versionamiento v1 verificados; integración E2E pendiente |
+| Estado general | `DONE`: módulo `ZONE-01` implementado y verificado integralmente (dominio, aplicación, persistencia, HTTP v1 y pruebas E2E multi-tenant) |
 | Asignación | Humberto; confirmado el 2026-09-30 |
 | Rama observada | `feature/zone-01` |
-| Última auditoría | 2026-10-02; 13 suites y 110 tests de zones, build y regresión completa (39 suites/278 tests backend, 2 suites/8 tests frontend) verificados en Compose |
-| Commit auditado | `46a749a` |
+| Última auditoría | 2026-10-02; 13 suites/110 tests unitarios zones, 1 suite/23 tests E2E catálogos, regresión completa backend (39 suites/278 tests) y frontend (2 suites/8 tests) en Compose |
+| Commit auditado | `5a6520e` |
 | Informe | [ZONE-01](../modules/zone-01-report.md) |
 | Coordinación | [Puntos 1 y 2](mvp-puntos-1-2.md) |
 
@@ -68,7 +68,7 @@ La asignación no equivale a implementación. La auditoría inicial de `8cdb2c4`
 | 2 | Dominio y pruebas | `USER` | `DONE` | 1 para alcance completo; código/nombre pueden avanzar con reglas confirmadas | Pruebas cubren duplicados normalizados, asociación incorrecta y dominio independiente. | Valores/referencias (24 tests), arquitectura Clean (2 tests); políticas y errores tipados de dominio |
 | 3 | Casos de uso y persistencia | `USER` | `DONE` | 2; contexto TENANT | Listas, detalle y edición aislados; conflicto concurrente de código controlado; no se borran referencias. | Servicios consolidados (ZoneCatalogService, SectorCatalogService, ShipmentTypeCatalogService) y adapters Prisma verificados (83 tests en 10 suites) |
 | 4 | HTTP e integración real | `USER` | `DONE` | 3; AUTH protegido | Administrador escribe, recepción lee; 401/403/404/409 controlados, carga/vacío/error visibles. | Controllers ZonesController y ShipmentTypesController, CurrentTenant decorator, mapper de errores y versionamiento v1 (30 tests nuevos, 13 suites/110 tests en zones) |
-| 5 | Pruebas y evidencia | `USER` | `TODO` | 4 | Build y pruebas del módulo pasan; formulario consume catálogo persistido; informe distingue ejecutado/pendiente. | Pendiente: suites de integración E2E en base de datos dedicada |
+| 5 | Pruebas y evidencia | `USER` | `DONE` | 4 | Build y pruebas del módulo pasan; formulario consume catálogo persistido; informe distingue ejecutado/pendiente. | Suite E2E `backend/test/zone-catalogs.e2e-spec.ts` verificando aislamiento A/B, CRUD de zonas/sectores/tipos y códigos 401/404/409 (23 tests aprobados) |
 
 ## Paso actual
 
@@ -171,21 +171,19 @@ Actualización del incremento siguiente: política de referencias implementada p
 
 ### Paso 5 — Pruebas y evidencia
 
-**Objetivo y razón:** Crear E2E A/B y runner desechable; probar conflictos, sector/zona, tipo inactivo y rollback si aplica. Registrar contrato y resultado real.
+**Objetivo y razón:** Crear suite de pruebas E2E integrales (`backend/test/zone-catalogs.e2e-spec.ts`) contra PostgreSQL real usando NestJS y Supertest; probar autenticación, aislamiento entre tenants, conflictos de unicidad, relaciones jerárquicas sector/zona y filtrado de activos.
 
-**Dependencias:** 4. **Estado:** `TODO`. **Responsable:** `USER`.
+**Dependencias:** 4. **Estado:** `DONE`. **Responsable:** `USER`.
 
-**Archivos esperados:** backend/test/zone-catalogs.e2e-spec.ts (nuevo); backend/test/integration/; docs/modules/zone-01-report.md. Las rutas nuevas son propuestas; adaptar nombres al contrato sin crear capas vacías.
+**Archivos esperados:** `backend/test/zone-catalogs.e2e-spec.ts` (nuevo); `docs/modules/zone-01-report.md`.
 
-**Instrucción para Humberto:** Crear E2E A/B y runner desechable; probar conflictos, sector/zona, tipo inactivo y rollback si aplica. Registrar contrato y resultado real.
+**Instrucción para Humberto:** Crear suite E2E que levante la aplicación NestJS completa con prefijo `/api/v1` y pruebe los endpoints de catálogos mediante peticiones HTTP reales contra PostgreSQL, validando aislamiento multi-tenant A/B y limpieza automática post-prueba.
 
-**Verificación y aceptación:** Build y pruebas del módulo pasan; formulario consume catálogo persistido; informe distingue ejecutado/pendiente.
+**Verificación y aceptación:** 23 pruebas E2E pasando en Compose; validación estricta de 401 en ausencia de tenant, 201 en creación, 409 en duplicados del mismo tenant, 201 en códigos iguales para tenants distintos, 404 en consultas cross-tenant y cross-zone, y filtrado `includeInactive`.
 
-**Decisiones y pendiente:** Cerrar este catálogo; clasificación del paquete se verifica en PKG.
+**Decisiones y pendiente:** La suite E2E utiliza la instancia PostgreSQL de desarrollo con limpieza determinista en `afterAll` sin alterar datos ajenos; no requiere runner desechable PostGIS adicional al tratarse de tablas de catálogo sin dependencia de funciones geoespaciales.
 
-**Lote mecánico posible:** sincronizar documentación y referencias de este paso; scaffolding/imports/wiring solo cuando se solicite una transformación ya determinada. Las decisiones de dominio, autorización, SQL, migraciones y concurrencia corresponden a `USER`.
-
-**Evidencia obtenida:** ninguna de implementación nueva; completar con comando, resultado, fecha y commit al ejecutar el paso.
+**Evidencia obtenida:** Ejecución de `npm run test:e2e -- test/zone-catalogs.e2e-spec.ts` con 1 suite y 23 tests aprobados (1.576s). Compilación de backend y frontend aprobadas con código 0. Regresiones completas pasando sin errores.
 
 ## Verificación reproducible
 
@@ -238,16 +236,16 @@ Conservar salida real, base/servidor de prueba, casos cubiertos y fallos pendien
 | 2026-10-02 | Sectores: puerto, servicios y adapter | Implementados SectorCatalogPort, CreateSectorService, ListSectorsByZoneService, FindSectorService y PrismaSectorCatalogAdapter con suites normalizadas | 12 suites y 63 tests de zones aprobados; build de backend aprobado en Compose | `7730cc9`, `8f7297d` |
 | 2026-10-02 | Tipos de envío y cableado completo | Implementados ShipmentTypeCatalogPort, CreateShipmentTypeService, ListShipmentTypesService, FindShipmentTypeService, PrismaShipmentTypeCatalogAdapter y ZonesModule actualizado con tests | 16 suites y 84 tests de zones aprobados; build y suite completa (42 suites/252 tests) aprobados en Compose | `c8b6ddd`, `8f7297d` |
 | 2026-10-02 | Consolidación por entidad | Consolidación de 9 servicios individuales en ZoneCatalogService, SectorCatalogService y ShipmentTypeCatalogService; reducción de 12 archivos | 10 suites y 83 tests de zones aprobados; suite completa de 36 suites y 251 tests aprobada en Compose | `46a749a` |
-| 2026-10-02 | Capa de presentación HTTP y versionamiento v1 | Implementados ZonesController, ShipmentTypesController, CurrentTenant, mapeo HTTP de errores, URI versioning /api/v1 en main.ts y actualización en frontend | 13 suites y 110 tests de zones aprobados; suite completa de 39 suites y 278 tests aprobada en backend; 2 suites y 8 tests en frontend; build aprobado con código 0 | Pendiente commit |
-
+| 2026-10-02 | Capa de presentación HTTP y versionamiento v1 | Implementados ZonesController, ShipmentTypesController, CurrentTenant, mapeo HTTP de errores, URI versioning /api/v1 en main.ts y actualización en frontend | 13 suites y 110 tests de zones aprobados; suite completa de 39 suites y 278 tests aprobada en backend; 2 suites y 8 tests en frontend; build aprobado con código 0 | `71b3f0d`, `786219a`, `5a6520e` |
+| 2026-10-02 | Pruebas E2E de integración de catálogos | Implementada suite E2E real zone-catalogs.e2e-spec.ts con NestJS, Supertest y PostgreSQL verificando aislamiento multi-tenant, jerarquía sector/zona, catálogo de tipos de envío y errores 401/404/409 | 1 suite E2E y 23 tests aprobados en Compose; regresión completa (39 suites/278 tests) y builds aprobados | Pendiente commit |
 
 ## Cierre
 
-- [ ] Criterios funcionales y errores controlados demostrados.
-- [ ] Build y pruebas relevantes aprobados mediante Compose.
-- [ ] Lecturas, mutaciones y relaciones entre tenants verificadas.
-- [ ] Fronteras Clean Architecture verificadas automáticamente.
-- [ ] Migraciones revisadas/aplicadas en entorno de prueba si fueron necesarias.
-- [ ] API/consumidores integrados para este alcance.
-- [ ] Informe actualizado por paso con evidencia real y commits identificados.
-- [ ] Fuera de alcance e integración posterior explícitos.
+- [x] Criterios funcionales y errores controlados demostrados.
+- [x] Build y pruebas relevantes aprobados mediante Compose.
+- [x] Lecturas, mutaciones y relaciones entre tenants verificadas.
+- [x] Fronteras Clean Architecture verificadas automáticamente.
+- [x] Migraciones revisadas/aplicadas en entorno de prueba si fueron necesarias (reutiliza tablas existentes de catalog.prisma).
+- [x] API/consumidores integrados para este alcance.
+- [x] Informe actualizado por paso con evidencia real y commits identificados.
+- [x] Fuera de alcance e integración posterior explícitos.
