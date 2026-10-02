@@ -5,10 +5,12 @@ import { ZoneCatalogService } from '../application/zone-catalog.service';
 import { PrismaSectorCatalogAdapter } from '../infrastructure/prisma-sector-catalog.adapter';
 import { PrismaShipmentTypeCatalogAdapter } from '../infrastructure/prisma-shipment-type-catalog.adapter';
 import { PrismaZoneCatalogAdapter } from '../infrastructure/prisma-zone-catalog.adapter';
+import { ShipmentTypesController } from '../presentation/shipment-types.controller';
+import { ZonesController } from '../presentation/zones.controller';
 import { ZonesModule } from '../zones.module';
 
 describe('ZonesModule', () => {
-  it('exposes the zone, sector, and shipment type application services and persistence adapters', async () => {
+  it('exposes the zone, sector, and shipment type application services, persistence adapters, and controllers', async () => {
     const testingModule = await Test.createTestingModule({
       imports: [ZonesModule],
     }).compile();
@@ -23,6 +25,9 @@ describe('ZonesModule', () => {
       PrismaShipmentTypeCatalogAdapter,
     );
 
+    const zonesController = testingModule.get(ZonesController);
+    const shipmentTypesController = testingModule.get(ShipmentTypesController);
+
     expect(zoneService).toBeInstanceOf(ZoneCatalogService);
     expect(sectorService).toBeInstanceOf(SectorCatalogService);
     expect(shipmentTypeService).toBeInstanceOf(ShipmentTypeCatalogService);
@@ -32,6 +37,9 @@ describe('ZonesModule', () => {
     expect(shipmentTypeAdapter).toBeInstanceOf(
       PrismaShipmentTypeCatalogAdapter,
     );
+
+    expect(zonesController).toBeInstanceOf(ZonesController);
+    expect(shipmentTypesController).toBeInstanceOf(ShipmentTypesController);
 
     await testingModule.close();
   });
