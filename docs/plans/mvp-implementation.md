@@ -24,14 +24,14 @@ La inspección fue estática, con árbol limpio y merge de frontend integrado. N
 | Paquetes/State | Agregado, estados, servicio de transición, adapter con historial/outbox y tests | Refactor Clean Architecture; registro/consulta/corrección/clasificación, datos completos de remitente/destinatario/contacto y API |
 | Asignación/Chain | Handlers, Chain, servicio y reserva transaccional; [evidencia GDB-01](../geospatial/gdb-01-report.md) | Revisar orquestación dentro del adapter, integrar planificación, State/outbox, resultados pendientes y recuperación manual |
 | Geocodificación | Normalización, ranking local, puertos/adapters y pruebas; [GEOCODE-01](geocode-01.md) | Integración de registro/revisión y catálogo adecuado para demo; no es geocodificador universal |
-| Caminos viales | Grafo dirigido, Dijkstra, geometría y persistencia de recorrido; [GDB-05](gdb-05.md) | Integración operativa; Dijkstra no reemplaza Haversine, clustering ni ordenamiento de paradas |
+| Caminos viales | Grafo dirigido, Dijkstra, geometría y persistencia ([GDB-05](gdb-05.md)); cálculo Haversine, clustering por radio con capacidad ([CLUSTER-01](cluster-01.md)) y ordenamiento heurístico Nearest-Neighbor + 2-opt ([SEQ-01](seq-01.md), [ADR-004](../adr/004-deterministic-stop-ordering.md)) implementados y verificados en dominio/aplicación | Integración operativa en `ASSIGN-01`; persistencia de rutas/paradas y UI |
 | Zonas y recursos | Modelos Zone/Sector/ShipmentType, Vehicle/Courier y turnos | Casos de uso, endpoints, permisos, disponibilidad y edición segura de capacidad |
 | API | Solo `AppController` raíz encontrado bajo `backend/src` | Endpoints de acceso y negocio, DTOs, errores controlados y contratos para frontend |
 | Frontend | Portada, registro manual/QR, validación y cliente API; cambios de frontend integrados en `efea332` | Sesión, navegación por rol, consultas y flujos operativos reales; Compose aún fija `VITE_USE_MOCK_DATA=true` |
 | Eventos | Modelos OutboxEvent/ProcessedEvent/DeadLetterMessage; outbox en transición de paquete; RabbitMQ configurado | Envelope común, publicador, worker, confirmaciones, ACK manual, idempotencia, reintentos y DLQ |
 | Entrega y cierre | Modelos de rutas/paradas/intentos/evidencias/incidentes y estados | Casos de uso y API de ejecución, fallo, reprogramación, devolución y resumen de cierre |
 | Notificaciones | Modelos de notificación/plantilla | Consumidores, bandeja interna, adapter de correo y deduplicación |
-| Evidencia académica | Tests y reportes de componentes, dos ADR y planes de módulos | C4 final, README alineado, pruebas del recorrido, logs correlacionados y guion de defensa |
+| Evidencia académica | Tests y reportes de componentes, cuatro ADRs ([ADR-001](../adr/001-shared-schema-multitenancy.md), [ADR-002](../adr/002-event-driven-architecture.md), [ADR-003](../adr/003-deterministic-radius-clustering.md), [ADR-004](../adr/004-deterministic-stop-ordering.md)) y planes de módulos | C4 final, README alineado, pruebas del recorrido, logs correlacionados y guion de defensa |
 
 La portada contiene cifras y envíos de demostración; no se presentan como dashboard operativo ni seguimiento en tiempo real.
 
@@ -45,7 +45,7 @@ Todos los pasos de implementación corresponden a `USER`, con la persona indicad
 | 1 | AUTH-01/TENANT-01: Juanangel; UI-01: Santiago | `TODO` | Contrato etapa 0 | Login real A/B, identidad actual y navegación; lectura/mutación ajena denegadas |
 | 2 | ZONE-01: Humberto; PKG-01/VEH-01: Vivian; UI-02/admin: Santiago | `TODO` | Contratos etapa 0; HTTP final requiere 1 | Registrar/consultar paquete persistido; administrar catálogos y recursos con capacidad/tenant válidos |
 | 3 | EVT-01/RMQ-01/IDEMP-01/DLQ-01/OBS-01: Juanangel con apoyo de Humberto | `TODO` | Contratos etapa 0; base tenant y persistencia | Evento real del flujo publicado/consumido; duplicado sin doble efecto; fallo acotado llega a DLQ y puede recuperarse deliberadamente |
-| 4 | GEO-01/CLUSTER-01/SEQ-01/ASSIGN-01: Humberto con Vivian; UI-03: Santiago | `TODO` | Datos de 2; transporte de 3 para planificación asíncrona | Dataset pequeño produce rutas reproducibles, capacidad válida, orden de paradas y pendientes visibles |
+| 4 | GEO-01/CLUSTER-01/SEQ-01/ASSIGN-01: Humberto con Vivian; UI-03: Santiago | `IN_PROGRESS` (GEO-01, CLUSTER-01 y SEQ-01 `DONE` en dominio/aplicación con 100% tests; resta `ASSIGN-01` y `UI-03`) | Datos de 2; transporte de 3 para planificación asíncrona | Dataset pequeño produce rutas reproducibles, capacidad válida, orden de paradas y pendientes visibles |
 | 5 | ROUTE-01/DELIVERY-01/ROUTE-CLOSE-01: Humberto, Vivian y Santiago | `TODO` | 4 y State integrado | Preparar/iniciar, registrar entrega o fallo, reprogramar/devolver y cerrar con conteos coherentes |
 | 6 | NOTIF-01/02: Santiago y Juanangel; apoyo Vivian; UI-04: Santiago | `TODO` | 3 y eventos operativos | Bandeja/correo observables, deduplicados; fallo de correo no revierte entrega; consulta pública sin datos sensibles |
 | 7 | SEC-01/QA-01/EVID-01/DOC-01/02: todos | `TODO` para cierre integral | 1–6 integradas | Demo sin mocks, pruebas pertinentes, README reproducible, C4 y defensa coherentes con código |
@@ -83,7 +83,12 @@ Archivos: puertos internos, `shared/infrastructure/messaging/`, `worker.ts`, `wo
 
 ### 4. Planificar y asignar rutas
 
-Humberto implementa validación de coordenadas, Haversine, clustering determinista y nearest-neighbor. Separar zonas operativas de clusters calculados. Reutilizar grafo/Dijkstra solo para la parte de caminos que corresponda; documentar distancias geográficas frente a viales y alcance del dataset local.
+Humberto implementa validación de coordenadas, Haversine, clustering determinista y nearest-neighbor + 2-opt.
+- **Estado actual**:
+  - `GEO-01`: Validación de coordenadas y distancia Haversine manual implementadas y verificadas con oráculos matemáticos independientes.
+  - `CLUSTER-01`: Algoritmo determinista de clustering por radio con partición por capacidad (`maxWeightKg`, `maxVolumeM3`) y servicio `ClusterPackagesService` completados ([ADR-003](../adr/003-deterministic-radius-clustering.md), [reporte](../modules/cluster-01-report.md)).
+  - `SEQ-01`: Algoritmos de ordenamiento de paradas (`NearestNeighborOrdering` como base y `TwoOptOrdering` como refinamiento acotado first-improvement) con circuito cerrado, desempate ordinal determinista por `packageId` y servicio `OrderRouteStopsService` completados ([ADR-004](../adr/004-deterministic-stop-ordering.md), [reporte](../modules/seq-01-report.md)).
+  - Pendiente en esta etapa: `ASSIGN-01` (integración con Chain of Responsibility, reserva transaccional y persistencia de rutas/paradas con historia) y `UI-03` (Santiago).
 
 Integrar Chain con datos confiables, reserva concurrente y State/outbox; crear rutas/paradas y asignaciones con historia en una operación coherente. Falta de capacidad produce PENDING_ASSIGNMENT con motivo y revisión manual, no DLQ. Incorporar revisión de geocodificación y conexión al grafo exigidas por los handlers existentes para que la demo no quede bloqueada por datos incompletos.
 
@@ -133,6 +138,7 @@ Fuera de esta hoja: dashboard analítico avanzado, GPS, móvil nativo, optimizac
 | Fecha | Observación | Verificación | Commit |
 | --- | --- | --- | --- |
 | 2026-09-30 | Hoja de ruta basada en merge frontend y componentes backend existentes | Inspección estática; tests no ejecutados | Base `efea332`; documento aún sin commit |
+| 2026-10-02 | Algoritmos de planificación completados: GEO-01 (Haversine), CLUSTER-01 (clustering por radio con capacidad, ADR-003) y SEQ-01 (Nearest-Neighbor + 2-opt deterministas, ADR-004) en Clean Architecture | `docker compose exec backend npm test` (51 suites, 413 tests pasando al 100%) y `npm run build` | Rama `feature/seq-01` |
 
 - [ ] Etapas 1–6 integradas sin mocks en la demo.
 - [ ] Clean Architecture, State, Chain, Idempotent Consumer y DLQ demostrados.
