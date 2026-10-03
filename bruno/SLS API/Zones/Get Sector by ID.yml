@@ -1,0 +1,19 @@
+info:
+  name: Get Sector by ID
+  type: http
+  seq: 6
+
+http:
+  method: GET
+  url: "{{baseUrl}}/zones/{{zoneId}}/sectors/{{sectorId}}"
+  auth: inherit
+  headers:
+    - name: x-tenant-id
+      value: "{{tenantId}}"
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+  forwardAuthorizationHeader: false

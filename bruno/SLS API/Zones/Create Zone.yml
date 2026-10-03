@@ -1,0 +1,28 @@
+info:
+  name: Create Zone
+  type: http
+  seq: 2
+
+http:
+  method: POST
+  url: "{{baseUrl}}/zones"
+  auth: inherit
+  headers:
+    - name: Content-Type
+      value: application/json
+    - name: x-tenant-id
+      value: "{{tenantId}}"
+  body:
+    type: json
+    data: |-
+      {
+        "code": "NORTE",
+        "name": "Zona Norte"
+      }
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+  forwardAuthorizationHeader: false
