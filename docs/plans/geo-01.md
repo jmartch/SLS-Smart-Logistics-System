@@ -8,9 +8,9 @@
 | Dominio | Coordenadas geográficas y cálculo de distancia Haversine |
 | Estado general | `DONE` |
 | Asignación | Humberto; confirmado en AGENTS.md |
-| Rama observada | `develop` |
+| Rama observada | `feature/geo-01` |
 | Última auditoría | 2026-10-02 |
-| Commit auditado | `5a6520e` |
+| Commit auditado | `a8973fb` |
 | Informe | [GEO-01](../modules/geo-01-report.md) |
 | Dependencias | `FOUND-01` (completada) |
 | Consumidores | `CLUSTER-01`, `SEQ-01`, `ASSIGN-01`, clasificación geográfica |
