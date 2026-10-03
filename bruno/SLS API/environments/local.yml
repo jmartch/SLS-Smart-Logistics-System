@@ -1,5 +1,17 @@
 name: local
 variables:
   - name: baseUrl
-    value: http://localhost:3000
+    value: http://localhost:3000/api/v1
     description: ""
+  - name: tenantId
+    value: 10000000-0000-4000-8000-000000000001
+    description: "UUID del tenant activo para validaciones multi-tenant"
+  - name: zoneId
+    value: 08d92a06-4921-4989-92ff-f1917240779c
+    description: "UUID de zona de ejemplo para rutas con parámetros"
+  - name: sectorId
+    value: 2ef99933-082e-4d24-b1a1-b5c574ca6aa5
+    description: "UUID de sector de ejemplo para rutas con parámetros"
+  - name: shipmentTypeId
+    value: b268c5c7-b2b5-411d-b734-07746ae7e6e6
+    description: "UUID de tipo de envío de ejemplo"
