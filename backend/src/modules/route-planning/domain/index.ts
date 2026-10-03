@@ -34,3 +34,20 @@ export {
 } from './algorithms/geographic-clustering-algorithm';
 export { RadiusClustering } from './algorithms/radius-clustering';
 export { FirstFitCapacityPartitioner } from './algorithms/capacity-cluster-partitioner';
+export {
+  type StopOrderingName,
+  type StopCandidateInput,
+  type StopOrderingOptions,
+  type OrderedStop,
+  type TwoOptTerminationReason,
+  type OrderedRouteSequence,
+} from './models/stop-ordering.types';
+export {
+  InvalidStopOrderingInputError,
+  type InvalidStopOrderingInputReason,
+} from './models/invalid-stop-ordering-input.error';
+export {
+  type StopOrderingAlgorithm,
+} from './algorithms/stop-ordering-algorithm';
+export { NearestNeighborOrdering } from './algorithms/nearest-neighbor-ordering';
+export { TwoOptOrdering } from './algorithms/two-opt-ordering';
