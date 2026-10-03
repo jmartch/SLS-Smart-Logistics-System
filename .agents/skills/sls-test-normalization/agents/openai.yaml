@@ -1,0 +1,4 @@
+interface:
+  display_name: "Normalización de tests SLS"
+  short_description: "Unifica la estructura de los tests de SLS"
+  default_prompt: "Usa $sls-test-normalization para normalizar todos los tests de SLS con una estructura común y verificar que conservan su comportamiento."

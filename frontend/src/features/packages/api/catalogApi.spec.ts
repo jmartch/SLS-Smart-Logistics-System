@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { fetchShipmentTypes, fetchZones } from './catalogApi';
 
 vi.mock('../../../shared/config/environment', () => ({
-  API_BASE_URL: '/api',
+  API_BASE_URL: '/api/v1',
   USE_MOCK_DATA: false,
 }));
 
