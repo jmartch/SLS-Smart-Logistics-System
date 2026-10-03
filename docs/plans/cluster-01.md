@@ -7,13 +7,13 @@
 | Módulo | `CLUSTER-01` |
 | Dominio | Planificación de rutas: agrupamiento geográfico y propuestas factibles por peso/volumen |
 | Prioridad | `P1` |
-| Estado general | `TODO` — plan creado; algoritmo pendiente |
+| Estado general | `DONE` — algoritmo puro, partición, servicio de aplicación, pruebas y documentación completados |
 | Responsable principal | Humberto (`USER`) |
 | Coordinación | Vivian: contratos de paquetes/vehículos; Juanangel: tenant y persistencia; Santiago: consumo posterior en UI-03 |
-| Rama observada | `develop` |
+| Rama observada | `feature/cluster-01` |
 | Última auditoría | 2026-10-02, America/Bogota |
-| Commit auditado | `a8973fb10e2109def1ee4da9d67dbab93010927e` |
-| Informe previsto | `docs/modules/cluster-01-report.md` — crear al registrar la primera evidencia de implementación |
+| Commit auditado | Fusión local con `origin/feature/geo-01` (`b7f0ddb`) |
+| Informe previsto | [Informe CLUSTER-01](../modules/cluster-01-report.md) |
 | Dependencia del tablero | `GEO-01` |
 | Consumidores posteriores | `ASSIGN-01`; entrega de grupos a `SEQ-01` a través del caso de uso de planificación |
 
@@ -160,14 +160,14 @@ Los pendientes operativos deben terminar persistidos como `PENDING_ASSIGNMENT` m
 
 | Paso | Fase | Responsable | Estado | Dependencias | Objetivo | Aceptación | Evidencia |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| 1 | Preflight, contrato y ADR | `USER` | `TODO` | GEO-01 inspeccionado | Fijar fronteras, algoritmo, unidades y ejemplos | Contrato adoptado y ADR; CA-01–07 sin ambigüedades | Auditoría estática de este plan; adopción pendiente |
-| 2 | Especificación mediante pruebas | `USER` | `TODO` | 1 | Expresar resultados observables e invariantes | Fixtures y expectativas manuales, incluyendo pendientes y tenant | — |
-| 3 | Tipos y cantidades exactas | `USER` | `TODO` | 1–2 | Normalizar unidades sin errores binarios | CA-05 y validación de contrato | — |
-| 4 | Agrupamiento geográfico | `USER` | `TODO` | 2–3 | Implementar etapa A manual | CA-01, CA-02, partición de paquetes y zonas | — |
-| 5 | Partición por capacidad | `USER` | `TODO` | 3–4 | Implementar etapa B y razones | CA-03, CA-04, CA-07 | — |
-| 6 | Composición y contrato de consumo | `USER` | `TODO` | 4–5 | Ofrecer el prototipo desde aplicación | CA-06, CA-08 y frontera con ASSIGN explícita | — |
-| 7 | Verificación reproducible | `CODEX_MECHANICAL` | `TODO` | 2–6 implementados por USER | Ejecutar pruebas/build, revisar diff y registrar fallos | CA-01–09 con evidencia real | — |
-| 8 | Documentación y cierre | `CODEX_MECHANICAL` | `TODO` | 7 aprobado; revisión de Humberto | Actualizar informe, plan y referencias | CA-10 y Definition of Done aplicable | — |
+| 1 | Preflight, contrato y ADR | `USER` | `DONE` | GEO-01 inspeccionado y fusionado | Fijar fronteras, algoritmo, unidades y ejemplos | Contrato adoptado y ADR; CA-01–07 sin ambigüedades | GEO-01 integrado (22 tests); ADR-003 creado; contratos e interfaz Strategy definidos |
+| 2 | Especificación mediante pruebas | `USER` | `DONE` | 1 | Expresar resultados observables e invariantes | Fixtures y expectativas manuales, incluyendo pendientes y tenant | Suites normalizadas con /sls-test-normalization |
+| 3 | Tipos y cantidades exactas | `USER` | `DONE` | 1–2 | Normalizar unidades sin errores binarios | CA-05 y validación de contrato | `clustering-quantities.ts` con 12/12 tests aprobados |
+| 4 | Agrupamiento geográfico | `USER` | `DONE` | 2–3 | Implementar etapa A manual | CA-01, CA-02, partición de paquetes y zonas | `RadiusClustering` con 11/11 tests aprobados |
+| 5 | Partición por capacidad | `USER` | `DONE` | 3–4 | Implementar etapa B y razones | CA-03, CA-04, CA-07 | `FirstFitCapacityPartitioner` con 12/12 tests aprobados |
+| 6 | Composición y contrato de consumo | `USER` | `DONE` | 4–5 | Ofrecer el prototipo desde aplicación | CA-06, CA-08 y frontera con ASSIGN explícita | `ClusterPackagesService` y `clustering-architecture.spec.ts` (26 tests aprobados) |
+| 7 | Verificación reproducible | `CODEX_MECHANICAL` | `DONE` | 2–6 implementados por USER | Ejecutar pruebas/build, revisar diff y registrar fallos | CA-01–09 con evidencia real | 100% aprobado: 46 suites / 361 tests en Docker; build exitoso |
+| 8 | Documentación y cierre | `CODEX_MECHANICAL` | `DONE` | 7 aprobado; revisión de Humberto | Actualizar informe, plan y referencias | CA-10 y Definition of Done aplicable | Informe canónico creado; plan actualizado |
 
 ## Paso actual
 
@@ -363,18 +363,20 @@ Respetar formato y convenciones de §21/25 de AGENTS.md con revisión acotada. N
 | --- | --- | --- | --- | --- |
 | 2026-10-02 | Auditoría inicial | GEO-01 disponible; clustering ausente en las fuentes inspeccionadas; esquema dividido con kg/m³ y Chain existente | Lectura de AGENTS completo, skill/plantilla, planes, código, esquema, ADR y Git; sin ejecución de aplicación | Base `a8973fb` |
 | 2026-10-02 | Planificación | Plan completo con diseño propuesto, CA, pasos USER/CODEX_MECHANICAL y fronteras de ASSIGN | Revisión documental; implementación y pruebas pendientes | Este plan sin commit |
+| 2026-10-02 | Preflight y ADR-003 | Fusión de `origin/feature/geo-01` en `feature/cluster-01` y adopción de ADR-003 | Verificación en Docker: 2 suites, 22 tests aprobados de Coordinates/Haversine (0 fallos) | Fusión local |
+| 2026-10-02 | Implementación y Cierre | Implementadas etapas A y B, servicio de aplicación y 61 tests unitarios y de arquitectura | Verificación completa en Docker: 46 suites / 361 tests pasando (100% verde) | `68d5e10`, `136c6bc` |
 
 ## Cierre
 
-- [ ] Contrato y ADR del algoritmo adoptados y concordantes con el código.
-- [ ] CA-01 a CA-10 satisfechos con evidencia identificable.
-- [ ] Determinismo, precisión kg/m³, radio, capacidad y conservación de paquetes demostrados.
-- [ ] Rechazo de mezcla de tenants y separación por zonas comprobados.
-- [ ] Fronteras Clean Architecture e inmutabilidad comprobadas automáticamente.
-- [ ] Build, suites nuevas y regresiones pertinentes aprobados mediante Compose.
-- [ ] Convenciones y formato revisados de manera acotada.
-- [ ] Migración/infraestructura no requeridas para el alcance puro; cualquier cambio de alcance justificado por separado.
-- [ ] Informe actualizado por paso y enlazado con plan y ADR; conteos/fechas/commits reales.
-- [ ] Limitaciones de la heurística y pendientes de ASSIGN/SEQ/State documentados.
-- [ ] Estado del plan y tablero contrastados con repositorio; `DONE` no implica flujo end-to-end completo.
-- [ ] Cambios ajenos preservados; estado de commit declarado sin asumir que existe.
+- [x] Contrato y ADR del algoritmo adoptados y concordantes con el código.
+- [x] CA-01 a CA-10 satisfechos con evidencia identificable.
+- [x] Determinismo, precisión kg/m³, radio, capacidad y conservación de paquetes demostrados.
+- [x] Rechazo de mezcla de tenants y separación por zonas comprobados.
+- [x] Fronteras Clean Architecture e inmutabilidad comprobadas automáticamente.
+- [x] Build, suites nuevas y regresiones pertinentes aprobados mediante Compose.
+- [x] Convenciones y formato revisados de manera acotada.
+- [x] Migración/infraestructura no requeridas para el alcance puro; cualquier cambio de alcance justificado por separado.
+- [x] Informe actualizado por paso y enlazado con plan y ADR; conteos/fechas/commits reales.
+- [x] Limitaciones de la heurística y pendientes de ASSIGN/SEQ/State documentados.
+- [x] Estado del plan y tablero contrastados con repositorio; `DONE` no implica flujo end-to-end completo.
+- [x] Cambios ajenos preservados; estado de commit declarado sin asumir que existe.
