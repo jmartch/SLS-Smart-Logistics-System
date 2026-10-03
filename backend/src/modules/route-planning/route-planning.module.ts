@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { PrismaModule } from '../../database/prisma.module';
 import { BuildRouteRoadPathService } from './application/build-route-road-path.service';
+import { ClusterPackagesService } from './application/cluster-packages.service';
 import { FindRoadPathService } from './application/find-road-path.service';
 import { PlanExistingRouteRoadPathService } from './application/plan-existing-route-road-path.service';
 import { DijkstraShortestPath } from './domain/dijkstra-shortest-path';
@@ -55,9 +56,14 @@ import { PrismaRouteRoadWaypointRepository } from './infrastructure/route-road-w
       ) => new PlanExistingRouteRoadPathService(waypoints, routePathBuilder),
       inject: [RouteRoadWaypointRepository, BuildRouteRoadPathService],
     },
+    {
+      provide: ClusterPackagesService,
+      useFactory: () => new ClusterPackagesService(),
+    },
   ],
   exports: [
     BuildRouteRoadPathService,
+    ClusterPackagesService,
     FindRoadPathService,
     PlanExistingRouteRoadPathService,
   ],
