@@ -72,16 +72,19 @@ export class PrismaSessionRepository extends SessionRepository {
     return { id: row.id, actor: toActor(row), expiresAt: row.expiresAt };
   }
 
+  // Only live sessions are extended; a revoked or missing session is a no-op.
   async touch(sessionId: string, expiresAt: Date): Promise<void> {
-    await this.prisma.session.update({
-      where: { id: sessionId },
+    await this.prisma.session.updateMany({
+      where: { id: sessionId, revokedAt: null },
       data: { expiresAt, lastUsedAt: new Date() },
     });
   }
 
+  // Idempotent: never overwrites an earlier revokedAt and never throws when
+  // the session does not exist.
   async revoke(sessionId: string): Promise<void> {
-    await this.prisma.session.update({
-      where: { id: sessionId },
+    await this.prisma.session.updateMany({
+      where: { id: sessionId, revokedAt: null },
       data: { revokedAt: new Date() },
     });
   }

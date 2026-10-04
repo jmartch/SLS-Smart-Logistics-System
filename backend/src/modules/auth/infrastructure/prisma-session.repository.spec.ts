@@ -23,16 +23,32 @@ describe('PrismaSessionRepository', () => {
   let userId: string;
   let otherUserId: string;
   let platformAdminId: string;
+  // Ids actually created by this spec. afterAll builds its filters only from
+  // these: Prisma drops `undefined` filters, so an `undefined` id would turn a
+  // scoped deleteMany into a delete of every row in the shared database.
+  const createdTenantIds: string[] = [];
+  const createdUserIds: string[] = [];
+  const createdPlatformAdminIds: string[] = [];
   const futureDate = () => new Date(Date.now() + 60 * 60 * 1000);
   const newHash = () => hashSessionToken(`raw-${randomUUID()}`);
 
   beforeAll(async () => {
+    for (const name of ['DATABASE_URL', 'RUNTIME_DATABASE_URL']) {
+      if (!process.env[name]) {
+        throw new Error(
+          `${name} is not set. This spec needs the real database; run it through ` +
+            '`docker compose exec backend npm test` so both connection URLs exist.',
+        );
+      }
+    }
+
     await admin.$connect();
     await prisma.onModuleInit();
 
     const tenant = await admin.tenant.create({
       data: { name: `session-repo-spec-${runId}` },
     });
+    createdTenantIds.push(tenant.id);
     tenantId = tenant.id;
     const user = await admin.user.create({
       data: {
@@ -41,6 +57,7 @@ describe('PrismaSessionRepository', () => {
         passwordHash: 'not-a-real-hash',
       },
     });
+    createdUserIds.push(user.id);
     const otherUser = await admin.user.create({
       data: {
         tenantId,
@@ -48,6 +65,7 @@ describe('PrismaSessionRepository', () => {
         passwordHash: 'not-a-real-hash',
       },
     });
+    createdUserIds.push(otherUser.id);
     userId = user.id;
     otherUserId = otherUser.id;
     const platformAdmin = await admin.platformAdmin.create({
@@ -56,23 +74,59 @@ describe('PrismaSessionRepository', () => {
         passwordHash: 'not-a-real-hash',
       },
     });
+    createdPlatformAdminIds.push(platformAdmin.id);
     platformAdminId = platformAdmin.id;
   }, 30000);
 
   afterAll(async () => {
-    // Delete only rows created by this spec, children before parents.
-    await admin.session.deleteMany({
-      where: {
-        OR: [{ tenantId }, { platformAdminId }],
-      },
+    // Each step is isolated so one failure cannot skip the remaining deletes
+    // or the disconnects; the first failure is rethrown at the end.
+    const failures: unknown[] = [];
+    const step = async (action: () => Promise<unknown>) => {
+      try {
+        await action();
+      } catch (error) {
+        failures.push(error);
+      }
+    };
+
+    await step(async () => {
+      const owners = [];
+      if (createdTenantIds.length > 0) {
+        owners.push({ tenantId: { in: createdTenantIds } });
+      }
+      if (createdPlatformAdminIds.length > 0) {
+        owners.push({ platformAdminId: { in: createdPlatformAdminIds } });
+      }
+      if (owners.length > 0) {
+        await admin.session.deleteMany({ where: { OR: owners } });
+      }
     });
-    await admin.user.deleteMany({
-      where: { id: { in: [userId, otherUserId] } },
+    await step(async () => {
+      if (createdUserIds.length > 0) {
+        await admin.user.deleteMany({ where: { id: { in: createdUserIds } } });
+      }
     });
-    await admin.platformAdmin.deleteMany({ where: { id: platformAdminId } });
-    await admin.tenant.deleteMany({ where: { id: tenantId } });
-    await admin.$disconnect();
-    await prisma.onModuleDestroy();
+    await step(async () => {
+      if (createdPlatformAdminIds.length > 0) {
+        await admin.platformAdmin.deleteMany({
+          where: { id: { in: createdPlatformAdminIds } },
+        });
+      }
+    });
+    await step(async () => {
+      if (createdTenantIds.length > 0) {
+        await admin.tenant.deleteMany({
+          where: { id: { in: createdTenantIds } },
+        });
+      }
+    });
+    await step(() => admin.$disconnect());
+    await step(() => prisma.onModuleDestroy());
+
+    if (failures.length > 0) {
+      throw failures[0];
+    }
   }, 30000);
 
   it('creates a tenant-user session and finds it by token hash', async () => {
@@ -199,5 +253,58 @@ describe('PrismaSessionRepository', () => {
     await expect(
       repository.findActiveByTokenHash(adminHash),
     ).resolves.not.toBeNull();
+  });
+
+  it('revoke is idempotent and keeps the first revokedAt', async () => {
+    const created = await repository.create(
+      { actorType: 'TENANT_USER', tenantId, userId },
+      newHash(),
+      futureDate(),
+    );
+
+    await repository.revoke(created.id);
+    const first = await admin.session.findUniqueOrThrow({
+      where: { id: created.id },
+    });
+    await new Promise((resolve) => setTimeout(resolve, 25));
+    await expect(repository.revoke(created.id)).resolves.toBeUndefined();
+    const second = await admin.session.findUniqueOrThrow({
+      where: { id: created.id },
+    });
+
+    expect(first.revokedAt).not.toBeNull();
+    expect(second.revokedAt).toEqual(first.revokedAt);
+  });
+
+  it('revoke and touch on a missing session do not throw', async () => {
+    const missingId = randomUUID();
+
+    await expect(repository.revoke(missingId)).resolves.toBeUndefined();
+    await expect(
+      repository.touch(missingId, futureDate()),
+    ).resolves.toBeUndefined();
+  });
+
+  it('touch does not extend a revoked session', async () => {
+    const created = await repository.create(
+      { actorType: 'TENANT_USER', tenantId, userId },
+      newHash(),
+      futureDate(),
+    );
+    await repository.revoke(created.id);
+    const before = await admin.session.findUniqueOrThrow({
+      where: { id: created.id },
+    });
+
+    await repository.touch(
+      created.id,
+      new Date(Date.now() + 5 * 60 * 60 * 1000),
+    );
+
+    const after = await admin.session.findUniqueOrThrow({
+      where: { id: created.id },
+    });
+    expect(after.expiresAt).toEqual(before.expiresAt);
+    expect(after.lastUsedAt).toEqual(before.lastUsedAt);
   });
 });
