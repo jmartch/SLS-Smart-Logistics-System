@@ -71,10 +71,12 @@ describe('Persistencia integral del ciclo de paquetes GDB-06', () => {
                 {
                     id: tenantAId,
                     name: `GDB-06 tenant A ${tenantAId}`,
+                    slug: `gdb-06-a-${tenantAId}`,
                 },
                 {
                     id: tenantBId,
                     name: `GDB-06 tenant B ${tenantBId}`,
+                    slug: `gdb-06-b-${tenantBId}`,
                 },
             ],
         });

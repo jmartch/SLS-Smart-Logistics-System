@@ -47,6 +47,7 @@ async function createTenantFixture(
     data: {
       id: tenantId,
       name: `GDB-01 ${label} ${tenantId}`,
+      slug: `gdb-01-${tenantId}`,
       status: 'ACTIVE',
     },
   });

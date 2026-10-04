@@ -79,6 +79,7 @@ describe('Persistencia integral de caminos GDB-05', () => {
                 data: {
                     id: tenantId,
                     name: `GDB-05 E2E ${tenantId}`,
+                    slug: `gdb-05-e2e-${tenantId}`,
                     status: 'ACTIVE',
                 },
             });
@@ -87,6 +88,7 @@ describe('Persistencia integral de caminos GDB-05', () => {
                 data: {
                     id: otherTenantId,
                     name: `GDB-05 foreign tenant ${otherTenantId}`,
+                    slug: `gdb-05-foreign-${otherTenantId}`,
                     status: 'ACTIVE',
                 },
             });

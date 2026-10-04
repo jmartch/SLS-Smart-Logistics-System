@@ -3,10 +3,10 @@
 BEGIN;
 
 -- Datos sintéticos creados como administrador.
-INSERT INTO "Tenant" ("id", "name")
+INSERT INTO "Tenant" ("id", "name", "slug")
 VALUES
-  ('10000000-0000-4000-8000-000000000001', 'Prueba A'),
-  ('10000000-0000-4000-8000-000000000002', 'Prueba B');
+  ('10000000-0000-4000-8000-000000000001', 'Prueba A', 'gdb-02-prueba-a'),
+  ('10000000-0000-4000-8000-000000000002', 'Prueba B', 'gdb-02-prueba-b');
 
 INSERT INTO "Address" (
   "tenantId", "originalText", "municipalityCode"

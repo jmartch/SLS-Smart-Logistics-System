@@ -12,6 +12,7 @@ enum UserStatus {
 model Tenant {
   id        String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   name      String
+  slug      String       @unique
   status    TenantStatus @default(ACTIVE)
   createdAt DateTime     @default(now())
 

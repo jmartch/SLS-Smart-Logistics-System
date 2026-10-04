@@ -46,7 +46,10 @@ describe('PrismaSessionRepository', () => {
     await prisma.onModuleInit();
 
     const tenant = await admin.tenant.create({
-      data: { name: `session-repo-spec-${runId}` },
+      data: {
+        name: `session-repo-spec-${runId}`,
+        slug: `session-repo-spec-${runId}`,
+      },
     });
     createdTenantIds.push(tenant.id);
     tenantId = tenant.id;

@@ -15,7 +15,8 @@ DECLARE
   w uuid := gen_random_uuid();
   s uuid := gen_random_uuid();
 BEGIN
-  INSERT INTO "Tenant" ("id", "name") VALUES (t, 'GDB-04 integridad');
+  INSERT INTO "Tenant" ("id", "name", "slug")
+  VALUES (t, 'GDB-04 integridad', 'gdb-04-integridad-' || t);
   INSERT INTO "User" ("id", "tenantId", "email", "passwordHash")
     VALUES (u, t, 'gdb04-integrity@example.test', 'fixture');
   INSERT INTO "Vehicle" ("id", "tenantId", "plate", "maxWeightKg", "maxVolumeM3")
