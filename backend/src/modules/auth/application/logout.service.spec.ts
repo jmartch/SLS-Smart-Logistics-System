@@ -2,16 +2,22 @@ import { LogoutService } from './logout.service';
 import type { SessionRepository } from '../domain/session.repository';
 import { hashSessionToken } from '../domain/session-token';
 
+// The mocks are kept as standalone functions so assertions never detach a
+// method from the repository object.
 function fakeSessions(
   found: Awaited<ReturnType<SessionRepository['findActiveByTokenHash']>>,
-): SessionRepository {
-  return {
+) {
+  const findActiveByTokenHash = jest.fn().mockResolvedValue(found);
+  const revoke = jest.fn();
+  const repository: SessionRepository = {
     create: jest.fn(),
-    findActiveByTokenHash: jest.fn().mockResolvedValue(found),
+    findActiveByTokenHash,
     touch: jest.fn(),
-    revoke: jest.fn(),
+    revoke,
     revokeAllForUser: jest.fn(),
   };
+
+  return { repository, findActiveByTokenHash, revoke };
 }
 
 describe('LogoutService', () => {
@@ -26,7 +32,7 @@ describe('LogoutService', () => {
       expiresAt: new Date(),
     });
 
-    await new LogoutService(sessions).logout('raw-token');
+    await new LogoutService(sessions.repository).logout('raw-token');
 
     expect(sessions.findActiveByTokenHash).toHaveBeenCalledWith(
       hashSessionToken('raw-token'),
@@ -39,7 +45,7 @@ describe('LogoutService', () => {
     const sessions = fakeSessions(null);
 
     await expect(
-      new LogoutService(sessions).logout('unknown-token'),
+      new LogoutService(sessions.repository).logout('unknown-token'),
     ).resolves.toBeUndefined();
 
     expect(sessions.revoke).not.toHaveBeenCalled();

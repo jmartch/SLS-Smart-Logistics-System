@@ -95,12 +95,22 @@ describe('PrismaUserManagementRepository', () => {
     return rows.map((row) => row.roleId).sort();
   }
 
-  async function waitForAdvisoryLockWaiters(expected: number): Promise<void> {
+  // Counts only the transactions blocked on THIS tenant's employee lock.
+  // pg_advisory_xact_lock(bigint) stores the 64-bit key as classid (high 32
+  // bits) and objid (low 32 bits) with objsubid = 1, so concurrent Jest
+  // workers, migrations or other tenants' locks cannot satisfy the wait.
+  async function waitForAdvisoryLockWaiters(
+    tenantId: string,
+    expected: number,
+  ): Promise<void> {
+    const lockKey = employeeAdministrationLockKey(tenantId);
     const deadline = Date.now() + 10000;
     while (Date.now() < deadline) {
       const rows = await admin.$queryRaw<{ waiting: number }[]>`
         SELECT count(*)::int AS waiting FROM pg_locks
-        WHERE locktype = 'advisory' AND NOT granted`;
+        WHERE locktype = 'advisory' AND NOT granted AND objsubid = 1
+          AND classid::bigint = (hashtext(${lockKey}::text)::bigint >> 32) & 4294967295
+          AND objid::bigint = hashtext(${lockKey}::text)::bigint & 4294967295`;
       if (rows[0].waiting >= expected) {
         return;
       }
@@ -461,7 +471,7 @@ describe('PrismaUserManagementRepository', () => {
       });
       // The second section is observably blocked on the advisory lock while
       // the first one still holds it.
-      await waitForAdvisoryLockWaiters(1);
+      await waitForAdvisoryLockWaiters(tenantA, 1);
       expect(events).toEqual(['first:start']);
 
       releaseFirst();
@@ -564,7 +574,7 @@ describe('PrismaUserManagementRepository', () => {
         entered = true;
         return Promise.resolve();
       });
-      await waitForAdvisoryLockWaiters(1);
+      await waitForAdvisoryLockWaiters(tenantA, 1);
       release();
       await holder;
       await section;

@@ -234,11 +234,22 @@ describe('PrismaTenantProvisioningRepository', () => {
 
     await expect(repository.provision(data)).rejects.toThrow();
 
+    // The failing role is the last one: by then the tenant, the admin user and
+    // the default roles were already written inside the transaction. Every
+    // tenant-owned table is checked through its tenant (by slug), so a leaked
+    // row of the attempted tenant would be found whatever its name.
+    const ofAttemptedTenant = { tenant: { slug: data.slug } };
     expect(await admin.tenant.count({ where: { slug: data.slug } })).toBe(0);
     expect(await admin.user.count({ where: { email: data.adminEmail } })).toBe(
       0,
     );
-    expect(await admin.role.count({ where: { name: 'Rol roto' } })).toBe(0);
+    expect(await admin.user.count({ where: ofAttemptedTenant })).toBe(0);
+    expect(await admin.role.count({ where: ofAttemptedTenant })).toBe(0);
+    expect(await admin.rolePermission.count({ where: ofAttemptedTenant })).toBe(
+      0,
+    );
+    expect(await admin.userRole.count({ where: ofAttemptedTenant })).toBe(0);
+    expect(await admin.auditLog.count({ where: ofAttemptedTenant })).toBe(0);
     expect(
       await admin.auditLog.count({
         where: {

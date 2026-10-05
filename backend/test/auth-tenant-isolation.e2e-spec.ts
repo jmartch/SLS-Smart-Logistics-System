@@ -13,6 +13,12 @@ import { hashSessionToken } from '../src/modules/auth/domain/session-token';
 
 const COOKIE_NAME = 'sls_session';
 
+// Postgres messages, as surfaced through Prisma: an RLS policy rejection and a
+// composite foreign key rejection are different mechanisms and must not be
+// confused with each other.
+const RLS_VIOLATION = /row-level security/i;
+const FOREIGN_KEY_VIOLATION = /foreign key/i;
+
 interface ErrorEnvelope {
   error: {
     code: string;
@@ -91,6 +97,9 @@ describe('Tenant isolation over HTTP (e2e)', () => {
   // tenants use different passwords on purpose, and the same admin email.
   const run = randomUUID().slice(0, 8);
   const sharedEmail = `shared-${run}@isolation-e2e.test`;
+  // Name of the tenant a REGRESSED provisioning authorization check would
+  // create; the run id keeps the match to this run only.
+  const deniedTenantName = `Denied ${run}`;
   let userCounter = 0;
   const created = {
     tenantIds: [] as string[],
@@ -317,6 +326,16 @@ describe('Tenant isolation over HTTP (e2e)', () => {
     // unfiltered deleteMany.
     const { tenantIds, userIds, platformAdminIds } = created;
     try {
+      // If the provisioning authorization test regressed, the API created a
+      // tenant named after this run: adopt it so it is cleaned up like the
+      // fixtures (sessions, users, roles, audit rows, then the tenant).
+      await attempt(async () => {
+        const regressed = await admin.tenant.findMany({
+          where: { name: deniedTenantName },
+          select: { id: true },
+        });
+        tenantIds.push(...regressed.map((tenant) => tenant.id));
+      });
       if (userIds.length > 0) {
         await attempt(() =>
           admin.session.deleteMany({ where: { userId: { in: userIds } } }),
@@ -762,9 +781,8 @@ describe('Tenant isolation over HTTP (e2e)', () => {
     }
     expect(await snapshot(tenantA.id)).toEqual(usersBefore);
 
-    const tenantName = `Denied ${run}`;
     const provisionBody = {
-      name: tenantName,
+      name: deniedTenantName,
       adminEmail: `denied-${run}@isolation-e2e.test`,
       adminPassword: randomBytes(18).toString('base64url'),
     };
@@ -777,15 +795,16 @@ describe('Tenant isolation over HTTP (e2e)', () => {
       expect(provision.status).toBe(403);
       expect(errorOf(provision).code).toBe('PERMISSION_DENIED');
     }
-    expect(await admin.tenant.count({ where: { name: tenantName } })).toBe(0);
+    expect(
+      await admin.tenant.count({ where: { name: deniedTenantName } }),
+    ).toBe(0);
   });
 
   it("blocks the runtime role from reading or writing another tenant's rows (RLS)", async () => {
     const ownEmployee = await createUser(tenantA, []);
     const victim = await createUser(tenantB, [tenantB.extraRoleId]);
     const beforeB = await snapshot(tenantB.id);
-    const foreign = await snapshot(tenantB.id);
-    const foreignUserIds = foreign.users.map((u) => u.id);
+    const foreignUserIds = beforeB.users.map((u) => u.id);
 
     // Reads: tenant A's context sees A's rows only.
     const seen = await runWithTenant(runtime, tenantA.id, async (tx) => ({
@@ -815,7 +834,7 @@ describe('Tenant isolation over HTTP (e2e)', () => {
           },
         }),
       ),
-    ).rejects.toThrow();
+    ).rejects.toThrow(RLS_VIOLATION);
     await expect(
       runWithTenant(runtime, tenantA.id, (tx) =>
         tx.userRole.create({
@@ -826,7 +845,7 @@ describe('Tenant isolation over HTTP (e2e)', () => {
           },
         }),
       ),
-    ).rejects.toThrow();
+    ).rejects.toThrow(RLS_VIOLATION);
     // A's own tenantId but B's role: the composite foreign key refuses it.
     await expect(
       runWithTenant(runtime, tenantA.id, (tx) =>
@@ -838,7 +857,7 @@ describe('Tenant isolation over HTTP (e2e)', () => {
           },
         }),
       ),
-    ).rejects.toThrow();
+    ).rejects.toThrow(FOREIGN_KEY_VIOLATION);
 
     // Updates and deletes silently match nothing across tenants.
     const updated = await runWithTenant(runtime, tenantA.id, (tx) =>

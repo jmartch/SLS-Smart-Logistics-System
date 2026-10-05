@@ -193,6 +193,13 @@ describe('Auth endpoints (e2e)', () => {
       expect(setCookie).toContain(`${COOKIE_NAME}=`);
       expect(setCookie).toContain('HttpOnly');
       expect(setCookie).toContain('SameSite=Lax');
+      expect(setCookie).toMatch(/;\s*Path=\/(;|$)/);
+      const expires = /;\s*Expires=([^;]+)/.exec(setCookie)?.[1];
+      expect(expires).toBeDefined();
+      // The cookie must outlive the request but not the 12h session window.
+      const lifetimeMs = new Date(expires as string).getTime() - Date.now();
+      expect(lifetimeMs).toBeGreaterThan(0);
+      expect(lifetimeMs).toBeLessThanOrEqual(12 * 60 * 60 * 1000);
     });
 
     it('answers wrong password, unknown slug, unknown email and suspended user with identical 401 bodies', async () => {
@@ -506,6 +513,7 @@ describe('Auth endpoints (e2e)', () => {
       expect(cleared).toContain(`${COOKIE_NAME}=;`);
       expect(cleared).toContain('HttpOnly');
       expect(cleared).toContain('SameSite=Lax');
+      expect(cleared).toMatch(/;\s*Path=\/(;|$)/);
       expect(cleared).toContain('Expires=Thu, 01 Jan 1970');
 
       const me = await http().get('/api/auth/me').set('Cookie', cookie);

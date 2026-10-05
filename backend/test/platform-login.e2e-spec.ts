@@ -131,6 +131,13 @@ describe('Platform admin login (e2e)', () => {
     expect(setCookie).toContain(`${COOKIE_NAME}=`);
     expect(setCookie).toContain('HttpOnly');
     expect(setCookie).toContain('SameSite=Lax');
+    expect(setCookie).toMatch(/;\s*Path=\/(;|$)/);
+    const expires = /;\s*Expires=([^;]+)/.exec(setCookie)?.[1];
+    expect(expires).toBeDefined();
+    // The cookie must outlive the request but not the 12h session window.
+    const lifetimeMs = new Date(expires as string).getTime() - Date.now();
+    expect(lifetimeMs).toBeGreaterThan(0);
+    expect(lifetimeMs).toBeLessThanOrEqual(12 * 60 * 60 * 1000);
   });
 
   it('stores only a hash of the session token for the platform admin', async () => {

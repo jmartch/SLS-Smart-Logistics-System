@@ -9,24 +9,35 @@ import { hashPassword } from '../../auth/domain/password-hasher';
 import { hashSessionToken } from '../../auth/domain/session-token';
 import { SESSION_TTL_MS } from '../../auth/domain/session-policy';
 
-function fakeSessionRepository(): SessionRepository {
-  return {
-    create: jest.fn().mockResolvedValue({
+// The mocks are kept as standalone functions so assertions never detach a
+// method from the repository object.
+function fakeSessionRepository() {
+  const create = jest
+    .fn<
+      ReturnType<SessionRepository['create']>,
+      Parameters<SessionRepository['create']>
+    >()
+    .mockResolvedValue({
       id: 'session-1',
       actor: {} as never,
       expiresAt: new Date(),
-    }),
+    });
+  const repository: SessionRepository = {
+    create,
     findActiveByTokenHash: jest.fn(),
     touch: jest.fn(),
     revoke: jest.fn(),
     revokeAllForUser: jest.fn(),
   };
+
+  return { repository, create };
 }
 
-function repositoryWith(
-  admin: PlatformAdminForLogin | null,
-): PlatformAdminRepository {
-  return { findByEmail: jest.fn().mockResolvedValue(admin) };
+function repositoryWith(admin: PlatformAdminForLogin | null) {
+  const findByEmail = jest.fn().mockResolvedValue(admin);
+  const repository: PlatformAdminRepository = { findByEmail };
+
+  return { repository, findByEmail };
 }
 
 function adminWith(
@@ -52,8 +63,8 @@ describe('LoginPlatformAdminService', () => {
     const sessions = fakeSessionRepository();
 
     const result = await new LoginPlatformAdminService(
-      repositoryWith(adminWith(passwordHash)),
-      sessions,
+      repositoryWith(adminWith(passwordHash)).repository,
+      sessions.repository,
     ).login({ email: 'root@sls.local', password: 'super secret' });
 
     expect(result.kind).toBe('OK');
@@ -64,8 +75,8 @@ describe('LoginPlatformAdminService', () => {
     const sessions = fakeSessionRepository();
 
     const result = await new LoginPlatformAdminService(
-      repositoryWith(null),
-      sessions,
+      repositoryWith(null).repository,
+      sessions.repository,
     ).login({ email: 'nobody@sls.local', password: 'anything' });
 
     expect(result).toEqual({ kind: 'INVALID_CREDENTIALS' });
@@ -76,8 +87,8 @@ describe('LoginPlatformAdminService', () => {
     const sessions = fakeSessionRepository();
 
     const result = await new LoginPlatformAdminService(
-      repositoryWith(adminWith(passwordHash)),
-      sessions,
+      repositoryWith(adminWith(passwordHash)).repository,
+      sessions.repository,
     ).login({ email: 'root@sls.local', password: 'wrong' });
 
     expect(result).toEqual({ kind: 'INVALID_CREDENTIALS' });
@@ -90,8 +101,8 @@ describe('LoginPlatformAdminService', () => {
       const sessions = fakeSessionRepository();
 
       const result = await new LoginPlatformAdminService(
-        repositoryWith(adminWith(passwordHash, status)),
-        sessions,
+        repositoryWith(adminWith(passwordHash, status)).repository,
+        sessions.repository,
       ).login({ email: 'root@sls.local', password: 'super secret' });
 
       expect(result).toEqual({ kind: 'INVALID_CREDENTIALS' });
@@ -100,16 +111,16 @@ describe('LoginPlatformAdminService', () => {
   );
 
   it('trims and lowercases the email before the lookup, but not the password', async () => {
-    const repository = repositoryWith(adminWith(passwordHash));
+    const admins = repositoryWith(adminWith(passwordHash));
     const verify = jest.spyOn(passwordHasher, 'verifyPassword');
 
     const result = await new LoginPlatformAdminService(
-      repository,
-      fakeSessionRepository(),
+      admins.repository,
+      fakeSessionRepository().repository,
     ).login({ email: '  Root@SLS.Local ', password: 'super secret' });
 
     expect(result.kind).toBe('OK');
-    expect(repository.findByEmail).toHaveBeenCalledWith('root@sls.local');
+    expect(admins.findByEmail).toHaveBeenCalledWith('root@sls.local');
     expect(verify).toHaveBeenCalledWith(passwordHash, 'super secret');
   });
 
@@ -120,8 +131,8 @@ describe('LoginPlatformAdminService', () => {
     const sessions = fakeSessionRepository();
 
     const result = await new LoginPlatformAdminService(
-      repositoryWith(adminWith(passwordHash)),
-      sessions,
+      repositoryWith(adminWith(passwordHash)).repository,
+      sessions.repository,
     ).login({ email: 'root@sls.local', password: 'super secret' });
 
     expect(result.kind).toBe('OK');
@@ -134,8 +145,7 @@ describe('LoginPlatformAdminService', () => {
       expect.any(String),
       expectedExpiry,
     );
-    const storedHash = (sessions.create as jest.Mock).mock
-      .calls[0][1] as string;
+    const storedHash = String(sessions.create.mock.calls[0][1]);
     expect(storedHash).not.toBe(result.rawToken);
     expect(hashSessionToken(result.rawToken)).toBe(storedHash);
   });
@@ -147,8 +157,8 @@ describe('LoginPlatformAdminService', () => {
       const verify = jest.spyOn(passwordHasher, 'verifyPassword');
 
       await new LoginPlatformAdminService(
-        repositoryWith(null),
-        fakeSessionRepository(),
+        repositoryWith(null).repository,
+        fakeSessionRepository().repository,
       ).login({ email: 'nobody@sls.local', password: 'whatever' });
 
       expect(verify).toHaveBeenCalledTimes(1);
@@ -164,14 +174,15 @@ describe('LoginPlatformAdminService', () => {
 
       for (const status of ['INACTIVE', 'SUSPENDED'] as const) {
         await new LoginPlatformAdminService(
-          repositoryWith(adminWith(passwordHash, status)),
-          fakeSessionRepository(),
+          repositoryWith(adminWith(passwordHash, status)).repository,
+          fakeSessionRepository().repository,
         ).login({ email: 'root@sls.local', password: 'super secret' });
       }
 
       expect(verify).toHaveBeenCalledTimes(2);
       for (const call of verify.mock.calls) {
         expect(call[0]).not.toBe(passwordHash);
+        expect(call[0]).toMatch(/^\$argon2/);
       }
     });
 
@@ -179,8 +190,8 @@ describe('LoginPlatformAdminService', () => {
       const verify = jest.spyOn(passwordHasher, 'verifyPassword');
 
       await new LoginPlatformAdminService(
-        repositoryWith(adminWith(passwordHash)),
-        fakeSessionRepository(),
+        repositoryWith(adminWith(passwordHash)).repository,
+        fakeSessionRepository().repository,
       ).login({ email: 'root@sls.local', password: 'wrong' });
 
       expect(verify).toHaveBeenCalledTimes(1);

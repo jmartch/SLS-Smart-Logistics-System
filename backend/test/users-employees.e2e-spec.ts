@@ -6,10 +6,21 @@ import { PrismaClient } from '../generated/prisma/client';
 import { PrismaPg } from '@prisma/adapter-pg';
 import { AppModule } from '../src/app.module';
 import { configureApp } from '../src/app.setup';
+import { PrismaService } from '../src/database/prisma.service';
+import { UserManagementRepository } from '../src/modules/users/domain/user-management.repository';
 import { hashPassword } from '../src/modules/auth/domain/password-hasher';
-import { employeeAdministrationLockKey } from '../src/modules/users/infrastructure/prisma-user-management.repository';
+import {
+  PrismaUserManagementRepository,
+  employeeAdministrationLockKey,
+} from '../src/modules/users/infrastructure/prisma-user-management.repository';
 
 const COOKIE_NAME = 'sls_session';
+
+// Lock waits of the apps built below. The race and demoted-caller scenarios
+// expect a 403/409 after queueing on the lock, so on a slow machine they must
+// not time out into a 503; the busy scenario wants a short wait on purpose.
+const PATIENT_LOCK_TIMEOUT_MS = 15_000;
+const IMPATIENT_LOCK_TIMEOUT_MS = 500;
 
 interface ErrorEnvelope {
   error: {
@@ -79,8 +90,25 @@ describe('Employee management /api/users (e2e)', () => {
     platformAdminIds: [] as string[],
   };
 
-  function http() {
-    return request(app.getHttpServer());
+  function http(target: INestApplication = app) {
+    return request(target.getHttpServer());
+  }
+
+  async function createApp(lockTimeoutMs: number): Promise<INestApplication> {
+    const moduleFixture: TestingModule = await Test.createTestingModule({
+      imports: [AppModule],
+    })
+      .overrideProvider(UserManagementRepository)
+      .useFactory({
+        factory: (prisma: PrismaService) =>
+          new PrismaUserManagementRepository(prisma, lockTimeoutMs),
+        inject: [PrismaService],
+      })
+      .compile();
+    const instance = moduleFixture.createNestApplication();
+    configureApp(instance);
+    await instance.init();
+    return instance;
   }
 
   function expectNoSecrets(response: request.Response): void {
@@ -160,8 +188,13 @@ describe('Employee management /api/users (e2e)', () => {
     return http().get('/api/users').set('Cookie', cookie);
   }
 
-  function patchStatus(cookie: string, id: string, status: unknown) {
-    return http()
+  function patchStatus(
+    cookie: string,
+    id: string,
+    status: unknown,
+    target: INestApplication = app,
+  ) {
+    return http(target)
       .patch(`/api/users/${id}/status`)
       .set('Cookie', cookie)
       .send({ status });
@@ -195,12 +228,22 @@ describe('Employee management /api/users (e2e)', () => {
     return rows.map((row) => row.id).sort();
   }
 
-  async function waitForAdvisoryLockWaiters(expected: number): Promise<void> {
+  // Counts only the transactions blocked on THIS tenant's employee lock.
+  // pg_advisory_xact_lock(bigint) stores the 64-bit key as classid (high 32
+  // bits) and objid (low 32 bits) with objsubid = 1, so concurrent Jest
+  // workers, migrations or other tenants' locks cannot satisfy the wait.
+  async function waitForAdvisoryLockWaiters(
+    tenantId: string,
+    expected: number,
+  ): Promise<void> {
+    const lockKey = employeeAdministrationLockKey(tenantId);
     const deadline = Date.now() + 10_000;
     while (Date.now() < deadline) {
       const rows = await admin.$queryRaw<{ waiting: number }[]>`
         SELECT count(*)::int AS waiting FROM pg_locks
-        WHERE locktype = 'advisory' AND NOT granted`;
+        WHERE locktype = 'advisory' AND NOT granted AND objsubid = 1
+          AND classid::bigint = (hashtext(${lockKey}::text)::bigint >> 32) & 4294967295
+          AND objid::bigint = hashtext(${lockKey}::text)::bigint & 4294967295`;
       if (rows[0].waiting >= expected) {
         return;
       }
@@ -212,12 +255,7 @@ describe('Employee management /api/users (e2e)', () => {
   beforeAll(async () => {
     await admin.$connect();
 
-    const moduleFixture: TestingModule = await Test.createTestingModule({
-      imports: [AppModule],
-    }).compile();
-    app = moduleFixture.createNestApplication();
-    configureApp(app);
-    await app.init();
+    app = await createApp(PATIENT_LOCK_TIMEOUT_MS);
 
     passwordHash = await hashPassword(password);
     // Seeded, global rows: read by code, never created or deleted here.
@@ -552,7 +590,7 @@ describe('Employee management /api/users (e2e)', () => {
         await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${employeeAdministrationLockKey(tenant.id)}::text))`;
         const requests = start();
         pending = Promise.all(requests);
-        await waitForAdvisoryLockWaiters(requests.length);
+        await waitForAdvisoryLockWaiters(tenant.id, requests.length);
       },
       { timeout: 20_000 },
     );
@@ -652,7 +690,7 @@ describe('Employee management /api/users (e2e)', () => {
           await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${employeeAdministrationLockKey(tenant.id)}::text))`;
           // supertest only dispatches once .then() is called.
           pending = send().then((response) => response);
-          await waitForAdvisoryLockWaiters(1);
+          await waitForAdvisoryLockWaiters(tenant.id, 1);
           await tx.userRole.deleteMany({ where: { userId: caller.id } });
           await tx.userRole.create({
             data: {
@@ -692,15 +730,25 @@ describe('Employee management /api/users (e2e)', () => {
     const cookie = await login(tenant, owner);
     let response: request.Response | undefined;
 
-    // Held for the whole request: the production lock_timeout (3 s) expires
-    // while the spec still owns the lock.
-    await admin.$transaction(
-      async (tx) => {
-        await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${employeeAdministrationLockKey(tenant.id)}::text))`;
-        response = await patchStatus(cookie, courier.id, 'SUSPENDED');
-      },
-      { timeout: 20_000 },
-    );
+    // A second app with a short lock wait: the spec holds the lock for the
+    // whole request, so that wait expires while it still owns the lock.
+    const impatientApp = await createApp(IMPATIENT_LOCK_TIMEOUT_MS);
+    try {
+      await admin.$transaction(
+        async (tx) => {
+          await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${employeeAdministrationLockKey(tenant.id)}::text))`;
+          response = await patchStatus(
+            cookie,
+            courier.id,
+            'SUSPENDED',
+            impatientApp,
+          );
+        },
+        { timeout: 20_000 },
+      );
+    } finally {
+      await impatientApp.close();
+    }
 
     expect(response?.status).toBe(503);
     expect(response && errorOf(response)).toEqual({

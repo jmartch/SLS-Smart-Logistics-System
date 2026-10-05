@@ -223,6 +223,39 @@ describe('PrismaTenantUserLookupRepository', () => {
     await expect(repository.findTenantBySlug('')).resolves.toBeNull();
   });
 
+  describe('tenant_login_lookup policy', () => {
+    // The security property of the slug policy: binding one slug exposes that
+    // tenant and no other, even though several tenants exist in the database.
+    it('exposes exactly the tenant whose slug is bound, and no other', async () => {
+      const visible = await prisma.$transaction(async (tx) => {
+        await tx.$queryRaw`SELECT set_config('app.login_tenant_slug', ${tenantASlug}, true)`;
+        return tx.tenant.findMany();
+      });
+
+      expect(visible.map((tenant) => tenant.id)).toEqual([tenantAId]);
+    });
+
+    it.each(['', 'unknown-slug'])(
+      'exposes no tenant when the bound slug is %j',
+      async (slug) => {
+        const visible = await prisma.$transaction(async (tx) => {
+          await tx.$queryRaw`SELECT set_config('app.login_tenant_slug', ${slug}, true)`;
+          return tx.tenant.findMany();
+        });
+
+        expect(visible).toEqual([]);
+      },
+    );
+
+    it('does not leak the bound slug outside its transaction', async () => {
+      await prisma.$transaction(async (tx) => {
+        await tx.$queryRaw`SELECT set_config('app.login_tenant_slug', ${tenantASlug}, true)`;
+      });
+
+      await expect(prisma.tenant.findMany()).resolves.toEqual([]);
+    });
+  });
+
   describe('findUserForLogin', () => {
     it('returns the user with flattened, de-duplicated permission codes', async () => {
       const user = await repository.findUserForLogin(tenantAId, sharedEmail);

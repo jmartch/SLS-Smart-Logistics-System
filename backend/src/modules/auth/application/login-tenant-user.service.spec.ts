@@ -9,30 +9,44 @@ import { hashPassword } from '../domain/password-hasher';
 import { hashSessionToken } from '../domain/session-token';
 import { SESSION_TTL_MS } from '../domain/session-policy';
 
-function fakeSessionRepository(): SessionRepository {
-  return {
-    create: jest.fn().mockResolvedValue({
+// The mocks are kept as standalone functions so assertions never detach a
+// method from the repository object.
+function fakeSessionRepository() {
+  const create = jest
+    .fn<
+      ReturnType<SessionRepository['create']>,
+      Parameters<SessionRepository['create']>
+    >()
+    .mockResolvedValue({
       id: 'session-1',
       actor: {} as never,
       expiresAt: new Date(),
-    }),
+    });
+  const repository: SessionRepository = {
+    create,
     findActiveByTokenHash: jest.fn(),
     touch: jest.fn(),
     revoke: jest.fn(),
     revokeAllForUser: jest.fn(),
   };
+
+  return { repository, create };
 }
 
 function lookupWith(
   tenant: { id: string; status: 'ACTIVE' | 'SUSPENDED' } | null,
   user: UserForLogin | null,
-): TenantUserLookupRepository {
-  return {
-    findTenantBySlug: jest.fn().mockResolvedValue(tenant),
-    findUserForLogin: jest.fn().mockResolvedValue(user),
+) {
+  const findTenantBySlug = jest.fn().mockResolvedValue(tenant);
+  const findUserForLogin = jest.fn().mockResolvedValue(user);
+  const repository: TenantUserLookupRepository = {
+    findTenantBySlug,
+    findUserForLogin,
     findPermissionsForUser: jest.fn().mockResolvedValue([]),
     findUserProfile: jest.fn(),
   };
+
+  return { repository, findTenantBySlug, findUserForLogin };
 }
 
 function userWith(
@@ -66,7 +80,10 @@ describe('LoginTenantUserService', () => {
       userWith(passwordHash),
     );
     const sessions = fakeSessionRepository();
-    const service = new LoginTenantUserService(lookup, sessions);
+    const service = new LoginTenantUserService(
+      lookup.repository,
+      sessions.repository,
+    );
 
     const result = await service.login({
       slug: 'acme',
@@ -80,13 +97,14 @@ describe('LoginTenantUserService', () => {
 
   it('returns the same generic failure for wrong password, unknown user, unknown slug, and suspended user', async () => {
     const wrongPassword = await new LoginTenantUserService(
-      lookupWith({ id: 'tenant-a', status: 'ACTIVE' }, userWith(passwordHash)),
-      fakeSessionRepository(),
+      lookupWith({ id: 'tenant-a', status: 'ACTIVE' }, userWith(passwordHash))
+        .repository,
+      fakeSessionRepository().repository,
     ).login({ slug: 'acme', email: 'user@acme.test', password: 'wrong' });
 
     const unknownSlug = await new LoginTenantUserService(
-      lookupWith(null, null),
-      fakeSessionRepository(),
+      lookupWith(null, null).repository,
+      fakeSessionRepository().repository,
     ).login({
       slug: 'nope',
       email: 'user@acme.test',
@@ -94,8 +112,8 @@ describe('LoginTenantUserService', () => {
     });
 
     const unknownUser = await new LoginTenantUserService(
-      lookupWith({ id: 'tenant-a', status: 'ACTIVE' }, null),
-      fakeSessionRepository(),
+      lookupWith({ id: 'tenant-a', status: 'ACTIVE' }, null).repository,
+      fakeSessionRepository().repository,
     ).login({
       slug: 'acme',
       email: 'ghost@acme.test',
@@ -106,8 +124,8 @@ describe('LoginTenantUserService', () => {
       lookupWith(
         { id: 'tenant-a', status: 'ACTIVE' },
         userWith(passwordHash, 'SUSPENDED'),
-      ),
-      fakeSessionRepository(),
+      ).repository,
+      fakeSessionRepository().repository,
     ).login({
       slug: 'acme',
       email: 'user@acme.test',
@@ -126,7 +144,10 @@ describe('LoginTenantUserService', () => {
       userWith(passwordHash),
     );
     const verify = jest.spyOn(passwordHasher, 'verifyPassword');
-    const service = new LoginTenantUserService(lookup, fakeSessionRepository());
+    const service = new LoginTenantUserService(
+      lookup.repository,
+      fakeSessionRepository().repository,
+    );
 
     const result = await service.login({
       slug: '  AcMe ',
@@ -150,7 +171,10 @@ describe('LoginTenantUserService', () => {
     );
     const sessions = fakeSessionRepository();
 
-    const result = await new LoginTenantUserService(lookup, sessions).login({
+    const result = await new LoginTenantUserService(
+      lookup.repository,
+      sessions.repository,
+    ).login({
       slug: 'acme',
       email: 'user@acme.test',
       password: 'correct password',
@@ -160,6 +184,30 @@ describe('LoginTenantUserService', () => {
     expect(sessions.create).not.toHaveBeenCalled();
   });
 
+  it('does not look the user up when the tenant is unknown or SUSPENDED', async () => {
+    const login = (lookup: ReturnType<typeof lookupWith>) =>
+      new LoginTenantUserService(
+        lookup.repository,
+        fakeSessionRepository().repository,
+      ).login({
+        slug: 'acme',
+        email: 'user@acme.test',
+        password: 'correct password',
+      });
+
+    const unknownTenant = lookupWith(null, userWith(passwordHash));
+    const suspendedTenant = lookupWith(
+      { id: 'tenant-a', status: 'SUSPENDED' },
+      userWith(passwordHash),
+    );
+
+    await login(unknownTenant);
+    await login(suspendedTenant);
+
+    expect(unknownTenant.findUserForLogin).not.toHaveBeenCalled();
+    expect(suspendedTenant.findUserForLogin).not.toHaveBeenCalled();
+  });
+
   it('does not create a session for an INACTIVE user', async () => {
     const lookup = lookupWith(
       { id: 'tenant-a', status: 'ACTIVE' },
@@ -167,7 +215,10 @@ describe('LoginTenantUserService', () => {
     );
     const sessions = fakeSessionRepository();
 
-    const result = await new LoginTenantUserService(lookup, sessions).login({
+    const result = await new LoginTenantUserService(
+      lookup.repository,
+      sessions.repository,
+    ).login({
       slug: 'acme',
       email: 'user@acme.test',
       password: 'correct password',
@@ -175,6 +226,40 @@ describe('LoginTenantUserService', () => {
 
     expect(result).toEqual({ kind: 'INVALID_CREDENTIALS' });
     expect(sessions.create).not.toHaveBeenCalled();
+  });
+
+  it('looks the user up in the resolved tenant and takes the session tenant from the user row', async () => {
+    // Distinct ids: the lookup is scoped by the tenant resolved from the slug,
+    // while the session must carry the tenant stored on the user row.
+    const lookup = lookupWith(
+      { id: 'tenant-from-slug', status: 'ACTIVE' },
+      { ...userWith(passwordHash), tenantId: 'tenant-from-user-row' },
+    );
+    const sessions = fakeSessionRepository();
+
+    const result = await new LoginTenantUserService(
+      lookup.repository,
+      sessions.repository,
+    ).login({
+      slug: 'acme',
+      email: 'user@acme.test',
+      password: 'correct password',
+    });
+
+    expect(result.kind).toBe('OK');
+    expect(lookup.findUserForLogin).toHaveBeenCalledWith(
+      'tenant-from-slug',
+      'user@acme.test',
+    );
+    expect(sessions.create).toHaveBeenCalledWith(
+      {
+        actorType: 'TENANT_USER',
+        tenantId: 'tenant-from-user-row',
+        userId: 'user-a',
+      },
+      expect.any(String),
+      expect.any(Date),
+    );
   });
 
   it('creates a TENANT_USER session storing only the token hash, with a 12h expiry', async () => {
@@ -187,7 +272,10 @@ describe('LoginTenantUserService', () => {
     );
     const sessions = fakeSessionRepository();
 
-    const result = await new LoginTenantUserService(lookup, sessions).login({
+    const result = await new LoginTenantUserService(
+      lookup.repository,
+      sessions.repository,
+    ).login({
       slug: 'acme',
       email: 'user@acme.test',
       password: 'correct password',
@@ -204,8 +292,7 @@ describe('LoginTenantUserService', () => {
       expect.any(String),
       expectedExpiry,
     );
-    const storedHash = (sessions.create as jest.Mock).mock
-      .calls[0][1] as string;
+    const storedHash = String(sessions.create.mock.calls[0][1]);
     expect(storedHash).not.toBe(result.rawToken);
     expect(hashSessionToken(result.rawToken)).toBe(storedHash);
   });
@@ -217,19 +304,25 @@ describe('LoginTenantUserService', () => {
       const verify = jest.spyOn(passwordHasher, 'verifyPassword');
 
       await new LoginTenantUserService(
-        lookupWith(null, null),
-        fakeSessionRepository(),
+        lookupWith(null, null).repository,
+        fakeSessionRepository().repository,
       ).login({ slug: 'nope', email: 'x@acme.test', password: 'whatever' });
 
       expect(verify).toHaveBeenCalledTimes(1);
-      expect(verify).toHaveBeenCalledWith(expect.any(String), 'whatever');
+      expect(verify).toHaveBeenCalledWith(
+        expect.stringMatching(/^\$argon2/),
+        'whatever',
+      );
       expect(verify.mock.calls[0][0]).not.toBe(passwordHash);
     });
 
     it('verifies against a dummy hash for a SUSPENDED tenant, an unknown user, and a non-ACTIVE user', async () => {
       const verify = jest.spyOn(passwordHasher, 'verifyPassword');
-      const login = (lookup: TenantUserLookupRepository) =>
-        new LoginTenantUserService(lookup, fakeSessionRepository()).login({
+      const login = (lookup: ReturnType<typeof lookupWith>) =>
+        new LoginTenantUserService(
+          lookup.repository,
+          fakeSessionRepository().repository,
+        ).login({
           slug: 'acme',
           email: 'user@acme.test',
           password: 'correct password',
@@ -252,6 +345,7 @@ describe('LoginTenantUserService', () => {
       expect(verify).toHaveBeenCalledTimes(3);
       for (const call of verify.mock.calls) {
         expect(call[0]).not.toBe(passwordHash);
+        expect(call[0]).toMatch(/^\$argon2/);
       }
     });
 
@@ -259,11 +353,9 @@ describe('LoginTenantUserService', () => {
       const verify = jest.spyOn(passwordHasher, 'verifyPassword');
 
       await new LoginTenantUserService(
-        lookupWith(
-          { id: 'tenant-a', status: 'ACTIVE' },
-          userWith(passwordHash),
-        ),
-        fakeSessionRepository(),
+        lookupWith({ id: 'tenant-a', status: 'ACTIVE' }, userWith(passwordHash))
+          .repository,
+        fakeSessionRepository().repository,
       ).login({ slug: 'acme', email: 'user@acme.test', password: 'wrong' });
 
       expect(verify).toHaveBeenCalledTimes(1);
