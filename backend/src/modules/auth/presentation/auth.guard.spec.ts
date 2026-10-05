@@ -8,7 +8,7 @@ import type { TenantUserLookupRepository } from '../domain/tenant-user-lookup.re
 import type { ActorContext } from '../../../shared/application/actor-context';
 
 interface FakeRequest {
-  cookies?: Record<string, string>;
+  cookies?: Record<string, unknown>;
   headers?: Record<string, string>;
   query?: Record<string, string>;
   body?: Record<string, unknown>;
@@ -81,6 +81,32 @@ describe('AuthGuard', () => {
     expect(resolve).not.toHaveBeenCalled();
   });
 
+  it.each([
+    ['a parsed JSON object (j: cookie)', { a: 1 }],
+    ['an array', ['a', 'b']],
+    ['a number', 42],
+    ['an empty string', ''],
+  ])(
+    'rejects a non-string or empty session cookie (%s) without calling resolve',
+    async (_label, value) => {
+      const { guard, resolve } = build(tenantActor);
+
+      const error = await captureUnauthorized(
+        guard.canActivate(contextFor({ cookies: { sls_session: value } })),
+      );
+
+      expect(error.getStatus()).toBe(401);
+      expect(error.getResponse()).toEqual({
+        error: {
+          code: 'SESSION_EXPIRED',
+          message: expect.any(String) as string,
+          fields: null,
+        },
+      });
+      expect(resolve).not.toHaveBeenCalled();
+    },
+  );
+
   it('treats an undefined request.cookies (no cookie-parser) as no session', async () => {
     const { guard, resolve } = build(tenantActor);
 
@@ -118,6 +144,39 @@ describe('AuthGuard', () => {
 
     expect(request.actor).toBe(tenantActor);
     expect(resolve).toHaveBeenCalledWith('raw-token', expect.any(Function));
+  });
+
+  describe('with a pre-existing request.actor', () => {
+    const forged: ActorContext = {
+      kind: 'TENANT_USER',
+      tenantId: 'tenant-forged',
+      userId: 'user-forged',
+      permissions: new Set(['EVERYTHING']),
+    };
+
+    it('does not let a forged actor survive an unresolved session', async () => {
+      const { guard } = build(null);
+      const request: FakeRequest = {
+        cookies: { sls_session: 'stale' },
+        actor: forged,
+      };
+
+      await expect(
+        guard.canActivate(contextFor(request)),
+      ).rejects.toBeInstanceOf(UnauthorizedException);
+    });
+
+    it('replaces a forged actor with the one resolved from the session', async () => {
+      const { guard } = build(tenantActor);
+      const request: FakeRequest = {
+        cookies: { sls_session: 'raw-token' },
+        actor: forged,
+      };
+
+      await guard.canActivate(contextFor(request));
+
+      expect(request.actor).toBe(tenantActor);
+    });
   });
 
   it('also attaches a platform-admin actor unchanged', async () => {

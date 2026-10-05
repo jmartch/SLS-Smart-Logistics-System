@@ -24,6 +24,9 @@ describe('PrismaTenantUserLookupRepository', () => {
   let tenantBId: string;
   let tenantASlug: string;
   let tenantBSlug: string;
+  let tenantCId: string;
+  let tenantCSlug: string;
+  let sharedPermissionId: string;
   let tenantAUserId: string;
   let tenantBUserId: string;
   let sharedPermissionCode: string;
@@ -61,14 +64,15 @@ describe('PrismaTenantUserLookupRepository', () => {
     }
     sharedPermissionCode = shared.code;
     uniquePermissionCode = unique.code;
+    sharedPermissionId = shared.id;
 
     tenantASlug = `lookup-a-${runId}`;
     tenantBSlug = `lookup-b-${runId}`;
+    tenantCSlug = `lookup-c-${runId}`;
     const tenantA = await admin.tenant.create({
       data: {
         name: `lookup-repo-spec-a-${runId}`,
         slug: tenantASlug,
-        status: 'SUSPENDED',
       },
     });
     createdTenantIds.push(tenantA.id);
@@ -78,6 +82,17 @@ describe('PrismaTenantUserLookupRepository', () => {
     });
     createdTenantIds.push(tenantB.id);
     tenantBId = tenantB.id;
+    // Tenant C is the suspended one; A and B stay ACTIVE so the permission
+    // lookups for A prove ACTIVE users in ACTIVE tenants keep their access.
+    const tenantC = await admin.tenant.create({
+      data: {
+        name: `lookup-repo-spec-c-${runId}`,
+        slug: tenantCSlug,
+        status: 'SUSPENDED',
+      },
+    });
+    createdTenantIds.push(tenantC.id);
+    tenantCId = tenantC.id;
 
     // Two roles in tenant A share MANAGE_EMPLOYEES; REGISTER_PACKAGES only on
     // the second. The flattened result must list each code exactly once.
@@ -180,6 +195,10 @@ describe('PrismaTenantUserLookupRepository', () => {
     it('returns the tenant id and its mapped status', async () => {
       await expect(repository.findTenantBySlug(tenantASlug)).resolves.toEqual({
         id: tenantAId,
+        status: 'ACTIVE',
+      });
+      await expect(repository.findTenantBySlug(tenantCSlug)).resolves.toEqual({
+        id: tenantCId,
         status: 'SUSPENDED',
       });
       await expect(repository.findTenantBySlug(tenantBSlug)).resolves.toEqual({
@@ -293,6 +312,36 @@ describe('PrismaTenantUserLookupRepository', () => {
         ).resolves.toEqual([]);
       },
     );
+
+    it('returns an empty list for an ACTIVE user whose tenant is SUSPENDED', async () => {
+      const role = await admin.role.create({
+        data: { tenantId: tenantCId, name: `role-c-${runId}` },
+      });
+      createdRoleIds.push(role.id);
+      await admin.rolePermission.create({
+        data: {
+          tenantId: tenantCId,
+          roleId: role.id,
+          permissionId: sharedPermissionId,
+        },
+      });
+      const user = await admin.user.create({
+        data: {
+          tenantId: tenantCId,
+          email: `active-in-suspended-${runId}@lookup-repo.test`,
+          passwordHash: 'not-a-real-hash',
+          status: 'ACTIVE',
+        },
+      });
+      createdUserIds.push(user.id);
+      await admin.userRole.create({
+        data: { tenantId: tenantCId, userId: user.id, roleId: role.id },
+      });
+
+      await expect(
+        repository.findPermissionsForUser(tenantCId, user.id),
+      ).resolves.toEqual([]);
+    });
 
     it('returns an empty list when the user belongs to another tenant', async () => {
       await expect(

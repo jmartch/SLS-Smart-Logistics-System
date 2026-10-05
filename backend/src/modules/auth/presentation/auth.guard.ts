@@ -21,12 +21,14 @@ export class AuthGuard implements CanActivate {
   async canActivate(context: ExecutionContext): Promise<boolean> {
     const request = context.switchToHttp().getRequest<Request>();
     // request.cookies is undefined until cookie-parser is registered; that
-    // is treated as "no session" rather than an error.
-    const rawToken: string | undefined = (
-      request.cookies as Record<string, string> | undefined
+    // is treated as "no session" rather than an error. The value is validated
+    // as a string because cookie-parser JSON-decodes cookies starting with
+    // "j:", so a client can make it an object or number.
+    const rawToken: unknown = (
+      request.cookies as Record<string, unknown> | undefined
     )?.[SESSION_COOKIE_NAME];
 
-    if (!rawToken) {
+    if (typeof rawToken !== 'string' || rawToken.length === 0) {
       throw new UnauthorizedException({
         error: {
           code: 'SESSION_EXPIRED',

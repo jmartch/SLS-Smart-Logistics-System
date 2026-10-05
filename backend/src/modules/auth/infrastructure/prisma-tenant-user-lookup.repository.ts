@@ -78,7 +78,17 @@ export class PrismaTenantUserLookupRepository extends TenantUserLookupRepository
   ): Promise<readonly string[]> {
     return runWithTenant(this.prisma, tenantId, async (tx) => {
       // Status is read here rather than trusted from the session row: a user
-      // deactivated or suspended after login must stop carrying permissions.
+      // deactivated or suspended after login, or a tenant suspended after
+      // login, must stop carrying permissions.
+      const tenant = await tx.tenant.findFirst({
+        where: { id: tenantId, status: 'ACTIVE' },
+        select: { id: true },
+      });
+
+      if (!tenant) {
+        return [];
+      }
+
       const user = await tx.user.findFirst({
         where: { id: userId, tenantId, status: 'ACTIVE' },
         select: { id: true },
