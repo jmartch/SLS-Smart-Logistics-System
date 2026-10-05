@@ -105,7 +105,7 @@ describe('ShipmentTypesController', () => {
     it('throws BadRequestException when domain validation fails', async () => {
       const { controller, shipmentTypeService } = createTestContext();
       shipmentTypeService.create.mockRejectedValue(
-        new InvalidCatalogCodeError('Código inválido'),
+        new InvalidCatalogCodeError('EMPTY_CODE'),
       );
 
       await expect(

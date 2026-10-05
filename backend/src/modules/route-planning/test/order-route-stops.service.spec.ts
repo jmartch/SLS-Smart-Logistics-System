@@ -4,9 +4,9 @@ import type { CapacityClusterProposal } from '../domain/models/clustering.types'
 import type {
   OrderedRouteSequence,
   StopCandidateInput,
-  StopOrderingAlgorithm,
   StopOrderingOptions,
 } from '../domain/models/stop-ordering.types';
+import type { StopOrderingAlgorithm } from '../domain/algorithms/stop-ordering-algorithm';
 import {
   ALT_TENANT_ID,
   COLLINEAR_CANDIDATES,
@@ -21,11 +21,11 @@ describe('OrderRouteStopsService (CA-09, CA-10)', () => {
 
   const validProposal: CapacityClusterProposal = {
     proposalId: 'prop-1',
-    zoneId: 'zone-north',
+    clusterId: 'cluster-1',
     candidateVehicleId: 'veh-1',
     packageIds: ['pkg-1', 'pkg-2', 'pkg-3'],
-    totalWeightGrams: 3000,
-    totalVolumeCm3: 6000,
+    totalWeightKg: '3.000',
+    totalVolumeM3: '0.006000',
   };
 
   const dummyResult: OrderedRouteSequence = {
