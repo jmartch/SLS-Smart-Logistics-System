@@ -16,7 +16,7 @@ interface ErrorEnvelope {
   error: {
     code: string;
     message: string;
-    fields: Record<string, string[]> | null;
+    fields: { field: string; reason: string }[] | null;
   };
 }
 
@@ -219,14 +219,28 @@ describe('Auth endpoints (e2e)', () => {
       }
     });
 
-    it('rejects an invalid body with 400 VALIDATION_ERROR and a fields map', async () => {
+    it('rejects an invalid body with 400 VALIDATION_ERROR and a [{ field, reason }] list', async () => {
       const missing = await login({ slug });
       expect(missing.status).toBe(400);
       expect(errorOf(missing).code).toBe('VALIDATION_ERROR');
-      expect(Object.keys(errorOf(missing).fields ?? {}).sort()).toEqual([
-        'email',
-        'password',
-      ]);
+      const missingFields = errorOf(missing).fields ?? [];
+      expect(missingFields).toHaveLength(3);
+      expect(
+        missingFields.every(
+          (entry) =>
+            Object.keys(entry).sort().join() === 'field,reason' &&
+            typeof entry.reason === 'string',
+        ),
+      ).toBe(true);
+      expect(
+        [...new Set(missingFields.map((entry) => entry.field))].sort(),
+      ).toEqual(['email', 'password']);
+      expect(missingFields).toEqual(
+        expect.arrayContaining([
+          { field: 'email', reason: 'email must be an email' },
+          { field: 'password', reason: 'password must be a string' },
+        ]),
+      );
 
       const badEmail = await login({
         slug,
@@ -235,7 +249,9 @@ describe('Auth endpoints (e2e)', () => {
       });
       expect(badEmail.status).toBe(400);
       expect(errorOf(badEmail).code).toBe('VALIDATION_ERROR');
-      expect(errorOf(badEmail).fields?.email).toEqual(expect.any(Array));
+      expect(errorOf(badEmail).fields).toEqual([
+        { field: 'email', reason: 'email must be an email' },
+      ]);
     });
 
     it('rejects a malformed JSON body with 400 in the error envelope', async () => {

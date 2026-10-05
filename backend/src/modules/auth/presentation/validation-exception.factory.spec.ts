@@ -18,7 +18,7 @@ describe('validationExceptionFactory', () => {
     throw new Error('expected validation to fail');
   }
 
-  it('produces a 400 VALIDATION_ERROR envelope with a field -> messages map', async () => {
+  it('produces a 400 VALIDATION_ERROR envelope with a [{ field, reason }] list', async () => {
     const exception = await validate({ slug: 'acme', email: 'not-an-email' });
 
     expect(exception.getStatus()).toBe(400);
@@ -26,17 +26,41 @@ describe('validationExceptionFactory', () => {
       error: {
         code: string;
         message: string;
-        fields: Record<string, string[]>;
+        fields: { field: string; reason: string }[];
       };
     };
     expect(body.error.code).toBe('VALIDATION_ERROR');
     expect(typeof body.error.message).toBe('string');
-    expect(Object.keys(body.error.fields).sort()).toEqual([
-      'email',
-      'password',
+    expect(Array.isArray(body.error.fields)).toBe(true);
+    expect(body.error.fields).toHaveLength(3);
+    expect(body.error.fields).toEqual(
+      expect.arrayContaining([
+        { field: 'email', reason: 'email must be an email' },
+        { field: 'password', reason: 'password must be a string' },
+        {
+          field: 'password',
+          reason: 'password must be longer than or equal to 1 characters',
+        },
+      ]),
+    );
+  });
+
+  it('reports only the constraints actually violated', async () => {
+    const exception = await validate({
+      slug: 'acme',
+      email: 'a@b.co',
+      password: '',
+    });
+    const body = exception.getResponse() as {
+      error: { fields: { field: string; reason: string }[] };
+    };
+
+    expect(body.error.fields).toEqual([
+      {
+        field: 'password',
+        reason: 'password must be longer than or equal to 1 characters',
+      },
     ]);
-    expect(body.error.fields.email.length).toBeGreaterThan(0);
-    expect(body.error.fields.password.length).toBeGreaterThan(0);
   });
 
   it('accepts a valid body', async () => {

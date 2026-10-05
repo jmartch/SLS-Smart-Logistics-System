@@ -1,25 +1,28 @@
 import { BadRequestException, type ValidationError } from '@nestjs/common';
 
-// Flattens class-validator errors (including nested children) into
-// { 'field.path': [messages] } for the error envelope's `fields` map.
+export interface ValidationFieldError {
+  readonly field: string;
+  readonly reason: string;
+}
+
+// Flattens class-validator errors (including nested children) into one
+// { field, reason } entry per violated constraint; nested properties use a
+// dotted path.
 function collectFields(
   errors: readonly ValidationError[],
   parentPath: string,
-  fields: Record<string, string[]>,
+  fields: ValidationFieldError[],
 ): void {
   for (const error of errors) {
-    const path = parentPath
+    const field = parentPath
       ? `${parentPath}.${error.property}`
       : error.property;
 
-    if (error.constraints) {
-      fields[path] = [
-        ...(fields[path] ?? []),
-        ...Object.values(error.constraints),
-      ];
+    for (const reason of Object.values(error.constraints ?? {})) {
+      fields.push({ field, reason });
     }
     if (error.children?.length) {
-      collectFields(error.children, path, fields);
+      collectFields(error.children, field, fields);
     }
   }
 }
@@ -27,7 +30,7 @@ function collectFields(
 export function validationExceptionFactory(
   errors: ValidationError[],
 ): BadRequestException {
-  const fields: Record<string, string[]> = {};
+  const fields: ValidationFieldError[] = [];
   collectFields(errors, '', fields);
 
   return new BadRequestException({
