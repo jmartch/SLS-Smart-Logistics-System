@@ -333,6 +333,151 @@ describe('Auth endpoints (e2e)', () => {
     });
   });
 
+  // Status changes are written directly through the admin client, bypassing
+  // the API, to simulate a session that survived a deactivation (for example
+  // a revocation that failed after the status change committed).
+  describe('sessions of actors that may no longer act', () => {
+    let fixtureCounter = 0;
+
+    async function freshTenantUser(withRole: boolean) {
+      fixtureCounter += 1;
+      const fixtureSlug = `auth-e2e-state-${fixtureCounter}-${run}`;
+      const tenant = await admin.tenant.create({
+        data: { name: `Auth E2E State ${fixtureCounter}`, slug: fixtureSlug },
+      });
+      created.tenantIds.push(tenant.id);
+      const email = `state-${fixtureCounter}-${run}@auth-e2e.test`;
+      const user = await admin.user.create({
+        data: {
+          tenantId: tenant.id,
+          email,
+          passwordHash: await hashPassword(PASSWORD),
+        },
+      });
+      created.userIds.push(user.id);
+      if (withRole) {
+        const permission = await admin.permission.findUniqueOrThrow({
+          where: { code: 'REGISTER_PACKAGES' },
+        });
+        const role = await admin.role.create({
+          data: { tenantId: tenant.id, name: `State role ${run}` },
+        });
+        created.roleIds.push(role.id);
+        await admin.rolePermission.create({
+          data: {
+            tenantId: tenant.id,
+            roleId: role.id,
+            permissionId: permission.id,
+          },
+        });
+        await admin.userRole.create({
+          data: { tenantId: tenant.id, userId: user.id, roleId: role.id },
+        });
+      }
+      const cookie = sessionCookie(
+        await login({ slug: fixtureSlug, email, password: PASSWORD }),
+      );
+      const me = await http().get('/api/auth/me').set('Cookie', cookie);
+      expect(me.status).toBe(200);
+
+      return {
+        tenantId: tenant.id,
+        slug: fixtureSlug,
+        email,
+        userId: user.id,
+        cookie,
+      };
+    }
+
+    async function liveSessionsOf(userIdToCount: string): Promise<number> {
+      return admin.session.count({
+        where: { userId: userIdToCount, revokedAt: null },
+      });
+    }
+
+    it('keeps an ACTIVE user without roles authenticated, with no permissions', async () => {
+      const actor = await freshTenantUser(false);
+
+      const me = await http().get('/api/auth/me').set('Cookie', actor.cookie);
+
+      expect(me.status).toBe(200);
+      expect((me.body as { permissions: string[] }).permissions).toEqual([]);
+    });
+
+    it.each(['INACTIVE', 'SUSPENDED'] as const)(
+      'answers 401 to a live session of a user set %s, revokes it, and only a new login restores access',
+      async (status) => {
+        const actor = await freshTenantUser(true);
+        await admin.user.update({
+          where: { id: actor.userId },
+          data: { status },
+        });
+
+        const me = await http().get('/api/auth/me').set('Cookie', actor.cookie);
+        expect(me.status).toBe(401);
+        expect(errorOf(me)).toEqual({
+          code: 'SESSION_EXPIRED',
+          message: expect.any(String) as string,
+          fields: null,
+        });
+        expect(await liveSessionsOf(actor.userId)).toBe(0);
+
+        // Reactivated: the rejected session stays revoked; a new login works.
+        await admin.user.update({
+          where: { id: actor.userId },
+          data: { status: 'ACTIVE' },
+        });
+        const stale = await http()
+          .get('/api/auth/me')
+          .set('Cookie', actor.cookie);
+        expect(stale.status).toBe(401);
+        const relogin = await login({
+          slug: actor.slug,
+          email: actor.email,
+          password: PASSWORD,
+        });
+        expect(relogin.status).toBe(200);
+        const fresh = await http()
+          .get('/api/auth/me')
+          .set('Cookie', sessionCookie(relogin));
+        expect(fresh.status).toBe(200);
+      },
+    );
+
+    it('answers 401 to a live session whose tenant was SUSPENDED and revokes it', async () => {
+      const actor = await freshTenantUser(true);
+      await admin.tenant.update({
+        where: { id: actor.tenantId },
+        data: { status: 'SUSPENDED' },
+      });
+
+      const me = await http().get('/api/auth/me').set('Cookie', actor.cookie);
+
+      expect(me.status).toBe(401);
+      expect(errorOf(me).code).toBe('SESSION_EXPIRED');
+      expect(await liveSessionsOf(actor.userId)).toBe(0);
+    });
+
+    it('lets a session that was never used while the user was inactive work again after reactivation', async () => {
+      // Resolution revokes a session only when it is presented while its
+      // actor is inactive. A deactivation through the API revokes every
+      // session; this direct write does not, so the session survives here.
+      const actor = await freshTenantUser(true);
+      await admin.user.update({
+        where: { id: actor.userId },
+        data: { status: 'INACTIVE' },
+      });
+      await admin.user.update({
+        where: { id: actor.userId },
+        data: { status: 'ACTIVE' },
+      });
+
+      const me = await http().get('/api/auth/me').set('Cookie', actor.cookie);
+
+      expect(me.status).toBe(200);
+    });
+  });
+
   describe('POST /api/auth/logout', () => {
     it('revokes the session and clears the cookie', async () => {
       const cookie = sessionCookie(

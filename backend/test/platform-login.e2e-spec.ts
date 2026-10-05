@@ -227,4 +227,42 @@ describe('Platform admin login (e2e)', () => {
     expect(me.status).toBe(401);
     expect(errorOf(me).code).toBe('SESSION_EXPIRED');
   });
+
+  it('rejects the live session of a platform admin set INACTIVE after login, and revokes it', async () => {
+    // A dedicated admin, so the shared active one keeps working for others.
+    const email = `platform-demoted-${run}@platform-e2e.test`;
+    const demoted = await admin.platformAdmin.create({
+      data: { email, passwordHash: await hashPassword(password) },
+    });
+    created.platformAdminIds.push(demoted.id);
+    const cookie = sessionCookie(await login({ email, password }));
+    expect(
+      (await http().get('/api/auth/me').set('Cookie', cookie)).status,
+    ).toBe(200);
+
+    await admin.platformAdmin.update({
+      where: { id: demoted.id },
+      data: { status: 'INACTIVE' },
+    });
+
+    const me = await http().get('/api/auth/me').set('Cookie', cookie);
+    expect(me.status).toBe(401);
+    expect(errorOf(me)).toEqual({
+      code: 'SESSION_EXPIRED',
+      message: expect.any(String) as string,
+      fields: null,
+    });
+    // Platform endpoints are refused before validation: nothing is created.
+    const provision = await http()
+      .post('/api/platform/tenants')
+      .set('Cookie', cookie)
+      .send({});
+    expect(provision.status).toBe(401);
+    expect(errorOf(provision).code).toBe('SESSION_EXPIRED');
+    expect(
+      await admin.session.count({
+        where: { platformAdminId: demoted.id, revokedAt: null },
+      }),
+    ).toBe(0);
+  });
 });

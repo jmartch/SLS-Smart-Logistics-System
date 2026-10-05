@@ -17,11 +17,12 @@ export abstract class TenantUserLookupRepository {
     tenantId: string,
     email: string,
   ): Promise<UserForLogin | null>;
-  // Permissions currently granted to the user. Empty unless the user exists in
-  // the tenant and is ACTIVE, so a session that outlived a deactivation or
-  // suspension carries no authority.
+  // Permissions currently granted to the user, read fresh on every call.
+  // null when the user may not act at all: the tenant is not ACTIVE, the user
+  // is not ACTIVE, or the user does not exist in that tenant. An empty list
+  // means an ACTIVE user without roles, which is still a valid actor.
   abstract findPermissionsForUser(
     tenantId: string,
     userId: string,
-  ): Promise<readonly string[]>;
+  ): Promise<readonly string[] | null>;
 }

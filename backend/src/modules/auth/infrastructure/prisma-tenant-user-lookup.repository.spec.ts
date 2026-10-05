@@ -285,14 +285,14 @@ describe('PrismaTenantUserLookupRepository', () => {
       );
     });
 
-    it('returns an empty list for a user without roles', async () => {
+    it('returns an empty list (still a valid actor) for an ACTIVE user without roles', async () => {
       await expect(
         repository.findPermissionsForUser(tenantBId, tenantBUserId),
       ).resolves.toEqual([]);
     });
 
     it.each(['INACTIVE', 'SUSPENDED'] as const)(
-      'returns an empty list for a %s user even though roles grant permissions',
+      'returns null (not a valid actor) for a %s user even though roles grant permissions',
       async (status) => {
         const user = await admin.user.create({
           data: {
@@ -309,11 +309,11 @@ describe('PrismaTenantUserLookupRepository', () => {
 
         await expect(
           repository.findPermissionsForUser(tenantAId, user.id),
-        ).resolves.toEqual([]);
+        ).resolves.toBeNull();
       },
     );
 
-    it('returns an empty list for an ACTIVE user whose tenant is SUSPENDED', async () => {
+    it('returns null for an ACTIVE user whose tenant is SUSPENDED', async () => {
       const role = await admin.role.create({
         data: { tenantId: tenantCId, name: `role-c-${runId}` },
       });
@@ -340,19 +340,19 @@ describe('PrismaTenantUserLookupRepository', () => {
 
       await expect(
         repository.findPermissionsForUser(tenantCId, user.id),
-      ).resolves.toEqual([]);
+      ).resolves.toBeNull();
     });
 
-    it('returns an empty list when the user belongs to another tenant', async () => {
+    it('returns null when the user belongs to another tenant', async () => {
       await expect(
         repository.findPermissionsForUser(tenantBId, tenantAUserId),
-      ).resolves.toEqual([]);
+      ).resolves.toBeNull();
     });
 
-    it('returns an empty list for an unknown user id', async () => {
+    it('returns null for an unknown user id', async () => {
       await expect(
         repository.findPermissionsForUser(tenantAId, randomUUID()),
-      ).resolves.toEqual([]);
+      ).resolves.toBeNull();
     });
   });
 });

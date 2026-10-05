@@ -75,18 +75,19 @@ export class PrismaTenantUserLookupRepository extends TenantUserLookupRepository
   async findPermissionsForUser(
     tenantId: string,
     userId: string,
-  ): Promise<readonly string[]> {
+  ): Promise<readonly string[] | null> {
     return runWithTenant(this.prisma, tenantId, async (tx) => {
       // Status is read here rather than trusted from the session row: a user
       // deactivated or suspended after login, or a tenant suspended after
-      // login, must stop carrying permissions.
+      // login, is no longer an actor at all (null), which is distinct from an
+      // ACTIVE user without roles (empty list).
       const tenant = await tx.tenant.findFirst({
         where: { id: tenantId, status: 'ACTIVE' },
         select: { id: true },
       });
 
       if (!tenant) {
-        return [];
+        return null;
       }
 
       const user = await tx.user.findFirst({
@@ -95,7 +96,7 @@ export class PrismaTenantUserLookupRepository extends TenantUserLookupRepository
       });
 
       if (!user) {
-        return [];
+        return null;
       }
 
       const userRoles = await tx.userRole.findMany({

@@ -7,15 +7,20 @@ import {
 import type { Request } from 'express';
 import { ResolveSessionService } from '../application/resolve-session.service';
 import { TenantUserLookupRepository } from '../domain/tenant-user-lookup.repository';
+import { PlatformAdminLookup } from '../domain/platform-admin-lookup.repository';
 import type { ActorContext } from '../../../shared/application/actor-context';
 
 export const SESSION_COOKIE_NAME = 'sls_session';
 
+// Every guarded route re-checks, from the database, that the session's actor
+// may still act (tenant user and tenant ACTIVE, or platform admin ACTIVE): a
+// session that outlived a deactivation, or a failed revocation, answers 401.
 @Injectable()
 export class AuthGuard implements CanActivate {
   constructor(
     private readonly resolveSession: ResolveSessionService,
     private readonly lookup: TenantUserLookupRepository,
+    private readonly platformAdmins: PlatformAdminLookup,
   ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
@@ -40,11 +45,12 @@ export class AuthGuard implements CanActivate {
 
     // The tenant comes only from the stored session row, via the loader
     // arguments; no header, query, or body value is ever consulted.
-    const actor = await this.resolveSession.resolve(
-      rawToken,
-      (tenantId, userId) =>
+    const actor = await this.resolveSession.resolve(rawToken, {
+      loadTenantUserPermissions: (tenantId, userId) =>
         this.lookup.findPermissionsForUser(tenantId, userId),
-    );
+      isPlatformAdminActive: (platformAdminId) =>
+        this.platformAdmins.isActive(platformAdminId),
+    });
 
     if (!actor) {
       throw new UnauthorizedException({

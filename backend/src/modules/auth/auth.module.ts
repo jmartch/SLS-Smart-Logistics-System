@@ -10,6 +10,8 @@ import { SessionRepository } from './domain/session.repository';
 import { PrismaSessionRepository } from './infrastructure/prisma-session.repository';
 import { TenantUserLookupRepository } from './domain/tenant-user-lookup.repository';
 import { PrismaTenantUserLookupRepository } from './infrastructure/prisma-tenant-user-lookup.repository';
+import { PlatformAdminLookup } from './domain/platform-admin-lookup.repository';
+import { PrismaPlatformAdminLookup } from './infrastructure/prisma-platform-admin-lookup.repository';
 
 @Module({
   imports: [PrismaModule],
@@ -20,6 +22,7 @@ import { PrismaTenantUserLookupRepository } from './infrastructure/prisma-tenant
       provide: TenantUserLookupRepository,
       useClass: PrismaTenantUserLookupRepository,
     },
+    { provide: PlatformAdminLookup, useClass: PrismaPlatformAdminLookup },
     LoginTenantUserService,
     LogoutService,
     ResolveSessionService,
@@ -34,6 +37,7 @@ import { PrismaTenantUserLookupRepository } from './infrastructure/prisma-tenant
     PermissionsGuard,
     ResolveSessionService,
     TenantUserLookupRepository,
+    PlatformAdminLookup,
     SessionRepository,
   ],
 })

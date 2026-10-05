@@ -1,10 +1,11 @@
 import { UnauthorizedException, type ExecutionContext } from '@nestjs/common';
 import { AuthGuard } from './auth.guard';
 import type {
-  PermissionLoader,
   ResolveSessionService,
+  SessionActorLoaders,
 } from '../application/resolve-session.service';
 import type { TenantUserLookupRepository } from '../domain/tenant-user-lookup.repository';
+import type { PlatformAdminLookup } from '../domain/platform-admin-lookup.repository';
 import type { ActorContext } from '../../../shared/application/actor-context';
 
 interface FakeRequest {
@@ -30,15 +31,18 @@ function build(resolved: ActorContext | null) {
     findUserForLogin: jest.fn(),
     findPermissionsForUser,
   };
+  const isActive = jest.fn().mockResolvedValue(true);
+  const platformAdmins: PlatformAdminLookup = { isActive };
   return {
-    guard: new AuthGuard(resolveSession, lookup),
+    guard: new AuthGuard(resolveSession, lookup, platformAdmins),
     resolve,
     findPermissionsForUser,
+    isActive,
   };
 }
 
-function loaderPassedTo(resolve: jest.Mock): PermissionLoader {
-  return (resolve.mock.calls[0] as [string, PermissionLoader])[1];
+function loadersPassedTo(resolve: jest.Mock): SessionActorLoaders {
+  return (resolve.mock.calls[0] as [string, SessionActorLoaders])[1];
 }
 
 async function captureUnauthorized(
@@ -143,7 +147,10 @@ describe('AuthGuard', () => {
     await expect(guard.canActivate(contextFor(request))).resolves.toBe(true);
 
     expect(request.actor).toBe(tenantActor);
-    expect(resolve).toHaveBeenCalledWith('raw-token', expect.any(Function));
+    expect(resolve).toHaveBeenCalledWith('raw-token', {
+      loadTenantUserPermissions: expect.any(Function) as unknown,
+      isPlatformAdminActive: expect.any(Function) as unknown,
+    });
   });
 
   describe('with a pre-existing request.actor', () => {
@@ -199,15 +206,42 @@ describe('AuthGuard', () => {
       contextFor({ cookies: { sls_session: 'raw-token' } }),
     );
 
-    const loader = loaderPassedTo(resolve);
+    const { loadTenantUserPermissions } = loadersPassedTo(resolve);
     await expect(
-      loader('tenant-from-session', 'user-from-session'),
+      loadTenantUserPermissions('tenant-from-session', 'user-from-session'),
     ).resolves.toEqual(['P1']);
     expect(findPermissionsForUser).toHaveBeenCalledTimes(1);
     expect(findPermissionsForUser).toHaveBeenCalledWith(
       'tenant-from-session',
       'user-from-session',
     );
+  });
+
+  it('passes the lookup null (actor no longer ACTIVE) through to resolve unchanged', async () => {
+    const { guard, resolve, findPermissionsForUser } = build(tenantActor);
+    findPermissionsForUser.mockResolvedValue(null);
+
+    await guard.canActivate(
+      contextFor({ cookies: { sls_session: 'raw-token' } }),
+    );
+
+    await expect(
+      loadersPassedTo(resolve).loadTenantUserPermissions('t', 'u'),
+    ).resolves.toBeNull();
+  });
+
+  it('delegates the platform-admin activity check to the auth-owned lookup', async () => {
+    const { guard, resolve, isActive } = build(tenantActor);
+    isActive.mockResolvedValue(false);
+
+    await guard.canActivate(
+      contextFor({ cookies: { sls_session: 'raw-token' } }),
+    );
+
+    await expect(
+      loadersPassedTo(resolve).isPlatformAdminActive('admin-from-session'),
+    ).resolves.toBe(false);
+    expect(isActive).toHaveBeenCalledWith('admin-from-session');
   });
 
   it('never takes tenant information from headers, query or body', async () => {
@@ -223,7 +257,10 @@ describe('AuthGuard', () => {
 
     // The actor is exactly what the session resolved to, untouched by input.
     expect(request.actor).toBe(tenantActor);
-    await loaderPassedTo(resolve)('tenant-a', 'user-1');
+    await loadersPassedTo(resolve).loadTenantUserPermissions(
+      'tenant-a',
+      'user-1',
+    );
     expect(findPermissionsForUser).toHaveBeenCalledWith('tenant-a', 'user-1');
     expect(JSON.stringify(resolve.mock.calls)).not.toContain('tenant-attacker');
     expect(JSON.stringify(findPermissionsForUser.mock.calls)).not.toContain(
