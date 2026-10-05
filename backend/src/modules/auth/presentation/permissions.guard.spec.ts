@@ -5,7 +5,10 @@ import {
 } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { PermissionsGuard } from './permissions.guard';
-import { RequirePermission } from './require-permission.decorator';
+import {
+  AuthenticatedOnly,
+  RequirePermission,
+} from './require-permission.decorator';
 import type { ActorContext } from '../../../shared/application/actor-context';
 
 @RequirePermission('MANAGE_EMPLOYEES')
@@ -14,10 +17,25 @@ class ClassLevelController {
 
   @RequirePermission('REGISTER_PACKAGES')
   overridden(): void {}
+
+  // An opt-out marker never loosens a class-level permission.
+  @AuthenticatedOnly()
+  markedButStillGuarded(): void {}
 }
 
 class UndecoratedController {
   open(): void {}
+
+  @AuthenticatedOnly()
+  authenticatedOnly(): void {}
+
+  @RequirePermission('MANAGE_EMPLOYEES')
+  guarded(): void {}
+}
+
+@AuthenticatedOnly()
+class AuthenticatedOnlyController {
+  any(): void {}
 
   @RequirePermission('MANAGE_EMPLOYEES')
   guarded(): void {}
@@ -144,18 +162,72 @@ describe('PermissionsGuard', () => {
     );
   });
 
-  it('allows any authenticated actor when no permission is declared', () => {
-    expect(
+  it('fails closed with 403 when a route declares neither a permission nor @AuthenticatedOnly', () => {
+    expectPermissionDenied(() =>
       guard.canActivate(
-        contextFor(UndecoratedController, 'open', tenantUser([])),
+        contextFor(
+          UndecoratedController,
+          'open',
+          tenantUser(['MANAGE_EMPLOYEES', 'REGISTER_PACKAGES']),
+        ),
       ),
-    ).toBe(true);
-    expect(
+    );
+    expectPermissionDenied(() =>
       guard.canActivate(
         contextFor(UndecoratedController, 'open', {
           kind: 'PLATFORM_ADMIN',
           platformAdminId: 'p-1',
         }),
+      ),
+    );
+  });
+
+  it('lets any authenticated actor through a handler marked @AuthenticatedOnly', () => {
+    expect(
+      guard.canActivate(
+        contextFor(UndecoratedController, 'authenticatedOnly', tenantUser([])),
+      ),
+    ).toBe(true);
+    expect(
+      guard.canActivate(
+        contextFor(UndecoratedController, 'authenticatedOnly', {
+          kind: 'PLATFORM_ADMIN',
+          platformAdminId: 'p-1',
+        }),
+      ),
+    ).toBe(true);
+  });
+
+  it('applies a class-level @AuthenticatedOnly to every handler without a permission', () => {
+    expect(
+      guard.canActivate(
+        contextFor(AuthenticatedOnlyController, 'any', tenantUser([])),
+      ),
+    ).toBe(true);
+  });
+
+  it('still enforces a declared permission over @AuthenticatedOnly at either level', () => {
+    expectPermissionDenied(() =>
+      guard.canActivate(
+        contextFor(AuthenticatedOnlyController, 'guarded', tenantUser([])),
+      ),
+    );
+    expectPermissionDenied(() =>
+      guard.canActivate(
+        contextFor(
+          ClassLevelController,
+          'markedButStillGuarded',
+          tenantUser(['REGISTER_PACKAGES']),
+        ),
+      ),
+    );
+    expect(
+      guard.canActivate(
+        contextFor(
+          ClassLevelController,
+          'markedButStillGuarded',
+          tenantUser(['MANAGE_EMPLOYEES']),
+        ),
       ),
     ).toBe(true);
   });
@@ -168,6 +240,11 @@ describe('PermissionsGuard', () => {
     ).toThrow(UnauthorizedException);
     expect(() =>
       guard.canActivate(contextFor(UndecoratedController, 'open', undefined)),
+    ).toThrow(UnauthorizedException);
+    expect(() =>
+      guard.canActivate(
+        contextFor(UndecoratedController, 'authenticatedOnly', undefined),
+      ),
     ).toThrow(UnauthorizedException);
   });
 });
