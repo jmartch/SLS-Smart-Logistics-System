@@ -1,0 +1,50 @@
+import { BadRequestException, ValidationPipe } from '@nestjs/common';
+import { LoginDto } from './dto/login.dto';
+import { validationExceptionFactory } from './validation-exception.factory';
+
+describe('validationExceptionFactory', () => {
+  const pipe = new ValidationPipe({
+    whitelist: true,
+    transform: true,
+    exceptionFactory: validationExceptionFactory,
+  });
+
+  async function validate(value: unknown): Promise<BadRequestException> {
+    try {
+      await pipe.transform(value, { type: 'body', metatype: LoginDto });
+    } catch (error) {
+      return error as BadRequestException;
+    }
+    throw new Error('expected validation to fail');
+  }
+
+  it('produces a 400 VALIDATION_ERROR envelope with a field -> messages map', async () => {
+    const exception = await validate({ slug: 'acme', email: 'not-an-email' });
+
+    expect(exception.getStatus()).toBe(400);
+    const body = exception.getResponse() as {
+      error: {
+        code: string;
+        message: string;
+        fields: Record<string, string[]>;
+      };
+    };
+    expect(body.error.code).toBe('VALIDATION_ERROR');
+    expect(typeof body.error.message).toBe('string');
+    expect(Object.keys(body.error.fields).sort()).toEqual([
+      'email',
+      'password',
+    ]);
+    expect(body.error.fields.email.length).toBeGreaterThan(0);
+    expect(body.error.fields.password.length).toBeGreaterThan(0);
+  });
+
+  it('accepts a valid body', async () => {
+    await expect(
+      pipe.transform(
+        { slug: 'acme', email: 'a@b.co', password: 'x' },
+        { type: 'body', metatype: LoginDto },
+      ),
+    ).resolves.toBeInstanceOf(LoginDto);
+  });
+});
