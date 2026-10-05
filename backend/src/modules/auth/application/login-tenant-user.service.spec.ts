@@ -30,6 +30,7 @@ function lookupWith(
   return {
     findTenantBySlug: jest.fn().mockResolvedValue(tenant),
     findUserForLogin: jest.fn().mockResolvedValue(user),
+    findPermissionsForUser: jest.fn().mockResolvedValue([]),
   };
 }
 

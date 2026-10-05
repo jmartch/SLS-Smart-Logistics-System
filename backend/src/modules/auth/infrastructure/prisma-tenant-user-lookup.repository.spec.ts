@@ -28,6 +28,7 @@ describe('PrismaTenantUserLookupRepository', () => {
   let tenantBUserId: string;
   let sharedPermissionCode: string;
   let uniquePermissionCode: string;
+  let roleTwoId: string;
   // Ids actually created by this spec. afterAll builds its filters only from
   // these: Prisma drops `undefined` filters, so an `undefined` id would turn a
   // scoped deleteMany into a delete of every row in the shared database.
@@ -88,6 +89,7 @@ describe('PrismaTenantUserLookupRepository', () => {
       data: { tenantId: tenantAId, name: `role-two-${runId}` },
     });
     createdRoleIds.push(roleTwo.id);
+    roleTwoId = roleTwo.id;
     await admin.rolePermission.createMany({
       data: [
         { tenantId: tenantAId, roleId: roleOne.id, permissionId: shared.id },
@@ -249,6 +251,59 @@ describe('PrismaTenantUserLookupRepository', () => {
           `unknown-${runId}@lookup-repo.test`,
         ),
       ).resolves.toBeNull();
+    });
+  });
+
+  describe('findPermissionsForUser', () => {
+    it('returns the flattened, de-duplicated permission codes of an active user', async () => {
+      const permissions = await repository.findPermissionsForUser(
+        tenantAId,
+        tenantAUserId,
+      );
+
+      expect([...permissions].sort()).toEqual(
+        [sharedPermissionCode, uniquePermissionCode].sort(),
+      );
+    });
+
+    it('returns an empty list for a user without roles', async () => {
+      await expect(
+        repository.findPermissionsForUser(tenantBId, tenantBUserId),
+      ).resolves.toEqual([]);
+    });
+
+    it.each(['INACTIVE', 'SUSPENDED'] as const)(
+      'returns an empty list for a %s user even though roles grant permissions',
+      async (status) => {
+        const user = await admin.user.create({
+          data: {
+            tenantId: tenantAId,
+            email: `${status.toLowerCase()}-${runId}@lookup-repo.test`,
+            passwordHash: 'not-a-real-hash',
+            status,
+          },
+        });
+        createdUserIds.push(user.id);
+        await admin.userRole.create({
+          data: { tenantId: tenantAId, userId: user.id, roleId: roleTwoId },
+        });
+
+        await expect(
+          repository.findPermissionsForUser(tenantAId, user.id),
+        ).resolves.toEqual([]);
+      },
+    );
+
+    it('returns an empty list when the user belongs to another tenant', async () => {
+      await expect(
+        repository.findPermissionsForUser(tenantBId, tenantAUserId),
+      ).resolves.toEqual([]);
+    });
+
+    it('returns an empty list for an unknown user id', async () => {
+      await expect(
+        repository.findPermissionsForUser(tenantAId, randomUUID()),
+      ).resolves.toEqual([]);
     });
   });
 });

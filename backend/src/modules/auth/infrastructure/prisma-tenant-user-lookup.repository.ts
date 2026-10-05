@@ -71,4 +71,40 @@ export class PrismaTenantUserLookupRepository extends TenantUserLookupRepository
       };
     });
   }
+
+  async findPermissionsForUser(
+    tenantId: string,
+    userId: string,
+  ): Promise<readonly string[]> {
+    return runWithTenant(this.prisma, tenantId, async (tx) => {
+      // Status is read here rather than trusted from the session row: a user
+      // deactivated or suspended after login must stop carrying permissions.
+      const user = await tx.user.findFirst({
+        where: { id: userId, tenantId, status: 'ACTIVE' },
+        select: { id: true },
+      });
+
+      if (!user) {
+        return [];
+      }
+
+      const userRoles = await tx.userRole.findMany({
+        where: { tenantId, userId },
+        include: {
+          role: {
+            include: { rolePermissions: { include: { permission: true } } },
+          },
+        },
+      });
+
+      const permissions = new Set<string>();
+      for (const userRole of userRoles) {
+        for (const rolePermission of userRole.role.rolePermissions) {
+          permissions.add(rolePermission.permission.code);
+        }
+      }
+
+      return Array.from(permissions);
+    });
+  }
 }
