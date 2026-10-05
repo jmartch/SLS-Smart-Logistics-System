@@ -52,6 +52,7 @@ describe('Auth endpoints (e2e)', () => {
   let tenantId: string;
   let otherTenantId: string;
   let userId: string;
+  let roleId: string;
 
   function http() {
     return request(app.getHttpServer());
@@ -117,6 +118,7 @@ describe('Auth endpoints (e2e)', () => {
       data: { tenantId, name: `Role ${run}` },
     });
     created.roleIds.push(role.id);
+    roleId = role.id;
     await admin.rolePermission.create({
       data: { tenantId, roleId: role.id, permissionId: permission.id },
     });
@@ -283,7 +285,7 @@ describe('Auth endpoints (e2e)', () => {
   });
 
   describe('GET /api/auth/me', () => {
-    it('returns the session actor for a valid cookie', async () => {
+    it('returns the session identity with email, roles and permissions (spec 6.3)', async () => {
       const cookie = sessionCookie(
         await login({ slug, email: activeEmail, password: PASSWORD }),
       );
@@ -294,8 +296,12 @@ describe('Auth endpoints (e2e)', () => {
       expect(response.body).toEqual({
         userId,
         tenantId,
+        email: activeEmail,
+        roles: [{ id: roleId, name: `Role ${run}` }],
         permissions: ['MANAGE_EMPLOYEES'],
       });
+      expect(response.text).not.toContain('$argon2');
+      expect(response.text).not.toContain('passwordHash');
     });
 
     it('answers 401 SESSION_EXPIRED without a cookie', async () => {
@@ -401,7 +407,13 @@ describe('Auth endpoints (e2e)', () => {
       const me = await http().get('/api/auth/me').set('Cookie', actor.cookie);
 
       expect(me.status).toBe(200);
-      expect((me.body as { permissions: string[] }).permissions).toEqual([]);
+      expect(me.body).toEqual({
+        userId: actor.userId,
+        tenantId: actor.tenantId,
+        email: actor.email,
+        roles: [],
+        permissions: [],
+      });
     });
 
     it.each(['INACTIVE', 'SUSPENDED'] as const)(

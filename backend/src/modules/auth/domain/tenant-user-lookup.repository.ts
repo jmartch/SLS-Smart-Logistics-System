@@ -11,6 +11,17 @@ export interface UserForLogin {
   readonly permissions: readonly string[];
 }
 
+export interface RoleSummary {
+  readonly id: string;
+  readonly name: string;
+}
+
+// What /api/auth/me shows about a tenant user. Never carries credentials.
+export interface TenantUserProfile {
+  readonly email: string;
+  readonly roles: readonly RoleSummary[];
+}
+
 export abstract class TenantUserLookupRepository {
   abstract findTenantBySlug(slug: string): Promise<TenantLookup | null>;
   abstract findUserForLogin(
@@ -25,4 +36,10 @@ export abstract class TenantUserLookupRepository {
     tenantId: string,
     userId: string,
   ): Promise<readonly string[] | null>;
+  // Email and roles of the user within the tenant (roles ordered by name), or
+  // null when the user does not exist in that tenant.
+  abstract findUserProfile(
+    tenantId: string,
+    userId: string,
+  ): Promise<TenantUserProfile | null>;
 }

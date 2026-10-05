@@ -31,6 +31,7 @@ describe('PrismaTenantUserLookupRepository', () => {
   let tenantBUserId: string;
   let sharedPermissionCode: string;
   let uniquePermissionCode: string;
+  let roleOneId: string;
   let roleTwoId: string;
   // Ids actually created by this spec. afterAll builds its filters only from
   // these: Prisma drops `undefined` filters, so an `undefined` id would turn a
@@ -100,6 +101,7 @@ describe('PrismaTenantUserLookupRepository', () => {
       data: { tenantId: tenantAId, name: `role-one-${runId}` },
     });
     createdRoleIds.push(roleOne.id);
+    roleOneId = roleOne.id;
     const roleTwo = await admin.role.create({
       data: { tenantId: tenantAId, name: `role-two-${runId}` },
     });
@@ -352,6 +354,38 @@ describe('PrismaTenantUserLookupRepository', () => {
     it('returns null for an unknown user id', async () => {
       await expect(
         repository.findPermissionsForUser(tenantAId, randomUUID()),
+      ).resolves.toBeNull();
+    });
+  });
+
+  describe('findUserProfile', () => {
+    it('returns the email and the { id, name } roles of the user, ordered by name', async () => {
+      await expect(
+        repository.findUserProfile(tenantAId, tenantAUserId),
+      ).resolves.toEqual({
+        email: sharedEmail,
+        roles: [
+          { id: roleOneId, name: `role-one-${runId}` },
+          { id: roleTwoId, name: `role-two-${runId}` },
+        ],
+      });
+    });
+
+    it('returns an empty roles list for a user without roles', async () => {
+      await expect(
+        repository.findUserProfile(tenantBId, tenantBUserId),
+      ).resolves.toEqual({ email: sharedEmail, roles: [] });
+    });
+
+    it('returns null when the user belongs to another tenant', async () => {
+      await expect(
+        repository.findUserProfile(tenantBId, tenantAUserId),
+      ).resolves.toBeNull();
+    });
+
+    it('returns null for an unknown user id', async () => {
+      await expect(
+        repository.findUserProfile(tenantAId, randomUUID()),
       ).resolves.toBeNull();
     });
   });

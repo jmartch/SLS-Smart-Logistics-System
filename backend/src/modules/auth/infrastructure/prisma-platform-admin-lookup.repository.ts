@@ -17,4 +17,13 @@ export class PrismaPlatformAdminLookup extends PlatformAdminLookup {
 
     return count > 0;
   }
+
+  async findEmail(platformAdminId: string): Promise<string | null> {
+    const admin = await this.prisma.platformAdmin.findUnique({
+      where: { id: platformAdminId },
+      select: { email: true },
+    });
+
+    return admin?.email ?? null;
+  }
 }

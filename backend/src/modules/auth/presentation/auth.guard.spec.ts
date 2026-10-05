@@ -30,9 +30,13 @@ function build(resolved: ActorContext | null) {
     findTenantBySlug: jest.fn(),
     findUserForLogin: jest.fn(),
     findPermissionsForUser,
+    findUserProfile: jest.fn(),
   };
   const isActive = jest.fn().mockResolvedValue(true);
-  const platformAdmins: PlatformAdminLookup = { isActive };
+  const platformAdmins: PlatformAdminLookup = {
+    isActive,
+    findEmail: jest.fn(),
+  };
   return {
     guard: new AuthGuard(resolveSession, lookup, platformAdmins),
     resolve,

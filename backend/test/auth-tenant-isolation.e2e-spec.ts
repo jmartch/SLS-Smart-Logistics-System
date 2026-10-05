@@ -31,6 +31,8 @@ interface EmployeeBody {
 interface MeBody {
   userId: string;
   tenantId: string;
+  email: string;
+  roles: { id: string; name: string }[];
   permissions: string[];
 }
 
@@ -558,6 +560,8 @@ describe('Tenant isolation over HTTP (e2e)', () => {
     expect(meA.body).toMatchObject({
       tenantId: tenantA.id,
       userId: tenantA.adminUser.id,
+      email: sharedEmail,
+      roles: [{ id: tenantA.adminRoleId, name: 'Administrador' }],
     });
 
     const asB = await loginRequest(tenantB.slug, sharedEmail, tenantB.password);
@@ -567,6 +571,8 @@ describe('Tenant isolation over HTTP (e2e)', () => {
     expect(meB.body).toMatchObject({
       tenantId: tenantB.id,
       userId: tenantB.adminUser.id,
+      email: sharedEmail,
+      roles: [{ id: tenantB.adminRoleId, name: 'Administrador' }],
     });
 
     // Each tenant's password only opens that tenant, in both directions.
@@ -608,6 +614,13 @@ describe('Tenant isolation over HTTP (e2e)', () => {
     const identity = meSpoofed.body as MeBody;
     expect(identity.tenantId).toBe(tenantA.id);
     expect(identity.userId).toBe(tenantA.adminUser.id);
+    // Both tenants use the same email and role name: only A's role id may
+    // appear, so the profile was read in the session's tenant.
+    expect(identity.email).toBe(tenantA.adminUser.email);
+    expect(identity.roles).toEqual([
+      { id: tenantA.adminRoleId, name: 'Administrador' },
+    ]);
+    expect(JSON.stringify(identity)).not.toContain(tenantB.adminRoleId);
 
     const listSpoofed = await http()
       .get('/api/users')
@@ -728,8 +741,10 @@ describe('Tenant isolation over HTTP (e2e)', () => {
       .send({ email: platformEmail, password: platformPassword });
     expect(platformLogin.status).toBe(200);
     const platformCookie = sessionCookie(platformLogin);
+    // A platform admin's identity carries no tenant, roles or permissions.
     expect((await me(platformCookie)).body).toEqual({
       platformAdminId: platformAdmin.id,
+      email: platformEmail,
     });
 
     const tenantRoutes = [

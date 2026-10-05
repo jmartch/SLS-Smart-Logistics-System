@@ -500,9 +500,17 @@ describe('Employee management /api/users (e2e)', () => {
     const second = await createUser(tenant, [tenant.altAdminRoleId], 'second');
     const firstCookie = await login(tenant, first);
     const secondCookie = await login(tenant, second);
-    expect(
-      (await http().get('/api/auth/me').set('Cookie', secondCookie)).status,
-    ).toBe(200);
+    const meBefore = await http()
+      .get('/api/auth/me')
+      .set('Cookie', secondCookie);
+    expect(meBefore.status).toBe(200);
+    expect(meBefore.body).toEqual({
+      userId: second.id,
+      tenantId: tenant.id,
+      email: second.email,
+      roles: [{ id: tenant.altAdminRoleId, name: 'Jefe de personal' }],
+      permissions: ['MANAGE_EMPLOYEES'],
+    });
 
     const deactivate = await patchStatus(firstCookie, second.id, 'INACTIVE');
     expect(deactivate.status).toBe(200);

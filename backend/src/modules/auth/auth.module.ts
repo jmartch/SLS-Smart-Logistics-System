@@ -6,6 +6,7 @@ import { PermissionsGuard } from './presentation/permissions.guard';
 import { LoginTenantUserService } from './application/login-tenant-user.service';
 import { LogoutService } from './application/logout.service';
 import { ResolveSessionService } from './application/resolve-session.service';
+import { GetCurrentIdentityService } from './application/get-current-identity.service';
 import { SessionRepository } from './domain/session.repository';
 import { PrismaSessionRepository } from './infrastructure/prisma-session.repository';
 import { TenantUserLookupRepository } from './domain/tenant-user-lookup.repository';
@@ -25,6 +26,7 @@ import { PrismaPlatformAdminLookup } from './infrastructure/prisma-platform-admi
     { provide: PlatformAdminLookup, useClass: PrismaPlatformAdminLookup },
     LoginTenantUserService,
     LogoutService,
+    GetCurrentIdentityService,
     ResolveSessionService,
     AuthGuard,
     PermissionsGuard,

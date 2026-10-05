@@ -105,4 +105,16 @@ describe('PrismaPlatformAdminLookup', () => {
       await expect(lookup.isActive(row.id)).resolves.toBe(false);
     });
   });
+
+  describe('findEmail', () => {
+    it('returns the email of an existing platform admin', async () => {
+      await expect(lookup.findEmail(ids.ACTIVE)).resolves.toBe(
+        `active-${runId}@platform-lookup.test`,
+      );
+    });
+
+    it('returns null for an unknown id', async () => {
+      await expect(lookup.findEmail(randomUUID())).resolves.toBeNull();
+    });
+  });
 });

@@ -165,7 +165,8 @@ describe('Platform admin login (e2e)', () => {
     const response = await http().get('/api/auth/me').set('Cookie', cookie);
 
     expect(response.status).toBe(200);
-    expect(response.body).toEqual({ platformAdminId });
+    expect(response.body).toEqual({ platformAdminId, email: activeEmail });
+    expect(response.text).not.toContain('$argon2');
   });
 
   it('answers wrong password, unknown email and inactive admin with identical 401 bodies', async () => {

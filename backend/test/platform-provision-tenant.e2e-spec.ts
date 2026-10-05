@@ -216,9 +216,21 @@ describe('POST /api/platform/tenants (e2e)', () => {
     const me = await http().get('/api/auth/me').set('Cookie', cookie);
 
     expect(me.status).toBe(200);
-    const body = me.body as { tenantId: string; permissions: string[] };
+    const body = me.body as {
+      tenantId: string;
+      email: string;
+      roles: { id: string; name: string }[];
+      permissions: string[];
+    };
     expect(body.tenantId).toBe(tenantId);
     expect([...body.permissions].sort()).toEqual(ALL_PERMISSIONS);
+    // The provisioning request sent the email upper-cased; it is stored
+    // normalized, and the first admin holds exactly the Administrador role.
+    expect(body.email).toBe(firstAdminEmail);
+    const adminRole = await admin.role.findFirstOrThrow({
+      where: { tenantId, name: 'Administrador' },
+    });
+    expect(body.roles).toEqual([{ id: adminRole.id, name: 'Administrador' }]);
   });
 
   it('records a TENANT_PROVISIONED audit row for the session platform admin without the password', async () => {

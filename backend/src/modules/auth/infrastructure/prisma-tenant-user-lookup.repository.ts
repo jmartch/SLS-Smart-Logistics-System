@@ -4,6 +4,7 @@ import { runWithTenant } from '../../../database/run-with-tenant';
 import {
   TenantUserLookupRepository,
   type TenantLookup,
+  type TenantUserProfile,
   type UserForLogin,
 } from '../domain/tenant-user-lookup.repository';
 
@@ -116,6 +117,38 @@ export class PrismaTenantUserLookupRepository extends TenantUserLookupRepository
       }
 
       return Array.from(permissions);
+    });
+  }
+
+  async findUserProfile(
+    tenantId: string,
+    userId: string,
+  ): Promise<TenantUserProfile | null> {
+    return runWithTenant(this.prisma, tenantId, async (tx) => {
+      // Explicit select: the password hash is never read here.
+      const user = await tx.user.findFirst({
+        where: { id: userId, tenantId },
+        select: {
+          email: true,
+          userRoles: {
+            where: { tenantId },
+            select: { role: { select: { id: true, name: true } } },
+            orderBy: { role: { name: 'asc' } },
+          },
+        },
+      });
+
+      if (!user) {
+        return null;
+      }
+
+      return {
+        email: user.email,
+        roles: user.userRoles.map(({ role }) => ({
+          id: role.id,
+          name: role.name,
+        })),
+      };
     });
   }
 }
