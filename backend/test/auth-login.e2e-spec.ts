@@ -224,7 +224,8 @@ describe('Auth endpoints (e2e)', () => {
       expect(missing.status).toBe(400);
       expect(errorOf(missing).code).toBe('VALIDATION_ERROR');
       const missingFields = errorOf(missing).fields ?? [];
-      expect(missingFields).toHaveLength(3);
+      // email: IsEmail, MaxLength; password: IsString, MinLength, MaxLength.
+      expect(missingFields).toHaveLength(5);
       expect(
         missingFields.every(
           (entry) =>

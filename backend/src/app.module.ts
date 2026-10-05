@@ -6,6 +6,7 @@ import { AssignmentsModule } from './modules/assignments/assignments.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { GeocodingModule } from './modules/geocoding/geocoding.module';
 import { PackagesModule } from './modules/packages/packages.module';
+import { PlatformModule } from './modules/platform/platform.module';
 import { RoutePlanningModule } from './modules/route-planning/route-planning.module';
 
 @Module({
@@ -15,6 +16,7 @@ import { RoutePlanningModule } from './modules/route-planning/route-planning.mod
     AuthModule,
     GeocodingModule,
     PackagesModule,
+    PlatformModule,
     RoutePlanningModule,
   ],
   controllers: [AppController],

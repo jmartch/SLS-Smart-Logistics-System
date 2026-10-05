@@ -1,7 +1,8 @@
 import { Injectable } from '@nestjs/common';
 import { TenantUserLookupRepository } from '../domain/tenant-user-lookup.repository';
 import { SessionRepository } from '../domain/session.repository';
-import { hashPassword, verifyPassword } from '../domain/password-hasher';
+import { verifyPassword } from '../domain/password-hasher';
+import { verifyAgainstDummyHash } from '../domain/dummy-password-verification';
 import { generateSessionToken } from '../domain/session-token';
 import { SESSION_TTL_MS } from '../domain/session-policy';
 
@@ -14,16 +15,6 @@ export interface LoginInput {
 export type LoginResult =
   | { readonly kind: 'OK'; readonly rawToken: string; readonly expiresAt: Date }
   | { readonly kind: 'INVALID_CREDENTIALS' };
-
-// Failure paths that skip the real hash still pay for one argon2 verification
-// against this throwaway hash, so response time does not reveal whether a
-// tenant slug or email exists. Computed once, on first use.
-let dummyPasswordHash: Promise<string> | undefined;
-
-function getDummyPasswordHash(): Promise<string> {
-  dummyPasswordHash ??= hashPassword('sls-dummy-password-for-timing-parity');
-  return dummyPasswordHash;
-}
 
 @Injectable()
 export class LoginTenantUserService {
@@ -44,7 +35,9 @@ export class LoginTenantUserService {
         : null;
 
     if (!user || user.status !== 'ACTIVE') {
-      await verifyPassword(await getDummyPasswordHash(), input.password);
+      // Pays for one verification so timing does not reveal whether the
+      // tenant slug or email exists.
+      await verifyAgainstDummyHash(input.password);
       return { kind: 'INVALID_CREDENTIALS' };
     }
 

@@ -32,7 +32,7 @@ describe('validationExceptionFactory', () => {
     expect(body.error.code).toBe('VALIDATION_ERROR');
     expect(typeof body.error.message).toBe('string');
     expect(Array.isArray(body.error.fields)).toBe(true);
-    expect(body.error.fields).toHaveLength(3);
+    expect(body.error.fields).toHaveLength(4);
     expect(body.error.fields).toEqual(
       expect.arrayContaining([
         { field: 'email', reason: 'email must be an email' },
@@ -40,6 +40,10 @@ describe('validationExceptionFactory', () => {
         {
           field: 'password',
           reason: 'password must be longer than or equal to 1 characters',
+        },
+        {
+          field: 'password',
+          reason: 'password must be shorter than or equal to 1024 characters',
         },
       ]),
     );
