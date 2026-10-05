@@ -29,6 +29,15 @@ export interface UserManagementTx {
   setRoles(userId: string, roleIds: readonly string[]): Promise<boolean>;
 }
 
+// INVARIANT: the last-admin rule (some ACTIVE user of the tenant keeps
+// MANAGE_EMPLOYEES) and the caller re-check are only sound because every
+// write that can change who holds that permission is serialized through
+// runExclusive. Any code that writes, for a tenant, a User status, a UserRole
+// row or a RolePermission row (including future role/permission editors and
+// tenant provisioning-style tooling acting on an existing tenant) MUST do so
+// inside runExclusive of that tenant, or the rule can be bypassed by a
+// concurrent change. Creating a brand-new tenant is exempt: nothing else can
+// administer it before it exists.
 export abstract class UserManagementRepository {
   abstract list(tenantId: string): Promise<readonly EmployeeRecord[]>;
 
@@ -36,6 +45,9 @@ export abstract class UserManagementRepository {
   // other runExclusive of the same tenant: decisions taken from its reads
   // still hold when its writes commit. Committed when `work` resolves, rolled
   // back when it throws. The transaction-bound repository must not escape it.
+  // Lock waits are bounded: when the section cannot be entered in time (or a
+  // lock wait inside it exceeds the bound), the transaction is rolled back and
+  // the call rejects with EmployeeAdministrationBusyError.
   abstract runExclusive<T>(
     tenantId: string,
     work: (tx: UserManagementTx) => Promise<T>,

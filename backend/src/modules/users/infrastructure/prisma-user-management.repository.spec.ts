@@ -3,10 +3,12 @@ import { PrismaPg } from '@prisma/adapter-pg';
 import { PrismaClient } from '../../../../generated/prisma/client';
 import { PrismaService } from '../../../database/prisma.service';
 import {
+  EMPLOYEE_ADMIN_LOCK_TIMEOUT_MS,
   PrismaUserManagementRepository,
   employeeAdministrationLockKey,
 } from './prisma-user-management.repository';
 import {
+  EmployeeAdministrationBusyError,
   EmployeeEmailAlreadyExistsError,
   MANAGE_EMPLOYEES,
 } from '../domain/employee';
@@ -500,6 +502,82 @@ describe('PrismaUserManagementRepository', () => {
       expect(employeeAdministrationLockKey(tenantA)).not.toBe(
         employeeAdministrationLockKey(tenantB),
       );
+    });
+  });
+
+  describe('bounded lock wait', () => {
+    it('waits at most 3 s for the lock by default', () => {
+      expect(EMPLOYEE_ADMIN_LOCK_TIMEOUT_MS).toBe(3000);
+    });
+
+    it.each([0, -1, 1.5, Number.NaN])(
+      'refuses %p as a lock timeout',
+      (value) => {
+        expect(() => new PrismaUserManagementRepository(prisma, value)).toThrow(
+          'lock timeout',
+        );
+      },
+    );
+
+    it('maps a lock wait that exceeds the timeout to EmployeeAdministrationBusyError without running the work', async () => {
+      const impatient = new PrismaUserManagementRepository(prisma, 200);
+      const work = jest.fn();
+      let outcome: unknown;
+
+      // The spec holds the tenant's lock for longer than the timeout.
+      await admin.$transaction(
+        async (tx) => {
+          await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${employeeAdministrationLockKey(tenantA)}::text))`;
+          outcome = await impatient.runExclusive(tenantA, work).then(
+            () => 'entered',
+            (error: unknown) => error,
+          );
+        },
+        { timeout: 10000 },
+      );
+
+      expect(outcome).toBeInstanceOf(EmployeeAdministrationBusyError);
+      expect(work).not.toHaveBeenCalled();
+    });
+
+    it('enters normally when the lock is released within the timeout', async () => {
+      let entered = false;
+      let release!: () => void;
+      const mayRelease = new Promise<void>((resolve) => {
+        release = resolve;
+      });
+      let signalLocked!: () => void;
+      const locked = new Promise<void>((resolve) => {
+        signalLocked = resolve;
+      });
+
+      const holder = admin.$transaction(
+        async (tx) => {
+          await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${employeeAdministrationLockKey(tenantA)}::text))`;
+          signalLocked();
+          await mayRelease;
+        },
+        { timeout: 10000 },
+      );
+      await locked;
+      const section = repository.runExclusive(tenantA, () => {
+        entered = true;
+        return Promise.resolve();
+      });
+      await waitForAdvisoryLockWaiters(1);
+      release();
+      await holder;
+      await section;
+
+      expect(entered).toBe(true);
+    });
+
+    it('lets other failures inside the section propagate unmapped', async () => {
+      const failure = new Error('not a lock problem');
+
+      await expect(
+        repository.runExclusive(tenantA, () => Promise.reject(failure)),
+      ).rejects.toBe(failure);
     });
   });
 });

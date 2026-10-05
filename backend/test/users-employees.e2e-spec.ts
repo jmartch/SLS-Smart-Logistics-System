@@ -538,34 +538,43 @@ describe('Employee management /api/users (e2e)', () => {
     expect((await loginRequest(tenant, second.email)).status).toBe(200);
   });
 
-  it('lets exactly one of two simultaneous deactivations of the last two admins succeed', async () => {
-    const tenant = await createTenant('race');
-    const x = await createUser(tenant, [tenant.adminRoleId], 'x');
-    const y = await createUser(tenant, [tenant.adminRoleId], 'y');
-    const xCookie = await login(tenant, x);
-    const yCookie = await login(tenant, y);
-
-    // The spec holds the tenant's employee-administration lock while both
-    // requests start, so both pass authentication and then queue on the lock
-    // before either reads the admin count. Releasing it lets them race for
-    // real; only serialization inside the use case keeps one admin.
+  // The spec holds the tenant's employee-administration lock while the
+  // requests start, so they all pass authentication and then queue on the
+  // lock before any reads the admin count. Releasing it lets them race for
+  // real; only serialization inside the use case keeps one admin.
+  async function raceOnLock(
+    tenant: TenantFixture,
+    start: () => Promise<request.Response>[],
+  ): Promise<request.Response[]> {
     let pending: Promise<request.Response[]> | undefined;
     await admin.$transaction(
       async (tx) => {
         await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${employeeAdministrationLockKey(tenant.id)}::text))`;
-        pending = Promise.all([
-          patchStatus(xCookie, y.id, 'INACTIVE'),
-          patchStatus(yCookie, x.id, 'INACTIVE'),
-        ]);
-        await waitForAdvisoryLockWaiters(2);
+        const requests = start();
+        pending = Promise.all(requests);
+        await waitForAdvisoryLockWaiters(requests.length);
       },
       { timeout: 20_000 },
     );
     if (!pending) {
       throw new Error('the concurrent requests were not started');
     }
-    const responses = await pending;
+    return pending;
+  }
 
+  it('lets exactly one of the last two admins deactivate itself when both try at once', async () => {
+    const tenant = await createTenant('race');
+    const x = await createUser(tenant, [tenant.adminRoleId], 'x');
+    const y = await createUser(tenant, [tenant.adminRoleId], 'y');
+    const xCookie = await login(tenant, x);
+    const yCookie = await login(tenant, y);
+
+    const responses = await raceOnLock(tenant, () => [
+      patchStatus(xCookie, x.id, 'INACTIVE'),
+      patchStatus(yCookie, y.id, 'INACTIVE'),
+    ]);
+
+    // The second to run is still an admin, but would leave none: 409.
     expect(responses.map((r) => r.status).sort()).toEqual([200, 409]);
     const conflict = responses.find((r) => r.status === 409);
     expect(conflict && errorOf(conflict).code).toBe(
@@ -573,6 +582,143 @@ describe('Employee management /api/users (e2e)', () => {
     );
     const statuses = [await statusOf(x.id), await statusOf(y.id)].sort();
     expect(statuses).toEqual(['ACTIVE', 'INACTIVE']);
+  });
+
+  it('lets exactly one of two crossed deactivations of the last two admins succeed', async () => {
+    const tenant = await createTenant('race-cross');
+    const x = await createUser(tenant, [tenant.adminRoleId], 'x');
+    const y = await createUser(tenant, [tenant.adminRoleId], 'y');
+    const xCookie = await login(tenant, x);
+    const yCookie = await login(tenant, y);
+
+    const responses = await raceOnLock(tenant, () => [
+      patchStatus(xCookie, y.id, 'INACTIVE'),
+      patchStatus(yCookie, x.id, 'INACTIVE'),
+    ]);
+
+    // The loser's caller was deactivated by the winner while it waited, so
+    // the re-check inside the lock refuses it (403) before the last-admin
+    // rule is evaluated. Either way exactly one admin remains.
+    expect(responses.map((r) => r.status).sort()).toEqual([200, 403]);
+    const denied = responses.find((r) => r.status === 403);
+    expect(denied && errorOf(denied)).toEqual({
+      code: 'PERMISSION_DENIED',
+      message: expect.any(String) as string,
+      fields: null,
+    });
+    const statuses = [await statusOf(x.id), await statusOf(y.id)].sort();
+    expect(statuses).toEqual(['ACTIVE', 'INACTIVE']);
+  });
+
+  it('refuses with 403 a status, roles or create request whose caller lost MANAGE_EMPLOYEES while it waited on the lock', async () => {
+    const tenant = await createTenant('demoted');
+    const caller = await createUser(tenant, [tenant.adminRoleId], 'caller');
+    await createUser(tenant, [tenant.altAdminRoleId], 'other-admin');
+    const courier = await createUser(tenant, [tenant.courierRoleId], 'target');
+    const cookie = await login(tenant, caller);
+    const lateEmail = `late-${run}@users-e2e.test`;
+
+    const scenarios: [string, () => Promise<request.Response>][] = [
+      ['status', () => patchStatus(cookie, courier.id, 'SUSPENDED')],
+      ['roles', () => patchRoles(cookie, courier.id, [tenant.adminRoleId])],
+      [
+        'create',
+        () =>
+          createEmployee(cookie, {
+            email: lateEmail,
+            password,
+            roleIds: [tenant.adminRoleId],
+          }),
+      ],
+    ];
+
+    for (const [label, send] of scenarios) {
+      // Restore the caller as admin: each request must pass the guard.
+      await admin.userRole.deleteMany({ where: { userId: caller.id } });
+      await admin.userRole.create({
+        data: {
+          tenantId: tenant.id,
+          userId: caller.id,
+          roleId: tenant.adminRoleId,
+        },
+      });
+
+      let pending: Promise<request.Response> | undefined;
+      // The spec holds the lock (as another administration would), lets the
+      // request pass the guard and queue, then demotes the caller in that
+      // same transaction before releasing the lock.
+      await admin.$transaction(
+        async (tx) => {
+          await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${employeeAdministrationLockKey(tenant.id)}::text))`;
+          // supertest only dispatches once .then() is called.
+          pending = send().then((response) => response);
+          await waitForAdvisoryLockWaiters(1);
+          await tx.userRole.deleteMany({ where: { userId: caller.id } });
+          await tx.userRole.create({
+            data: {
+              tenantId: tenant.id,
+              userId: caller.id,
+              roleId: tenant.courierRoleId,
+            },
+          });
+        },
+        { timeout: 20_000 },
+      );
+      if (!pending) {
+        throw new Error(`the ${label} request was not started`);
+      }
+      const response = await pending;
+
+      expect({ label, status: response.status }).toEqual({
+        label,
+        status: 403,
+      });
+      expect(errorOf(response)).toEqual({
+        code: 'PERMISSION_DENIED',
+        message: expect.any(String) as string,
+        fields: null,
+      });
+    }
+
+    expect(await statusOf(courier.id)).toBe('ACTIVE');
+    expect(await roleIdsOf(courier.id)).toEqual([tenant.courierRoleId]);
+    expect(await admin.user.count({ where: { email: lateEmail } })).toBe(0);
+  });
+
+  it('answers 503 SERVICE_BUSY, changing nothing, when the lock stays held past the bounded wait', async () => {
+    const tenant = await createTenant('busy');
+    const owner = await createUser(tenant, [tenant.adminRoleId], 'owner');
+    const courier = await createUser(tenant, [tenant.courierRoleId], 'target');
+    const cookie = await login(tenant, owner);
+    let response: request.Response | undefined;
+
+    // Held for the whole request: the production lock_timeout (3 s) expires
+    // while the spec still owns the lock.
+    await admin.$transaction(
+      async (tx) => {
+        await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${employeeAdministrationLockKey(tenant.id)}::text))`;
+        response = await patchStatus(cookie, courier.id, 'SUSPENDED');
+      },
+      { timeout: 20_000 },
+    );
+
+    expect(response?.status).toBe(503);
+    expect(response && errorOf(response)).toEqual({
+      code: 'SERVICE_BUSY',
+      message: 'Intenta de nuevo en unos segundos.',
+      fields: null,
+    });
+    expect(await statusOf(courier.id)).toBe('ACTIVE');
+    expect(
+      await admin.session.count({
+        where: { userId: courier.id, revokedAt: { not: null } },
+      }),
+    ).toBe(0);
+
+    // Once the lock is free the same request succeeds.
+    const retry = await patchStatus(cookie, courier.id, 'SUSPENDED');
+    expect(retry.status).toBe(200);
+    expect(await statusOf(courier.id)).toBe('SUSPENDED');
   });
 
   it('answers 409 EMAIL_ALREADY_EXISTS for a duplicate email in the tenant, but not across tenants', async () => {

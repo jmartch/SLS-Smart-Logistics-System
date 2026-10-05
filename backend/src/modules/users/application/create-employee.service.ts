@@ -1,7 +1,9 @@
 import { Injectable } from '@nestjs/common';
 import { UserManagementRepository } from '../domain/user-management.repository';
 import {
+  EmployeeAdministrationBusyError,
   EmployeeEmailAlreadyExistsError,
+  MANAGE_EMPLOYEES,
   type EmployeeRecord,
 } from '../domain/employee';
 import { hashPassword } from '../../auth/domain/password-hasher';
@@ -16,7 +18,9 @@ export interface CreateEmployeeCommand {
 export type CreateEmployeeResult =
   | { readonly kind: 'OK'; readonly employee: EmployeeRecord }
   | { readonly kind: 'ROLE_NOT_IN_TENANT' }
-  | { readonly kind: 'EMAIL_ALREADY_EXISTS' };
+  | { readonly kind: 'EMAIL_ALREADY_EXISTS' }
+  | { readonly kind: 'CALLER_NOT_ALLOWED' }
+  | { readonly kind: 'BUSY' };
 
 @Injectable()
 export class CreateEmployeeService {
@@ -35,6 +39,13 @@ export class CreateEmployeeService {
       return await this.repository.runExclusive(
         context.tenantId,
         async (tx): Promise<CreateEmployeeResult> => {
+          // Re-checked inside the lock: the caller may have been demoted
+          // after the guard let this request through, and could otherwise
+          // still create (even admin) accounts.
+          if (!(await tx.userHasPermission(context.userId, MANAGE_EMPLOYEES))) {
+            return { kind: 'CALLER_NOT_ALLOWED' };
+          }
+
           if (!(await tx.rolesBelongToTenant(command.roleIds))) {
             return { kind: 'ROLE_NOT_IN_TENANT' };
           }
@@ -51,6 +62,9 @@ export class CreateEmployeeService {
     } catch (error) {
       if (error instanceof EmployeeEmailAlreadyExistsError) {
         return { kind: 'EMAIL_ALREADY_EXISTS' };
+      }
+      if (error instanceof EmployeeAdministrationBusyError) {
+        return { kind: 'BUSY' };
       }
       throw error;
     }

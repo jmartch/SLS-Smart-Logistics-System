@@ -1,18 +1,67 @@
-import { Injectable } from '@nestjs/common';
+import { Inject, Injectable, Optional } from '@nestjs/common';
 import { Prisma } from '../../../../generated/prisma/client';
 import { PrismaService } from '../../../database/prisma.service';
-import { runWithTenant } from '../../../database/run-with-tenant';
+import {
+  runWithTenant,
+  type TenantTransactionOptions,
+} from '../../../database/run-with-tenant';
 import {
   UserManagementRepository,
   type UserManagementTx,
 } from '../domain/user-management.repository';
 import {
+  EmployeeAdministrationBusyError,
   EmployeeEmailAlreadyExistsError,
   type EmployeeRecord,
   type EmployeeStatus,
 } from '../domain/employee';
 
 const USER_TENANT_EMAIL_UNIQUE_INDEX = 'User_tenantId_email_key';
+
+// How long an exclusive section waits for the tenant's lock before giving up
+// with EmployeeAdministrationBusyError. Waiting holds a pooled connection, so
+// the wait is bounded rather than left to the transaction timeout.
+export const EMPLOYEE_ADMIN_LOCK_TIMEOUT_MS = 3000;
+
+// Optional override of EMPLOYEE_ADMIN_LOCK_TIMEOUT_MS (milliseconds). Not
+// provided in production; it exists so tests can shrink the wait.
+export const EMPLOYEE_ADMIN_LOCK_TIMEOUT = Symbol(
+  'EMPLOYEE_ADMIN_LOCK_TIMEOUT',
+);
+
+// The exclusive transaction must outlive the lock wait plus the work: a
+// transaction timeout shorter than the lock timeout would abort it with a
+// generic error instead of the mapped busy outcome.
+const EXCLUSIVE_TRANSACTION_OPTIONS: TenantTransactionOptions = {
+  maxWait: 5000,
+  timeout: 15000,
+};
+
+// SQLSTATE lock_not_available: raised when lock_timeout expires.
+const LOCK_NOT_AVAILABLE = '55P03';
+
+// True when the database cancelled a lock wait because lock_timeout expired.
+// The pg driver adapter has no dedicated kind for this SQLSTATE, so Prisma
+// reports a raw-query failure (P2010) whose meta.driverAdapterError.cause
+// carries it in `code` (and `originalCode`).
+function isLockTimeout(error: unknown): boolean {
+  if (!(error instanceof Prisma.PrismaClientKnownRequestError)) {
+    return false;
+  }
+  const meta = error.meta as
+    | {
+        driverAdapterError?: {
+          cause?: { code?: unknown; originalCode?: unknown };
+        };
+      }
+    | undefined;
+  const cause = meta?.driverAdapterError?.cause;
+
+  return (
+    cause?.code === LOCK_NOT_AVAILABLE ||
+    cause?.originalCode === LOCK_NOT_AVAILABLE
+  );
+}
 
 // Text hashed into the transaction-scoped advisory lock that serializes
 // employee administration per tenant. The prefix keeps it apart from any
@@ -200,8 +249,21 @@ class PrismaUserManagementTx implements UserManagementTx {
 
 @Injectable()
 export class PrismaUserManagementRepository extends UserManagementRepository {
-  constructor(private readonly prisma: PrismaService) {
+  private readonly lockTimeout: string;
+
+  constructor(
+    private readonly prisma: PrismaService,
+    @Optional()
+    @Inject(EMPLOYEE_ADMIN_LOCK_TIMEOUT)
+    lockTimeoutMs: number = EMPLOYEE_ADMIN_LOCK_TIMEOUT_MS,
+  ) {
     super();
+    if (!Number.isInteger(lockTimeoutMs) || lockTimeoutMs <= 0) {
+      throw new Error(
+        'PrismaUserManagementRepository: the lock timeout must be a positive integer of milliseconds',
+      );
+    }
+    this.lockTimeout = `${lockTimeoutMs}ms`;
   }
 
   list(tenantId: string): Promise<readonly EmployeeRecord[]> {
@@ -234,15 +296,33 @@ export class PrismaUserManagementRepository extends UserManagementRepository {
   // concurrent grants or creations. The key is passed as a bound parameter;
   // under READ COMMITTED every statement after the lock sees the work that
   // the previous holder committed.
-  runExclusive<T>(
+  //
+  // The lock wait is bounded by a transaction-local lock_timeout (a bound
+  // parameter, never user input). It stays set for the whole section, so any
+  // lock wait in it is bounded; when one expires the transaction is rolled
+  // back and the outcome is EmployeeAdministrationBusyError.
+  async runExclusive<T>(
     tenantId: string,
     work: (tx: UserManagementTx) => Promise<T>,
   ): Promise<T> {
-    return runWithTenant(this.prisma, tenantId, async (tx) => {
-      const lockKey = employeeAdministrationLockKey(tenantId);
-      await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${lockKey}::text))`;
+    try {
+      return await runWithTenant(
+        this.prisma,
+        tenantId,
+        async (tx) => {
+          const lockKey = employeeAdministrationLockKey(tenantId);
+          await tx.$queryRaw`SELECT set_config('lock_timeout', ${this.lockTimeout}, true)`;
+          await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${lockKey}::text))`;
 
-      return work(new PrismaUserManagementTx(tx, tenantId));
-    });
+          return work(new PrismaUserManagementTx(tx, tenantId));
+        },
+        EXCLUSIVE_TRANSACTION_OPTIONS,
+      );
+    } catch (error) {
+      if (isLockTimeout(error)) {
+        throw new EmployeeAdministrationBusyError();
+      }
+      throw error;
+    }
   }
 }

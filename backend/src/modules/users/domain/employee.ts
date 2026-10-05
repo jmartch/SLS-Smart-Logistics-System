@@ -28,3 +28,14 @@ export class EmployeeEmailAlreadyExistsError extends Error {
     this.name = 'EmployeeEmailAlreadyExistsError';
   }
 }
+
+// Raised by the repository when a lock wait of the tenant's
+// employee-administration section exceeded its bound (typically: another
+// administration is holding the section). The transaction was rolled back,
+// so nothing was written; the caller may retry.
+export class EmployeeAdministrationBusyError extends Error {
+  constructor() {
+    super('Employee administration for the tenant is busy');
+    this.name = 'EmployeeAdministrationBusyError';
+  }
+}

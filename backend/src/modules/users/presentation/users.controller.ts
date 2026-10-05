@@ -3,12 +3,14 @@ import {
   Body,
   ConflictException,
   Controller,
+  ForbiddenException,
   Get,
   NotFoundException,
   Param,
   ParseUUIDPipe,
   Patch,
   Post,
+  ServiceUnavailableException,
   UseGuards,
 } from '@nestjs/common';
 import { AuthGuard } from '../../auth/presentation/auth.guard';
@@ -69,6 +71,30 @@ function lastAdmin(): ConflictException {
   });
 }
 
+// Same envelope as PermissionsGuard: the caller lost MANAGE_EMPLOYEES while
+// its request waited for the tenant's administration lock.
+function callerNotAllowed(): ForbiddenException {
+  return new ForbiddenException({
+    error: {
+      code: 'PERMISSION_DENIED',
+      message: 'No tienes permiso para realizar esta operacion.',
+      fields: null,
+    },
+  });
+}
+
+// The tenant's employee administration stayed locked longer than the bounded
+// wait. Nothing was changed; the request can be retried.
+function serviceBusy(): ServiceUnavailableException {
+  return new ServiceUnavailableException({
+    error: {
+      code: 'SERVICE_BUSY',
+      message: 'Intenta de nuevo en unos segundos.',
+      fields: null,
+    },
+  });
+}
+
 // Explicit field list: nothing beyond these ever reaches the client.
 function toResponse(employee: EmployeeRecord) {
   return {
@@ -103,6 +129,14 @@ export class UsersController {
       password: dto.password,
       roleIds: dto.roleIds,
     });
+
+    if (result.kind === 'CALLER_NOT_ALLOWED') {
+      throw callerNotAllowed();
+    }
+
+    if (result.kind === 'BUSY') {
+      throw serviceBusy();
+    }
 
     if (result.kind === 'ROLE_NOT_IN_TENANT') {
       throw roleNotFound();
@@ -140,6 +174,14 @@ export class UsersController {
       dto.status,
     );
 
+    if (result.kind === 'CALLER_NOT_ALLOWED') {
+      throw callerNotAllowed();
+    }
+
+    if (result.kind === 'BUSY') {
+      throw serviceBusy();
+    }
+
     if (result.kind === 'NOT_FOUND') {
       throw employeeNotFound();
     }
@@ -162,6 +204,14 @@ export class UsersController {
       id,
       dto.roleIds,
     );
+
+    if (result.kind === 'CALLER_NOT_ALLOWED') {
+      throw callerNotAllowed();
+    }
+
+    if (result.kind === 'BUSY') {
+      throw serviceBusy();
+    }
 
     if (result.kind === 'ROLE_NOT_IN_TENANT') {
       throw roleNotFound();
