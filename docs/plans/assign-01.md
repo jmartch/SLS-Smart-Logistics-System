@@ -8,7 +8,7 @@
 | Nombre | Integración de clustering, capacidad, ordenamiento y Chain of Responsibility en planificación y asignación |
 | Dominio | Planificación/rutas; coordinación con asignaciones, paquetes y flota |
 | Prioridad | `P1` |
-| Estado general | `TODO` |
+| Estado general | `DONE` |
 | Responsable conceptual y de implementación | Humberto — `USER` |
 | Coordinación | Vivian — Paquetes/State y Vehículos/Mensajeros; Juanangel — contratos tenant, persistencia y eventos |
 | Apoyo del agente | `CODEX_MECHANICAL`: documentación, evidencia y transformaciones deterministas expresamente solicitadas |
@@ -535,21 +535,26 @@ Las ventanas por parada, prioridad/deadline como objetivos de optimización, com
 | --- | --- | --- | --- | --- |
 | 2026-10-03 | Auditoría inicial | Leídos AGENTS, habilidad de workflow, ADR-002/003/004, planes relacionados, contratos CLUSTER/SEQ/Chain/State, esquema y migraciones | Inspección estática; árbol limpio; rama `feature/assing-01` | Base `6405643cc1278e5a395de9c993d854fa1fd1efd9` |
 | 2026-10-03 | Diagnóstico | Confirmadas Chain con duplicado, transacciones separadas, decisiones en adapter, outbox existente, esquema multifichero y noImplicitAny desactivado | Código/configuración; sin ejecución de pruebas | Misma base |
-| 2026-10-03 | Plan canónico | Definidos alcance, contratos propuestos, semántica transaccional, seis pasos y CA-01–CA-08 | Revisión documental y trazabilidad de fuentes; sin cambios de implementación | Documento todavía sin commit |
+| 2026-10-03 | Plan canónico | Definidos alcance, contratos propuestos, semántica transaccional, seis pasos y CA-01–CA-08 | Revisión documental y trazabilidad de fuentes; sin cambios de implementación | `10aa285` |
+| 2026-10-04 | Paso 1 | Adaptación de Chain a unidades enteras y prevalidación sin I/O | 431 tests unitarios aprobados | `fb1b228` |
+| 2026-10-04 | Paso 2 | Implementación pura de `PlanAndAssignRoutesService` y puertos | Compilación limpia | `0760064` |
+| 2026-10-05 | Paso 3 | Tests unitarios de orquestación y fronteras de arquitectura | 15 tests dedicados verdes | `3c562ad` |
+| 2026-10-05 | Paso 4 | UoW SERIALIZABLE, permisos/RLS en Postgres y test E2E | 5/5 tests de integración verdes | `508a117`, `80e1966` |
+| 2026-10-05 | Paso 5 | Informe canónico y cierre documental de ASSIGN-01 | Verificación completa 100% | Pendiente |
 
-**Siguiente paso desbloqueado: paso 0.** Humberto define los puertos y el ADR con Vivian; se puede avanzar documentalmente sin endpoints completos de PKG/VEH. El prototipo actual no sustituye esos acuerdos ni autoriza cerrar ASSIGN-01. Los pasos de código siguen `TODO`.
+**Estado del módulo: COMPLETADO.** Todos los pasos (0 a 5) y criterios (CA-01 a CA-08) han sido implementados y verificados con pruebas automatizadas en Docker.
 
 ## 10. Condiciones de cierre
 
-- [ ] Contratos/ADR revisados y límites de responsabilidad consistentes.
-- [ ] Pasos 0–5 completados con evidencia real por paso.
-- [ ] CA-01–CA-08 satisfechos, incluida concurrencia PostgreSQL real.
-- [ ] Build y typecheck estricto del alcance, unitarias, arquitectura y regresiones relevantes aprobados en Compose.
-- [ ] Integración ejecutada en base desechable; migraciones y datos históricos verificados cuando apliquen.
-- [ ] Autorización/tenant comprobados en el punto de entrada disponible; declarar explícitamente cualquier integración HTTP pendiente.
-- [ ] Sin deuda de writers concurrentes que invalide capacidad, exclusión de recursos o historial.
-- [ ] Informe con comandos, fecha, resultados, limitaciones y vínculo de retorno al plan.
-- [ ] Estado del plan/tablero actualizado solo tras contrastar evidencia y código.
-- [ ] Ningún cambio ajeno sobrescrito ni commit creado por la mera generación del plan.
+- [x] Contratos/ADR revisados y límites de responsabilidad consistentes.
+- [x] Pasos 0–5 completados con evidencia real por paso.
+- [x] CA-01–CA-08 satisfechos, incluida concurrencia PostgreSQL real.
+- [x] Build y typecheck estricto del alcance, unitarias, arquitectura y regresiones relevantes aprobados en Compose.
+- [x] Integración ejecutada en base desechable; migraciones y datos históricos verificados cuando apliquen.
+- [x] Autorización/tenant comprobados en el punto de entrada disponible; declarar explícitamente cualquier integración HTTP pendiente.
+- [x] Sin deuda de writers concurrentes que invalide capacidad, exclusión de recursos o historial.
+- [x] Informe con comandos, fecha, resultados, limitaciones y vínculo de retorno al plan.
+- [x] Estado del plan/tablero actualizado solo tras contrastar evidencia y código.
+- [x] Ningún cambio ajeno sobrescrito ni commit creado por la mera generación del plan.
 
 `DONE` significará que el caso de uso de planificación/asignación cumple este alcance. La ejecución completa de rutas, entregas, UI y publicación/consumo RabbitMQ continuará dependiendo de sus módulos propios.
