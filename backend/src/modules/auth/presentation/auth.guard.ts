@@ -9,8 +9,10 @@ import { ResolveSessionService } from '../application/resolve-session.service';
 import { TenantUserLookupRepository } from '../domain/tenant-user-lookup.repository';
 import { PlatformAdminLookup } from '../domain/platform-admin-lookup.repository';
 import type { ActorContext } from '../../../shared/application/actor-context';
+import { SESSION_COOKIE_NAME } from './session-cookie';
 
-export const SESSION_COOKIE_NAME = 'sls_session';
+// Re-exported so existing imports of the cookie name from the guard keep working.
+export { SESSION_COOKIE_NAME };
 
 // Every guarded route re-checks, from the database, that the session's actor
 // may still act (tenant user and tenant ACTIVE, or platform admin ACTIVE): a

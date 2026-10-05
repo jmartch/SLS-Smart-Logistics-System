@@ -19,7 +19,11 @@ const CODE_BY_STATUS: Readonly<Record<number, string>> = {
   [HttpStatus.FORBIDDEN]: 'PERMISSION_DENIED',
   [HttpStatus.NOT_FOUND]: 'RESOURCE_NOT_FOUND',
   [HttpStatus.CONFLICT]: 'CONFLICT',
+  [HttpStatus.PAYLOAD_TOO_LARGE]: 'PAYLOAD_TOO_LARGE',
 };
+
+const FIRST_SERVER_ERROR_STATUS = 500;
+const UNEXPECTED_MESSAGE = 'Ocurrio un error inesperado.';
 
 function envelope(code: string, message: string): ErrorEnvelope {
   return { error: { code, message, fields: null } };
@@ -67,15 +71,28 @@ export class HttpErrorFilter implements ExceptionFilter {
       const status = exception.getStatus();
       const body = exception.getResponse();
 
+      if (hasErrorEnvelope(body)) {
+        response.status(status).json(body);
+        return;
+      }
+
+      if (status >= FIRST_SERVER_ERROR_STATUS) {
+        // A server-side failure carries internal detail in its message: log it
+        // and answer like any other unexpected error.
+        this.logUnexpected(exception);
+        response
+          .status(status)
+          .json(envelope('UNEXPECTED_ERROR', UNEXPECTED_MESSAGE));
+        return;
+      }
+
       response
         .status(status)
         .json(
-          hasErrorEnvelope(body)
-            ? body
-            : envelope(
-                CODE_BY_STATUS[status] ?? 'UNEXPECTED_ERROR',
-                exception.message,
-              ),
+          envelope(
+            CODE_BY_STATUS[status] ?? 'UNEXPECTED_ERROR',
+            exception.message,
+          ),
         );
       return;
     }
@@ -100,16 +117,20 @@ export class HttpErrorFilter implements ExceptionFilter {
       return;
     }
 
-    // Only the error itself is logged: never request bodies, cookies or
-    // tokens. The client gets no internal detail.
+    this.logUnexpected(exception);
+
+    response
+      .status(HttpStatus.INTERNAL_SERVER_ERROR)
+      .json(envelope('UNEXPECTED_ERROR', UNEXPECTED_MESSAGE));
+  }
+
+  // Only the error itself is logged: never request bodies, cookies or tokens.
+  // The client gets no internal detail.
+  private logUnexpected(exception: unknown): void {
     if (exception instanceof Error) {
       this.logger.error(exception.message, exception.stack);
     } else {
       this.logger.error(`Non-Error exception thrown: ${String(exception)}`);
     }
-
-    response
-      .status(HttpStatus.INTERNAL_SERVER_ERROR)
-      .json(envelope('UNEXPECTED_ERROR', 'Ocurrio un error inesperado.'));
   }
 }

@@ -298,9 +298,13 @@ export class PrismaUserManagementRepository extends UserManagementRepository {
   // the previous holder committed.
   //
   // The lock wait is bounded by a transaction-local lock_timeout (a bound
-  // parameter, never user input). It stays set for the whole section, so any
-  // lock wait in it is bounded; when one expires the transaction is rolled
-  // back and the outcome is EmployeeAdministrationBusyError.
+  // parameter, never user input). The setting stays active for the whole
+  // section, so lock waits inside the work are bounded too. The mapping to
+  // EmployeeAdministrationBusyError covers the advisory-lock wait only: that
+  // wait is a raw query, whose timeout (SQLSTATE 55P03) Prisma reports as P2010
+  // and isLockTimeout recognizes. A lock timeout raised from a model call in
+  // the work has not been verified to take the same shape, so it is not
+  // promised to map; the transaction is rolled back either way.
   async runExclusive<T>(
     tenantId: string,
     work: (tx: UserManagementTx) => Promise<T>,

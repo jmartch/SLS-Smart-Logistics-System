@@ -1,4 +1,8 @@
-import { requireTenantContext, NotATenantActorError } from './tenant-context';
+import {
+  hasPermission,
+  requireTenantContext,
+  NotATenantActorError,
+} from './tenant-context';
 import type { ActorContext } from './actor-context';
 
 describe('requireTenantContext', () => {
@@ -26,5 +30,25 @@ describe('requireTenantContext', () => {
     };
 
     expect(() => requireTenantContext(actor)).toThrow(NotATenantActorError);
+  });
+
+  it('names the error so logs and filters can identify it', () => {
+    expect(new NotATenantActorError().name).toBe('NotATenantActorError');
+  });
+});
+
+describe('hasPermission', () => {
+  const context = {
+    tenantId: 'tenant-a',
+    userId: 'user-a',
+    permissions: new Set(['REGISTER_PACKAGES']),
+  };
+
+  it('is true for a granted permission', () => {
+    expect(hasPermission(context, 'REGISTER_PACKAGES')).toBe(true);
+  });
+
+  it('is false for a permission that was not granted', () => {
+    expect(hasPermission(context, 'MANAGE_EMPLOYEES')).toBe(false);
   });
 });

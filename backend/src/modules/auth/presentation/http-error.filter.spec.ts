@@ -3,8 +3,10 @@ import {
   ConflictException,
   ForbiddenException,
   HttpException,
+  InternalServerErrorException,
   Logger,
   NotFoundException,
+  ServiceUnavailableException,
   UnauthorizedException,
   type ArgumentsHost,
 } from '@nestjs/common';
@@ -70,6 +72,94 @@ describe('HttpErrorFilter', () => {
       });
     },
   );
+
+  it.each([
+    [new InternalServerErrorException('db-host-internal:5432 refused'), 500],
+    [
+      new ServiceUnavailableException('pool exhausted at db-host-internal'),
+      503,
+    ],
+    [new HttpException('upstream failure db-host-internal', 502), 502],
+  ])(
+    'answers a >= 500 HttpException without envelope (%#) with the generic message and logs it',
+    (exception, expectedStatus) => {
+      const { host, status, json } = fakeHost();
+
+      filter.catch(exception, host);
+
+      expect(status).toHaveBeenCalledWith(expectedStatus);
+      expect(json).toHaveBeenCalledWith({
+        error: {
+          code: 'UNEXPECTED_ERROR',
+          message: 'Ocurrio un error inesperado.',
+          fields: null,
+        },
+      });
+      expect(JSON.stringify(json.mock.calls)).not.toContain('db-host-internal');
+      expect(loggerError).toHaveBeenCalledWith(
+        exception.message,
+        exception.stack,
+      );
+    },
+  );
+
+  it('keeps a >= 500 HttpException that carries our envelope untouched and unlogged', () => {
+    const envelope = {
+      error: {
+        code: 'SERVICE_BUSY',
+        message: 'Intenta de nuevo en unos segundos.',
+        fields: null,
+      },
+    };
+    const { host, status, json } = fakeHost();
+
+    filter.catch(new ServiceUnavailableException(envelope), host);
+
+    expect(status).toHaveBeenCalledWith(503);
+    expect(json).toHaveBeenCalledWith(envelope);
+    expect(loggerError).not.toHaveBeenCalled();
+  });
+
+  it('maps an exposed 413 from the HTTP stack to PAYLOAD_TOO_LARGE', () => {
+    const { host, status, json } = fakeHost();
+    const tooLarge = Object.assign(new Error('request entity too large'), {
+      status: 413,
+      statusCode: 413,
+      expose: true,
+      type: 'entity.too.large',
+    });
+
+    filter.catch(tooLarge, host);
+
+    expect(status).toHaveBeenCalledWith(413);
+    expect(json).toHaveBeenCalledWith({
+      error: {
+        code: 'PAYLOAD_TOO_LARGE',
+        message: expect.any(String) as string,
+        fields: null,
+      },
+    });
+    expect(loggerError).not.toHaveBeenCalled();
+  });
+
+  it('keeps UNEXPECTED_ERROR for other exposed 4xx client errors without a dedicated code', () => {
+    const { host, status, json } = fakeHost();
+    const teapot = Object.assign(new Error('nope'), {
+      status: 418,
+      expose: true,
+    });
+
+    filter.catch(teapot, host);
+
+    expect(status).toHaveBeenCalledWith(418);
+    expect(json).toHaveBeenCalledWith({
+      error: {
+        code: 'UNEXPECTED_ERROR',
+        message: expect.any(String) as string,
+        fields: null,
+      },
+    });
+  });
 
   it('maps NotATenantActorError to 403 PERMISSION_DENIED', () => {
     const { host, status, json } = fakeHost();

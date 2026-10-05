@@ -8,8 +8,10 @@ import {
 } from '@nestjs/common';
 import type { Response } from 'express';
 import { LoginPlatformAdminService } from '../application/login-platform-admin.service';
-import { SESSION_COOKIE_NAME } from '../../auth/presentation/auth.guard';
-import { sessionCookieOptions } from '../../auth/presentation/session-cookie';
+import {
+  SESSION_COOKIE_NAME,
+  sessionCookieOptions,
+} from '../../auth/presentation/session-cookie';
 import { PlatformLoginDto } from './dto/platform-login.dto';
 
 @Controller('api/platform')

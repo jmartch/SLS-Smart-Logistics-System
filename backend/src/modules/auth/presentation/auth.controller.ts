@@ -14,9 +14,9 @@ import { LoginTenantUserService } from '../application/login-tenant-user.service
 import { LogoutService } from '../application/logout.service';
 import { GetCurrentIdentityService } from '../application/get-current-identity.service';
 import { LoginDto } from './dto/login.dto';
-import { AuthGuard, SESSION_COOKIE_NAME } from './auth.guard';
+import { AuthGuard } from './auth.guard';
 import { CurrentActor } from './current-actor.decorator';
-import { sessionCookieOptions } from './session-cookie';
+import { SESSION_COOKIE_NAME, sessionCookieOptions } from './session-cookie';
 import type { ActorContext } from '../../../shared/application/actor-context';
 
 @Controller('api/auth')

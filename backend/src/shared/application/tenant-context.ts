@@ -9,6 +9,7 @@ export interface TenantContext {
 export class NotATenantActorError extends Error {
   constructor() {
     super('This operation requires a tenant-user actor, not a platform admin');
+    this.name = 'NotATenantActorError';
   }
 }
 
