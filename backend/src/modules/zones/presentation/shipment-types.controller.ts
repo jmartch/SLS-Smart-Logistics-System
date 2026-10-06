@@ -10,17 +10,14 @@ import {
   Query,
 } from '@nestjs/common';
 import { ShipmentTypeCatalogService } from '../application/shipment-type-catalog.service';
-import { CurrentTenant } from './current-tenant.decorator';
+import { CurrentTenant } from '../../../shared/presentation/request-context.decorator';
 import {
   handleCatalogConflict,
   handleCatalogDomainError,
 } from './catalog-http-errors';
+import type { CreateShipmentTypeDto } from './dto';
 
-export interface CreateShipmentTypeDto {
-  readonly code: string;
-  readonly name: string;
-  readonly active?: boolean;
-}
+export type { CreateShipmentTypeDto };
 
 @Controller('shipment-types')
 export class ShipmentTypesController {

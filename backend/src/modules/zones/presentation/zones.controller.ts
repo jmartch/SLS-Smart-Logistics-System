@@ -10,21 +10,14 @@ import {
 } from '@nestjs/common';
 import { SectorCatalogService } from '../application/sector-catalog.service';
 import { ZoneCatalogService } from '../application/zone-catalog.service';
-import { CurrentTenant } from './current-tenant.decorator';
+import { CurrentTenant } from '../../../shared/presentation/request-context.decorator';
 import {
   handleCatalogConflict,
   handleCatalogDomainError,
 } from './catalog-http-errors';
+import type { CreateZoneDto, CreateSectorDto } from './dto';
 
-export interface CreateZoneDto {
-  readonly code: string;
-  readonly name: string;
-}
-
-export interface CreateSectorDto {
-  readonly code: string;
-  readonly name: string;
-}
+export type { CreateZoneDto, CreateSectorDto };
 
 @Controller('zones')
 export class ZonesController {

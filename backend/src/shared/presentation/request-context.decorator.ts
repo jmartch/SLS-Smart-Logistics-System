@@ -43,6 +43,10 @@ export function extractRequestContext(request: any): RequestContext {
     };
 }
 
+export function extractTenantId(request: any): string {
+    return extractRequestContext(request).tenantId;
+}
+
 export const CurrentContext = createParamDecorator(
     (_data: unknown, ctx: ExecutionContext): RequestContext => {
         return extractRequestContext(ctx.switchToHttp().getRequest());
