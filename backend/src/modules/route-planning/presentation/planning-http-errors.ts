@@ -16,6 +16,13 @@ export function handlePlanningDomainError(error: unknown): never {
             });
         }
 
+        if (msg === 'PLANNING_RESULT_UNAVAILABLE' || msg.includes('PLANNING_RESULT_UNAVAILABLE')) {
+            throw new ConflictException({
+                code: 'PLANNING_RESULT_UNAVAILABLE',
+                message: 'El resultado histórico de la solicitud de planificación no está disponible.',
+            });
+        }
+
         if (msg.includes('TENANT_MISMATCH') || msg.includes('Security validation failed')) {
             throw new ForbiddenException({
                 code: 'TENANT_MISMATCH',

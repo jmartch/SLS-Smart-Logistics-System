@@ -104,9 +104,10 @@ export class PrismaPlanningAssignmentSession implements PlanningAssignmentSessio
                 tenantId: string;
                 status: RoutePlanningRequestStatus;
                 parameters: unknown;
+                resultSnapshot: unknown;
             }>
         >`
-            SELECT id, "tenantId", status, parameters
+            SELECT id, "tenantId", status, parameters, "resultSnapshot"
             FROM "RoutePlanningRequest"
             WHERE id = ${requestId}::uuid
             FOR UPDATE
@@ -121,6 +122,17 @@ export class PrismaPlanningAssignmentSession implements PlanningAssignmentSessio
             if (row.status === RoutePlanningRequestStatus.COMPLETED) {
                 if (!isCommandEqual(row.parameters, command)) {
                     return { status: 'CONFLICT' };
+                }
+
+                if (row.resultSnapshot && typeof row.resultSnapshot === 'object') {
+                    const snapshot = row.resultSnapshot as PlanAndAssignRoutesResult;
+                    return {
+                        status: 'COMPLETED',
+                        existingResult: {
+                            ...snapshot,
+                            replayed: true,
+                        },
+                    };
                 }
 
                 const routes = await this.tx.route.findMany({
@@ -419,16 +431,20 @@ export class PrismaPlanningAssignmentSession implements PlanningAssignmentSessio
                 where: {
                     tenantId: this.context.tenantId,
                     vehicleId: { in: [...command.vehicleIds] },
-                    state: {
-                        in: [
-                            RouteState.PLANNED,
-                            RouteState.READY,
-                            RouteState.IN_PROGRESS,
-                            RouteState.INTERRUPTED,
-                        ],
-                    },
-                    plannedStartAt: { lt: plannedEnd },
-                    plannedEndAt: { gt: plannedStart },
+                    OR: [
+                        {
+                            state: {
+                                in: [RouteState.IN_PROGRESS, RouteState.INTERRUPTED],
+                            },
+                        },
+                        {
+                            state: {
+                                in: [RouteState.PLANNED, RouteState.READY],
+                            },
+                            plannedStartAt: { lt: plannedEnd },
+                            plannedEndAt: { gt: plannedStart },
+                        },
+                    ],
                 },
                 select: { vehicleId: true },
             });
@@ -483,16 +499,20 @@ export class PrismaPlanningAssignmentSession implements PlanningAssignmentSessio
                 where: {
                     tenantId: this.context.tenantId,
                     courierId: { in: [...command.courierIds] },
-                    state: {
-                        in: [
-                            RouteState.PLANNED,
-                            RouteState.READY,
-                            RouteState.IN_PROGRESS,
-                            RouteState.INTERRUPTED,
-                        ],
-                    },
-                    plannedStartAt: { lt: plannedEnd },
-                    plannedEndAt: { gt: plannedStart },
+                    OR: [
+                        {
+                            state: {
+                                in: [RouteState.IN_PROGRESS, RouteState.INTERRUPTED],
+                            },
+                        },
+                        {
+                            state: {
+                                in: [RouteState.PLANNED, RouteState.READY],
+                            },
+                            plannedStartAt: { lt: plannedEnd },
+                            plannedEndAt: { gt: plannedStart },
+                        },
+                    ],
                 },
                 select: { courierId: true },
             });
@@ -668,7 +688,7 @@ export class PrismaPlanningAssignmentSession implements PlanningAssignmentSessio
 
     async completeRequest(
         requestId: string,
-        _result: PlanAndAssignRoutesResult,
+        result: PlanAndAssignRoutesResult,
     ): Promise<void> {
         await this.tx.routePlanningRequest.update({
             where: {
@@ -680,6 +700,7 @@ export class PrismaPlanningAssignmentSession implements PlanningAssignmentSessio
             data: {
                 status: RoutePlanningRequestStatus.COMPLETED,
                 completedAt: new Date(),
+                resultSnapshot: result as unknown as Prisma.InputJsonValue,
             },
         });
     }

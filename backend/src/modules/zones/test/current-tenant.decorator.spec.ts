@@ -1,5 +1,5 @@
 import { UnauthorizedException } from '@nestjs/common';
-import { extractTenantId } from '../presentation/current-tenant.decorator';
+import { extractTenantId } from '../../../shared/presentation/request-context.decorator';
 
 const VALID_TENANT_ID = '10000000-0000-4000-8000-000000000001';
 

@@ -93,6 +93,7 @@ model RoutePlanningRequest {
   requestedByUserId String                     @db.Uuid
   status            RoutePlanningRequestStatus @default(PENDING)
   parameters        Json
+  resultSnapshot    Json?
   failureReason     String?
   createdAt         DateTime                   @default(now())
   completedAt       DateTime?
@@ -144,6 +145,8 @@ model Route {
   @@unique([tenantId, id])
   @@unique([tenantId, id, vehicleId, courierId])
   @@index([tenantId])
+  @@index([tenantId, state, plannedAt])
+  @@index([tenantId, courierId, state])
 }
 
 model RouteStop {
