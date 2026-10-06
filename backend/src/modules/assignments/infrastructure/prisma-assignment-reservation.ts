@@ -157,6 +157,8 @@ export class PrismaAssignmentReservation implements AssignmentReservationReposit
                                 tenantId: request.tenantId,
                             },
                             select: {
+                                id: true,
+                                state: true,
                                 plannedStartAt: true,
                                 plannedEndAt: true,
                                 planningRequest: {
@@ -261,6 +263,7 @@ export class PrismaAssignmentReservation implements AssignmentReservationReposit
                         vehicleShift,
                         courierShift,
                         duplicate,
+                        sourceAssignment,
                     ] = await Promise.all([
                         attempt && selectedCandidateId
                             ? transaction.$queryRaw<
@@ -330,6 +333,20 @@ export class PrismaAssignmentReservation implements AssignmentReservationReposit
                             },
                             select: { id: true },
                         }),
+                        transaction.assignment.findFirst({
+                            where: {
+                                tenantId: request.tenantId,
+                                packageId: request.packageId,
+                                status: AssignmentStatus.ACTIVE,
+                                routeId: { not: request.routeId },
+                            },
+                            select: {
+                                routeId: true,
+                                route: {
+                                    select: { id: true, state: true },
+                                },
+                            },
+                        }),
                     ]);
 
                     const coordinate = coordinates[0];
@@ -390,6 +407,16 @@ export class PrismaAssignmentReservation implements AssignmentReservationReposit
                                 routeData.courier.status === 'ACTIVE' &&
                                 courierShift !== null,
                         },
+                        route: {
+                            id: routeData.id,
+                            status: routeData.state,
+                        },
+                        sourceRoute: sourceAssignment?.route
+                            ? {
+                                  id: sourceAssignment.route.id,
+                                  status: sourceAssignment.route.state,
+                              }
+                            : null,
                     });
 
                     if (!result.ok) {

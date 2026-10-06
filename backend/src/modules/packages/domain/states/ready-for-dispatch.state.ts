@@ -6,6 +6,7 @@ export class ReadyForDispatchState extends BasePackageState {
 
     protected readonly allowedTransitions = [
         PackageStatus.IN_TRANSIT,
+        PackageStatus.PENDING_ASSIGNMENT,
         PackageStatus.CANCELLED,
     ];
 }

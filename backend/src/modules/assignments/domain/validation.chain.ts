@@ -10,6 +10,7 @@ import { VolumeCapacityHandler } from './handlers/volume-capacity.handler';
 import { WeightCapacityHandler } from './handlers/weight-capacity.handler';
 import { ZoneValidationHandler } from './handlers/zone-validation.handler';
 import { NetworkAttachmentValidationHandler } from './handlers/network-attachment-validation.handler';
+import { RouteEditabilityValidationHandler } from './handlers/route-editability-validation.handler';
 
 export function buildAssignmentValidationChain(
     handlers: readonly AssignmentValidationHandler[],
@@ -47,6 +48,7 @@ export function createAssignmentValidationChain(): AssignmentValidationHandler {
     return buildAssignmentValidationChain([
         new TenantValidationHandler(),
         new DuplicateAssignmentValidationHandler(),
+        new RouteEditabilityValidationHandler(),
         new PackageEligibilityValidationHandler(),
         new CompleteDataValidationHandler(),
         new CoordinateValidationHandler(),

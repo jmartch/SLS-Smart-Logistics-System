@@ -6,6 +6,7 @@ export class AssignedToRouteState extends BasePackageState {
 
     protected readonly allowedTransitions = [
         PackageStatus.READY_FOR_DISPATCH,
+        PackageStatus.PENDING_ASSIGNMENT,
         PackageStatus.CANCELLED,
     ];
 }
