@@ -818,8 +818,8 @@ This board reflects the repository state when this file was created. Update stat
 | CLUSTER-01     | Implement deterministic clustering prototype                     | Humberto    | TODO    | GEO-01                                   | Small dataset produces reproducible clusters.                            |
 | SEQ-01         | Implement nearest-neighbor stop ordering                         | Humberto    | DONE    | GEO-01                                   | Every stop is visited once in deterministic order.                       |
 | ASSIGN-01      | Integrate clustering, capacity, and Chain into planning use case | Humberto/Vivian | TODO    | CLUSTER-01, SEQ-01, PAT-CHAIN-01, VEH-01 | Valid plans create routes; unresolved packages remain pending.           |
-| ROUTE-01       | Implement route/stop lifecycle and coordinator review            | Humberto    | TODO    | DATA-01, ASSIGN-01                       | Route can move from draft through ready and start.                       |
-| ITER-01        | Implement route-stop Iterator prototype                          | Humberto    | BACKLOG | ROUTE-01                                 | Ordered and pending iterators pass tests.                                |
+| ROUTE-01       | Implement route/stop lifecycle and coordinator review            | Humberto    | DONE    | DATA-01, ASSIGN-01                       | Route can move from draft through ready and start.                       |
+| ITER-01        | Implement route-stop Iterator prototype                          | Humberto    | DONE    | ROUTE-01                                 | Ordered and pending iterators pass tests.                                |
 | DELIVERY-01    | Implement attempts, delivery, failure, reschedule, and return    | Vivian/Humberto | TODO    | ROUTE-01, PAT-STATE-01                   | Complete route flow records history and valid transitions.               |
 | ROUTE-CLOSE-01 | Implement route closure summary                                  | Humberto    | TODO    | DELIVERY-01                              | Assigned, delivered, failed, rescheduled, and returned counts reconcile. |
 
