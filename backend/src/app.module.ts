@@ -8,6 +8,7 @@ import { PackagesModule } from './modules/packages/packages.module';
 import { RoutePlanningModule } from './modules/route-planning/route-planning.module';
 import { RoutesModule } from './modules/routes/routes.module';
 import { ZonesModule } from './modules/zones/zones.module';
+import { DeliveriesModule } from './modules/deliveries/deliveries.module';
 
 @Module({
   imports: [
@@ -18,8 +19,9 @@ import { ZonesModule } from './modules/zones/zones.module';
     RoutePlanningModule,
     RoutesModule,
     ZonesModule,
+    DeliveriesModule,
   ],
   controllers: [AppController],
   providers: [AppService],
 })
-export class AppModule { }
+export class AppModule {}
