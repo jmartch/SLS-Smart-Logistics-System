@@ -2,7 +2,7 @@
 
 Plan canónico: [implementación del MVP](../plans/mvp-implementation.md).
 
-Estado: `IN_PROGRESS` para el MVP completo. Actualizado al 2026-10-05 en rama `feature/assing-01`. Se ejecutaron suites completas de pruebas unitarias y de arquitectura dentro del contenedor Docker (`backend`), alcanzando 54 suites y 431 tests pasando al 100%, junto con compilación TypeScript exitosa (`nest build`) y pruebas de integración PostgreSQL 17 + PostGIS en base de datos desechable (5/5 tests E2E aprobados en `make integration-test TEST=assign-01`).
+Estado: `IN_PROGRESS` para el MVP completo. Actualizado al 2026-10-05 en rama `feature/route-planning-api`. Se ejecutaron suites completas de pruebas unitarias y de arquitectura dentro del contenedor Docker (`backend`), alcanzando 55 suites y 442 tests pasando al 100%, junto con compilación TypeScript exitosa (`nest build`), capa de Presentación HTTP con `RoutePlanningController` (`POST /api/v1/routes/planning/plan-and-assign`) y pruebas de integración PostgreSQL 17 + PostGIS en base de datos desechable (5/5 tests E2E aprobados en `make integration-test TEST=assign-01`).
 
 ## Alcance observado y estado de componentes
 
@@ -13,8 +13,9 @@ Estado: `IN_PROGRESS` para el MVP completo. Actualizado al 2026-10-05 en rama `f
    - **`GEO-01`**: Validación rigurosa de coordenadas geográficas y cálculo de distancia Haversine implementado manualmente con oráculos trigonométricos independientes.
    - **`CLUSTER-01`**: Agrupamiento determinista de destinos por radio con partición por capacidad (`maxWeightKg`, `maxVolumeM3`), oráculo centroidal k-means y servicio de aplicación `ClusterPackagesService` ([ADR-003](../adr/003-deterministic-radius-clustering.md), [reporte](cluster-01-report.md)).
    - **`SEQ-01`**: Ordenamiento de paradas mediante estrategia GoF (`StopOrderingAlgorithm`), implementando `NearestNeighborOrdering` como tour base cerrado y `TwoOptOrdering` como optimización local bounded *first-improvement*. Desempate determinista por `packageId` ordinal UTF-16, inmutabilidad profunda y servicio de aplicación `OrderRouteStopsService` ([ADR-004](../adr/004-deterministic-stop-ordering.md), [reporte](seq-01-report.md)).
-   - **`ASSIGN-01`**: Orquestación transaccional atómica mediante `PlanAndAssignRoutesService` y `PrismaPlanningAssignmentUnitOfWork` (nivel de aislamiento `SERIALIZABLE` con reintentos y locks pesimistas). Persistencia integral de rutas `PLANNED`, paradas `1..n`, asignaciones históricas, transiciones de State (`CLASSIFIED -> ASSIGNED_TO_ROUTE` o `PENDING_ASSIGNMENT`), eventos outbox, migración de seguridad RLS `20261005183000_calendar_planning_grants_and_rls` y comparador canónico de idempotencia ([ADR-005](../adr/005-transactional-route-assignment.md), [reporte](assign-01-report.md)).
-   - **Fronteras Clean Architecture**: Verificadas mediante tests automatizados (`clustering-architecture.spec.ts`, `stop-ordering-architecture.spec.ts`, `assignment-planning-architecture.spec.ts`) garantizando que `domain/` y `application/` no importen NestJS, Prisma ni frameworks externos.
+    - **`ASSIGN-01`**: Orquestación transaccional atómica mediante `PlanAndAssignRoutesService` y `PrismaPlanningAssignmentUnitOfWork` (nivel de aislamiento `SERIALIZABLE` con reintentos y locks pesimistas). Persistencia integral de rutas `PLANNED`, paradas `1..n`, asignaciones históricas, transiciones de State (`CLASSIFIED -> ASSIGNED_TO_ROUTE` o `PENDING_ASSIGNMENT`), eventos outbox, migración de seguridad RLS `20261005183000_calendar_planning_grants_and_rls` y comparador canónico de idempotencia ([ADR-005](../adr/005-transactional-route-assignment.md), [reporte](assign-01-report.md)).
+    - **Capa de Presentación API**: `RoutePlanningController` exponiendo `POST /api/v1/routes/planning/plan-and-assign` con validación de entrada estructurada (`PlanAndAssignRoutesBodyDto`), extracción confiable de contexto multi-tenant (`RequestContext` en `shared/presentation/`) y mapeo semántico de códigos de estado HTTP (201, 200, 400, 401, 403, 404, 409).
+    - **Fronteras Clean Architecture**: Verificadas mediante tests automatizados (`clustering-architecture.spec.ts`, `stop-ordering-architecture.spec.ts`, `assignment-planning-architecture.spec.ts`) garantizando que `domain/` y `application/` no importen NestJS, Prisma ni frameworks externos.
 5. **Caminos viales**: Grafo vial dirigido y algoritmo de Dijkstra implementados ([GDB-05](../plans/gdb-05.md)).
 6. **Frontend**: Interfaz React + Vite con registro de paquetes y visor de códigos QR; configuración de mocks lista para desconexión progresiva hacia endpoints reales.
 7. **Mensajería y Workers**: RabbitMQ aprovisionado; modelos OutboxEvent, ProcessedEvent y DeadLetterMessage disponibles; outbox generado atómicamente en transiciones; pendiente worker de consumo idempotente y DLQ en `EVT-01` / `RMQ-01`.
@@ -27,7 +28,7 @@ Estado: `IN_PROGRESS` para el MVP completo. Actualizado al 2026-10-05 en rama `f
 | 1 | AUTH-01 / TENANT-01 / UI-01 | `TODO` | Pendiente sesión y aislamiento HTTP interactivo. |
 | 2 | ZONE-01 / PKG-01 / VEH-01 / UI-02 | `TODO` | Pendiente integración de casos de uso y endpoints de catálogos/recursos. |
 | 3 | EVT-01 / RMQ-01 / IDEMP-01 / DLQ-01 | `TODO` | Infraestructura lista; outbox events generados; pendiente worker y pipeline de reintentos/DLQ. |
-| 4 | GEO-01 / CLUSTER-01 / SEQ-01 / ASSIGN-01 / UI-03 | `IN_PROGRESS` | **GEO-01, CLUSTER-01, SEQ-01 y ASSIGN-01 completados al 100% en backend con 54 suites unitarias y pruebas E2E en PostgreSQL/PostGIS**. Resta `UI-03` (pantallas de planificación). |
+| 4 | GEO-01 / CLUSTER-01 / SEQ-01 / ASSIGN-01 / UI-03 | `IN_PROGRESS` | **Backend completo al 100%: algoritmos, persistencia transaccional y RoutePlanningController con 55 suites unitarias y pruebas E2E en PostgreSQL/PostGIS**. Resta `UI-03` (pantallas de planificación). |
 | 5 | ROUTE-01 / DELIVERY-01 / ROUTE-CLOSE-01 | `TODO` | Modelos de datos listos y rutas `PLANNED` creadas; pendiente ciclo de vida operativo (preparación, despacho, intentos y cierre). |
 | 6 | NOTIF-01 / NOTIF-02 / UI-04 | `TODO` | Modelos listos; pendiente consumers y adapter de email. |
 | 7 | SEC-01 / QA-01 / EVID-01 / DOC-01/02 | `IN_PROGRESS` | Documentación viva actualizada; suites de tests unitarios, de arquitectura y de integración PostgreSQL/PostGIS en crecimiento continuo. |
@@ -48,8 +49,8 @@ Estado: `IN_PROGRESS` para el MVP completo. Actualizado al 2026-10-05 en rama `f
 - **Pruebas automatizadas backend**:
   ```bash
   docker compose exec backend npm test -- --runInBand
-  # Test Suites: 54 passed, 54 total
-  # Tests:       431 passed, 431 total
+  # Test Suites: 55 passed, 55 total
+  # Tests:       442 passed, 442 total
   # Snapshots:   0 total
   ```
 - **Pruebas de integración E2E (PostgreSQL 17 + PostGIS en base desechable)**:
