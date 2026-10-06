@@ -22,6 +22,7 @@ export interface PackageTransitionMetadata {
     readonly changedByUserId?: string;
     readonly reasonCode?: string;
     readonly correlationId?: string;
+    readonly occurredAt?: Date;
 }
 
 export interface PackageStateChangedEvent {

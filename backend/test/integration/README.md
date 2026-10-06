@@ -143,3 +143,28 @@ La ejecución cubre:
 4. Aislamiento estricto multi-tenant (RLS) en base de datos y endpoints HTTP.
 5. Recorrido de paradas mediante el patrón GoF Iterator (`OrderedRouteStopIterator`)
    verificado en la proyección de detalle de ruta.
+
+## DELIVERY-01 — Entregas, evidencias, excepciones operativas y RLS
+
+Desde la raíz del repositorio:
+
+```bash
+make integration-test TEST=delivery-01
+make integration-db-down
+```
+
+El runner compila el backend, crea una base desechable `sls_delivery01_<uuid>`, aplica todas
+las migraciones mediante `prisma migrate deploy` y ejecuta en banda `test/delivery-lifecycle.e2e-spec.ts`
+y `test/delivery-http.e2e-spec.ts` con el cliente runtime `sls_app`. La base y los archivos de storage
+temporales se eliminan en `finally`, incluso si una prueba falla.
+
+La ejecución cubre:
+1. Arribo a parada (`attendRouteStop`), transicionando paquetes a `OUT_FOR_DELIVERY` y registrando tiempos reales.
+2. Entregas exitosas (`recordSuccessfulDelivery`) con almacenamiento de evidencias (foto/firma, SHA-256), finalización de asignación en `DELIVERED`, y resolución de paradas multipaquete (`PENDING` -> `COMPLETED`).
+3. Entregas fallidas (`recordFailedDelivery`) conservando custodia física activa (`ACTIVE`), numerando intentos incrementalmente (`1..N`) y resolviendo paradas como `FAILED`.
+4. Reprogramación (`rescheduleDelivery`) con ventana horaria y conservación de custodia.
+5. Solicitud de retorno (`requestPackageReturn`) y recepción física en depósito (`returnPackageToDepot`), distinguiendo finalización de custodia para `RETURNED` y custodia en depósito para `RESCHEDULED`.
+6. Reporte de incidentes operacionales (`reportIncident`).
+7. Consulta de manifiesto con GoF Iterator (`getDeliveryManifest`).
+8. Idempotencia contractual con `Idempotency-Key` (replays limpios y detección de conflictos 409).
+9. Aislamiento multi-tenant estricto mediante RLS en PostgreSQL 17 con rol `sls_app`.
