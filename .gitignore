@@ -24,6 +24,8 @@ generated/
 !/.agents/skills/sls-module-workflow/**
 !/.agents/skills/sls-test-normalization/
 !/.agents/skills/sls-test-normalization/**
+!/.agents/skills/sls-error-standardization/
+!/.agents/skills/sls-error-standardization/**
 .claude/
 .windsurf/
 skills-lock.json
