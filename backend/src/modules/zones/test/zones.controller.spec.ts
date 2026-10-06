@@ -92,7 +92,7 @@ describe('ZonesController', () => {
     it('throws BadRequestException when domain validation fails', async () => {
       const { controller, zoneService } = createTestContext();
       zoneService.create.mockRejectedValue(
-        new InvalidCatalogCodeError('Código inválido'),
+        new InvalidCatalogCodeError('EMPTY_CODE'),
       );
 
       await expect(
@@ -227,7 +227,7 @@ describe('ZonesController', () => {
     it('throws BadRequestException when domain validation fails', async () => {
       const { controller, sectorService } = createTestContext();
       sectorService.create.mockRejectedValue(
-        new InvalidCatalogNameError('Nombre inválido'),
+        new InvalidCatalogNameError('EMPTY_NAME'),
       );
 
       await expect(

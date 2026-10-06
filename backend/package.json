@@ -23,7 +23,8 @@
     "test:gdb-01": "npm run build && node test/integration/gdb-01.cjs",
     "test:gdb-05": "npm run build && node test/integration/gdb-05.cjs",
     "test:gdb-06": "npm run build && node test/integration/gdb-06.cjs",
-    "test:geocode-01": "npm run build && node test/integration/geocode-01.cjs"
+    "test:geocode-01": "npm run build && node test/integration/geocode-01.cjs",
+    "test:assign-01": "npm run build && node test/integration/assign-01.cjs"
   },
   "dependencies": {
     "@nestjs/common": "^11.0.1",

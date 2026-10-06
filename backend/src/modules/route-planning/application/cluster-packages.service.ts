@@ -1,4 +1,3 @@
-import { Injectable } from '@nestjs/common';
 import {
     type ClusteringExecutionOptions,
     type ClusteringPackageInput,
@@ -10,7 +9,6 @@ import {
     InvalidClusteringInputError,
 } from '../domain';
 
-@Injectable()
 export class ClusterPackagesService {
     public constructor(
         private readonly clusteringAlgorithm: GeographicClusteringAlgorithm = new RadiusClustering(),
@@ -22,7 +20,6 @@ export class ClusterPackagesService {
         packages: readonly ClusteringPackageInput[],
         vehicles: readonly ClusteringVehicleInput[],
     ): ClusteringResult {
-        // 1. Validación de tenant único transversal
         for (const pkg of packages) {
             if (pkg.tenantId !== options.tenantId) {
                 throw new InvalidClusteringInputError('TENANT_MISMATCH');
@@ -34,20 +31,17 @@ export class ClusterPackagesService {
             }
         }
 
-        // 2. Etapa A: Agrupamiento Geográfico por Radio
         const geographicClusters = this.clusteringAlgorithm.cluster(
             packages,
             options,
         );
 
-        // 3. Etapa B: Partición de Capacidad de Flota
         const { proposals, pendingPackages } = this.capacityPartitioner.partition(
             geographicClusters,
             packages,
             vehicles,
         );
 
-        // 4. Retornar resultado canónico inmutable
         return Object.freeze({
             tenantId: options.tenantId,
             algorithm: this.clusteringAlgorithm.name,
