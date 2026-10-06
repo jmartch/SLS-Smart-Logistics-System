@@ -141,6 +141,7 @@ model Route {
   incidents       Incident[]
   depot           Depot?               @relation(fields: [tenantId, depotId], references: [tenantId, id], onDelete: Restrict, onUpdate: Restrict)
   legs            RouteLeg[]
+  deliveryAttempts DeliveryAttempt[]
 
   @@unique([tenantId, id])
   @@unique([tenantId, id, vehicleId, courierId])
