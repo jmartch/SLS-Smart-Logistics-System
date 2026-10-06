@@ -17,8 +17,11 @@ import { OrderRouteStopsService } from './application/order-route-stops.service'
 import { PlanAndAssignRoutesService } from './application/plan-and-assign-routes.service';
 import { PrismaPlanningAssignmentUnitOfWork } from './infrastructure/prisma-planning-assignment-unit-of-work';
 
+import { RoutePlanningController } from './presentation/route-planning.controller';
+
 @Module({
   imports: [PrismaModule],
+  controllers: [RoutePlanningController],
   providers: [
     PrismaRoadGraphRepository,
     PrismaRoadPathGeometryRepository,
@@ -100,4 +103,4 @@ import { PrismaPlanningAssignmentUnitOfWork } from './infrastructure/prisma-plan
     PrismaPlanningAssignmentUnitOfWork,
   ],
 })
-export class RoutePlanningModule {}
+export class RoutePlanningModule { }
