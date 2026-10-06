@@ -55,11 +55,22 @@ export interface AssignmentValidationContext {
         readonly tenantId: string;
         readonly available: boolean;
     } | null;
+
+    readonly route?: {
+        readonly id?: string;
+        readonly status?: string;
+    } | null;
+
+    readonly sourceRoute?: {
+        readonly id?: string;
+        readonly status?: string;
+    } | null;
 }
 
 export type AssignmentRejectionCode =
     | 'TENANT_MISMATCH'
     | 'DUPLICATE_ASSIGNMENT'
+    | 'ROUTE_NOT_EDITABLE'
     | 'PACKAGE_NOT_ELIGIBLE'
     | 'INCOMPLETE_DATA'
     | 'INVALID_COORDINATES'

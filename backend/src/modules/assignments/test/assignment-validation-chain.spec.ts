@@ -258,6 +258,24 @@ describe('AssignmentValidationChain', () => {
                 handler: 'DuplicateAssignmentValidationHandler',
             },
             {
+                name: 'target route not editable (already ready)',
+                context: () => ({
+                    ...createContext(),
+                    route: { id: 'route-1', status: 'READY' },
+                }),
+                code: 'ROUTE_NOT_EDITABLE',
+                handler: 'RouteEditabilityValidationHandler',
+            },
+            {
+                name: 'source route not editable (already in progress)',
+                context: () => ({
+                    ...createContext(),
+                    sourceRoute: { id: 'route-2', status: 'IN_PROGRESS' },
+                }),
+                code: 'ROUTE_NOT_EDITABLE',
+                handler: 'RouteEditabilityValidationHandler',
+            },
+            {
                 name: 'package not eligible (not classified)',
                 context: () => packageContext({ state: 'PENDING_ASSIGNMENT' }),
                 code: 'PACKAGE_NOT_ELIGIBLE',
@@ -423,5 +441,63 @@ describe('AssignmentValidationChain', () => {
         });
 
         expect(() => buildAssignmentValidationChain([])).toThrow();
+    });
+
+    it('accepts assignments when target and source routes are in PLANNED state', () => {
+        const context: AssignmentValidationContext = {
+            ...createContext(),
+            route: { id: 'route-1', status: 'PLANNED' },
+            sourceRoute: { id: 'route-2', status: 'PLANNED' },
+        };
+
+        expect(createAssignmentValidationChain().handle(context)).toEqual({
+            ok: true,
+        });
+    });
+
+    it('rejects manifest changes when target route is not in PLANNED state', () => {
+        for (const status of [
+            'READY',
+            'IN_PROGRESS',
+            'INTERRUPTED',
+            'CANCELLED',
+            'COMPLETED',
+        ]) {
+            const context: AssignmentValidationContext = {
+                ...createContext(),
+                route: { id: 'route-1', status },
+            };
+
+            expect(
+                createAssignmentValidationChain().handle(context),
+            ).toMatchObject({
+                ok: false,
+                code: 'ROUTE_NOT_EDITABLE',
+                handler: 'RouteEditabilityValidationHandler',
+            });
+        }
+    });
+
+    it('rejects manifest extractions when source route is not in PLANNED state', () => {
+        for (const status of [
+            'READY',
+            'IN_PROGRESS',
+            'INTERRUPTED',
+            'CANCELLED',
+            'COMPLETED',
+        ]) {
+            const context: AssignmentValidationContext = {
+                ...createContext(),
+                sourceRoute: { id: 'route-2', status },
+            };
+
+            expect(
+                createAssignmentValidationChain().handle(context),
+            ).toMatchObject({
+                ok: false,
+                code: 'ROUTE_NOT_EDITABLE',
+                handler: 'RouteEditabilityValidationHandler',
+            });
+        }
     });
 });

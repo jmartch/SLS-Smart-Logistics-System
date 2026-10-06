@@ -116,3 +116,30 @@ migraciones ni el esquema de producción.
 La suite demuestra geocodificación local contra un catálogo sintético; no
 implementa un proveedor externo, importación OSM, Haversine ni planificación de
 rutas.
+
+## ROUTE-01 — Ciclo de vida operativo de rutas e Iterator GoF
+
+Desde la raíz del repositorio:
+
+```bash
+make integration-test TEST=route-01
+make integration-db-down
+```
+
+El runner compila el backend, crea una base desechable `sls_route01_<uuid>`, aplica todas
+las migraciones mediante `prisma migrate deploy` y ejecuta en banda `test/route-lifecycle.e2e-spec.ts`
+y `test/routes-http.e2e-spec.ts` con el cliente runtime `sls_app`. La base se elimina en `finally`,
+incluso si una prueba falla.
+
+La ejecución cubre:
+1. Ciclo de vida operativo completo (`PLANNED` -> `READY` -> `IN_PROGRESS` -> `INTERRUPTED`)
+   con persistencia atómica de cambios en paquetes (`READY_FOR_DISPATCH`, `IN_TRANSIT`),
+   eventos en `OutboxEvent` y auditoría en `AuditLog`.
+2. Cancelación pre-salida (`PLANNED`/`READY` -> `CANCELLED`) revirtiendo paquetes a
+   `PENDING_ASSIGNMENT` y finalizando asignaciones como `CANCELLED`.
+3. Validaciones de invariantes y recursos: confirmación de depósito obligatoria, validación
+   de vehículos fuera de mantenimiento, autorización estricta del mensajero asignado y
+   rechazo de cancelación en rutas ya iniciadas.
+4. Aislamiento estricto multi-tenant (RLS) en base de datos y endpoints HTTP.
+5. Recorrido de paradas mediante el patrón GoF Iterator (`OrderedRouteStopIterator`)
+   verificado en la proyección de detalle de ruta.

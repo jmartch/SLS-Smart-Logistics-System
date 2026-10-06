@@ -188,6 +188,19 @@ describe('RoutePlanningController', () => {
             );
         });
 
+        it('translates PLANNING_RESULT_UNAVAILABLE into ConflictException', async () => {
+            // Arrange
+            const { controller, planAndAssignService, context } = createTestContext();
+            planAndAssignService.execute.mockRejectedValue(
+                new Error('PLANNING_RESULT_UNAVAILABLE'),
+            );
+
+            // Act & Assert
+            await expect(controller.planAndAssign(context, createValidBody())).rejects.toThrow(
+                ConflictException,
+            );
+        });
+
         it('translates not found snapshot package into NotFoundException', async () => {
             // Arrange
             const { controller, planAndAssignService, context } = createTestContext();

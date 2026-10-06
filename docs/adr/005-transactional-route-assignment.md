@@ -17,3 +17,6 @@ Una falla a mitad de la planificación no debe dejar estados inconsistentes (ej.
 ## Consecuencias
 - **Positivas:** Consistencia transaccional absoluta, trazabilidad completa, sin reservas fantasma y 100% auditable.
 - **Compensaciones:** Transacción `SERIALIZABLE` requiere reintentos acotados ante conflictos de concurrencia (`P2034` / `40001`). El tamaño del lote se limita a 100 paquetes para no mantener bloqueos prolongados.
+
+### Replay y compatibilidad con ciclo de vida (ADR-006)
+Con la implementación de `ROUTE-01` ([ADR-006](006-route-lifecycle-and-stop-iterator.md)), las rutas pueden prepararse, iniciarse o cancelarse en ciclos de vida posteriores. Para evitar que la mutación o cancelación de asignaciones altere el replay idempotente de `RoutePlanningRequest`, el resultado original se persiste en `RoutePlanningRequest.resultSnapshot` y se devuelve de forma inmutable en reintentos.

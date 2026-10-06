@@ -17,6 +17,16 @@ describe('Package State pattern', () => {
         expect(packageContext.pullDomainEvents()).toEqual([]);
     });
 
+    it('allows reverting to pending assignment when route is cancelled before dispatch', () => {
+        const readyPackage = reconstitute('READY_FOR_DISPATCH');
+        readyPackage.transitionTo(PackageStatus.PENDING_ASSIGNMENT);
+        expect(readyPackage.state).toBe(PackageStatus.PENDING_ASSIGNMENT);
+
+        const assignedPackage = reconstitute('ASSIGNED_TO_ROUTE');
+        assignedPackage.transitionTo(PackageStatus.PENDING_ASSIGNMENT);
+        expect(assignedPackage.state).toBe(PackageStatus.PENDING_ASSIGNMENT);
+    });
+
     it('executes the successful delivery flow', () => {
         const packageContext = reconstitute('READY_FOR_DISPATCH');
 
