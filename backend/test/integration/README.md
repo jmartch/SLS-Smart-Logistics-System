@@ -168,3 +168,21 @@ La ejecución cubre:
 7. Consulta de manifiesto con GoF Iterator (`getDeliveryManifest`).
 8. Idempotencia contractual con `Idempotency-Key` (replays limpios y detección de conflictos 409).
 9. Aislamiento multi-tenant estricto mediante RLS en PostgreSQL 17 con rol `sls_app`.
+
+## RMQ-01 — Outbox leases, confirm publisher, consumidor idempotente, DLQ y redrive
+
+Desde la raíz del repositorio:
+
+```bash
+make integration-test TEST=rmq-01
+make integration-db-down
+```
+
+El runner compila el backend, crea una base desechable `sls_rmq01_<uuid>`, aplica todas las migraciones mediante `prisma migrate deploy` y ejecuta en banda `test/messaging-outbox.e2e-spec.ts` y `test/messaging-consumer.e2e-spec.ts` con el cliente runtime `sls_app`. La base se elimina en `finally`, incluso si una prueba falla.
+
+La ejecución cubre:
+1. Publicación transaccional Outbox con leases concurrentes (`FOR UPDATE SKIP LOCKED`), control de expiración de lease y concurrencia multi-tenant.
+2. Confirmación de publicación RabbitMQ (`mandatory: true`, `publisher confirms`, detección de rutas no enrutables y `basic.return`).
+3. Consumo idempotente con registro transaccional en `ProcessedEvent`, deduplicación estricta y aislamiento por tenant.
+4. Políticas de reintento progresivo (5s, 10s, 20s), desvío inmediato a Dead Letter Queue para errores no recuperables y aislamiento de mensajes en cuarentena para inquilinos no autorizados.
+5. Redrive de Dead Letters con auditoría atómica en `DeadLetterRedrive`, validación de permisos de operador y prevención de duplicados.
