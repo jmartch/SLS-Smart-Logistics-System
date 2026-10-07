@@ -62,7 +62,6 @@ model OutboxEvent {
   attempts      Int               @default(0)
   occurredAt    DateTime          @default(now())
   publishedAt   DateTime?
-  producer      String?
   leaseToken    String?           @db.Uuid
   lockedUntil   DateTime?
   nextAttemptAt DateTime          @default(now())
