@@ -115,6 +115,13 @@ describe('Clean Architecture Import Boundaries for Routes Module', () => {
       routeErrorsModule.RouteForbiddenError,
       routeErrorsModule.RouteConcurrencyConflictError,
       routeErrorsModule.RouteValidationError,
+      routeErrorsModule.RouteCustodyUnresolvedError,
+      routeErrorsModule.RouteManifestEmptyError,
+      routeErrorsModule.RouteManifestInconsistentError,
+      routeErrorsModule.RouteHasPendingStopsError,
+      routeErrorsModule.RouteAlreadyCompletedError,
+      routeErrorsModule.RouteNotCompletedError,
+      routeErrorsModule.IdempotencyKeyReusedError,
     ];
 
     for (const ErrorClass of errorClasses) {
