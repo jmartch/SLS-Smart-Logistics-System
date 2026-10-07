@@ -5,6 +5,7 @@ export const RouteEventType = {
   STARTED: 'RouteStarted',
   CANCELLED: 'RouteCancelled',
   INTERRUPTED: 'RouteInterrupted',
+  COMPLETED: 'RouteCompleted',
 } as const;
 
 export type RouteEventType =
@@ -63,8 +64,25 @@ export interface RouteInterruptedEvent extends RouteDomainEventBase {
   readonly reason?: string;
 }
 
+export interface RouteCompletedEvent extends RouteDomainEventBase {
+  readonly eventType: typeof RouteEventType.COMPLETED;
+  readonly fromState: typeof RouteState.IN_PROGRESS | typeof RouteState.INTERRUPTED;
+  readonly toState: typeof RouteState.COMPLETED;
+  readonly closureId: string;
+  readonly mode: 'REGULAR' | 'FORCED';
+  readonly completedAt: Date;
+  readonly summaryVersion: 1;
+  readonly totalAssigned: number;
+  readonly deliveredCount: number;
+  readonly failedCount: number;
+  readonly rescheduledCount: number;
+  readonly returnedCount: number;
+  readonly pendingCount: number;
+}
+
 export type RouteDomainEvent =
   | RoutePreparedEvent
   | RouteStartedEvent
   | RouteCancelledEvent
-  | RouteInterruptedEvent;
+  | RouteInterruptedEvent
+  | RouteCompletedEvent;

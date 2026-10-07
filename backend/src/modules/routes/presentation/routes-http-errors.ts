@@ -5,10 +5,17 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import {
+  IdempotencyKeyReusedError,
+  RouteAlreadyCompletedError,
   RouteConcurrencyConflictError,
+  RouteCustodyUnresolvedError,
   RouteDomainError,
   RouteForbiddenError,
+  RouteHasPendingStopsError,
+  RouteManifestEmptyError,
+  RouteManifestInconsistentError,
   RouteManifestInvalidError,
+  RouteNotCompletedError,
   RouteNotFoundError,
   RouteResourceUnavailableError,
   RouteStateConflictError,
@@ -33,7 +40,13 @@ export function handleRoutesDomainError(error: unknown): never {
   if (
     error instanceof RouteStateConflictError ||
     error instanceof RouteResourceUnavailableError ||
-    error instanceof RouteConcurrencyConflictError
+    error instanceof RouteConcurrencyConflictError ||
+    error instanceof RouteCustodyUnresolvedError ||
+    error instanceof RouteManifestInconsistentError ||
+    error instanceof RouteHasPendingStopsError ||
+    error instanceof RouteAlreadyCompletedError ||
+    error instanceof RouteNotCompletedError ||
+    error instanceof IdempotencyKeyReusedError
   ) {
     throw new ConflictException({
       code: error.code,
@@ -43,7 +56,8 @@ export function handleRoutesDomainError(error: unknown): never {
 
   if (
     error instanceof RouteValidationError ||
-    error instanceof RouteManifestInvalidError
+    error instanceof RouteManifestInvalidError ||
+    error instanceof RouteManifestEmptyError
   ) {
     throw new BadRequestException({
       code: error.code,

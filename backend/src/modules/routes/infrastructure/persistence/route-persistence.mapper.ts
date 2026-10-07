@@ -40,6 +40,7 @@ export class RoutePersistenceMapper {
       plannedStartAt: raw.plannedStartAt,
       plannedEndAt: raw.plannedEndAt,
       stops: domainStops,
+      dispatchManifestSnapshot: raw.dispatchManifestSnapshot,
     });
   }
 
@@ -57,6 +58,8 @@ export class RoutePersistenceMapper {
       completedAt: route.completedAt ?? null,
       plannedStartAt: route.plannedStartAt ?? null,
       plannedEndAt: route.plannedEndAt ?? null,
+      dispatchManifestSnapshot:
+        (route.dispatchManifestSnapshot as Prisma.InputJsonValue) ?? null,
     };
   }
 
@@ -67,6 +70,12 @@ export class RoutePersistenceMapper {
       completedAt: route.completedAt ?? null,
       plannedStartAt: route.plannedStartAt ?? null,
       plannedEndAt: route.plannedEndAt ?? null,
+      ...(route.dispatchManifestSnapshot !== undefined
+        ? {
+            dispatchManifestSnapshot:
+              (route.dispatchManifestSnapshot as Prisma.InputJsonValue) ?? null,
+          }
+        : {}),
     };
   }
 

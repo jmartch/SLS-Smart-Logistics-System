@@ -12,7 +12,7 @@ import {
   RouteLifecycleUnitOfWork,
   RouteOutboxEventEntry,
   RouteOutboxPort,
-} from '../../application/ports/route-lifecycle-unit-of-work';
+} from '../../application/ports/route-lifecycle-unit-of-work.port';
 import { PrismaRouteRepository } from './prisma-route.repository';
 import { PrismaPackageStateWriter } from '../../../packages/infrastructure/prisma-package-state-writer';
 import { PrismaRouteAssignmentAdapter } from '../../../assignments/infrastructure/prisma-route-assignment.adapter';
@@ -21,7 +21,7 @@ import { PrismaRouteAssignmentAdapter } from '../../../assignments/infrastructur
 export class PrismaRouteLifecycleUnitOfWork implements RouteLifecycleUnitOfWork {
   private static readonly MAX_ATTEMPTS = 3;
 
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(private readonly prisma: PrismaService) { }
 
   async executeInTransaction<T>(
     tenantId: string,

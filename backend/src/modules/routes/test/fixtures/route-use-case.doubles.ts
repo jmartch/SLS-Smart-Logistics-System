@@ -17,7 +17,7 @@ import {
   RouteAssignmentSnapshot,
   RouteAuditLogEntry,
   RouteOutboxEventEntry,
-} from '../../application/ports/route-lifecycle-unit-of-work';
+} from '../../application/ports/route-lifecycle-unit-of-work.port';
 import { RouteAccessPort } from '../../application/ports/route-access.port';
 import {
   RouteResourcesPort,
@@ -260,6 +260,33 @@ export class FakeRouteAccessPort implements RouteAccessPort {
     _userId: string,
   ): Promise<string | null> {
     return this.courierIdToReturn;
+  }
+
+  canClose = true;
+  canReceiveDepot = true;
+  canViewSummary = true;
+
+  async canCloseRoute(
+    _tenantId: string,
+    _actorUserId: string,
+    _mode: any,
+  ): Promise<boolean> {
+    return this.canClose;
+  }
+
+  async canReceiveDepotCargo(
+    _tenantId: string,
+    _actorUserId: string,
+  ): Promise<boolean> {
+    return this.canReceiveDepot;
+  }
+
+  async canViewRouteSummary(
+    _tenantId: string,
+    _actorUserId: string,
+    _routeCourierId: string,
+  ): Promise<boolean> {
+    return this.canViewSummary;
   }
 }
 

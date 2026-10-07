@@ -53,6 +53,7 @@ model Tenant {
   routeLegs              RouteLeg[]
   routeLegEdges          RouteLegEdge[]
   deliveryOperations     DeliveryOperation[]
+  routeClosures          RouteClosure[]
 }
 
 model User {
@@ -73,6 +74,8 @@ model User {
   geocodingReviews           GeocodingReview[]
   reviewedNetworkAttachments NetworkAttachment[]
   deliveryOperations         DeliveryOperation[]
+  routeClosures              RouteClosure[]
+  receivedCargoAssignments   Assignment[]           @relation("AssignmentCargoReceipt")
 
   @@unique([tenantId, id])
   @@unique([tenantId, email])

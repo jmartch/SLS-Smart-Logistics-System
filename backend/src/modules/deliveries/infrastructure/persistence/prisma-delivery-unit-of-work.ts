@@ -270,7 +270,18 @@ export class PrismaDeliverySession implements DeliverySession {
     });
   }
 
-  async endAssignment(assignmentId: string, reason: string): Promise<void> {
+  async endAssignment(
+    assignmentId: string,
+    reason: string,
+    routeOutcome?: 'DELIVERED' | 'FAILED' | 'RESCHEDULED' | 'RETURNED' | 'PENDING',
+  ): Promise<void> {
+    const outcome =
+      routeOutcome ??
+      (['DELIVERED', 'FAILED', 'RESCHEDULED', 'RETURNED', 'PENDING'].includes(
+        reason,
+      )
+        ? (reason as any)
+        : undefined);
     await this.tx.assignment.update({
       where: {
         id: assignmentId,
@@ -279,6 +290,7 @@ export class PrismaDeliverySession implements DeliverySession {
         status: 'ENDED',
         endedAt: new Date(),
         reasonCode: reason,
+        ...(outcome ? { routeOutcome: outcome, routeOutcomeAt: new Date() } : {}),
       },
     });
   }

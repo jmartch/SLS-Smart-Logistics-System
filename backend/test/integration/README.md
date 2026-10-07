@@ -168,3 +168,25 @@ La ejecución cubre:
 7. Consulta de manifiesto con GoF Iterator (`getDeliveryManifest`).
 8. Idempotencia contractual con `Idempotency-Key` (replays limpios y detección de conflictos 409).
 9. Aislamiento multi-tenant estricto mediante RLS en PostgreSQL 17 con rol `sls_app`.
+
+## ROUTE-CLOSE-01 — Cierre operativo de rutas, reconciliación de manifiesto y RLS
+
+Desde la raíz del repositorio:
+
+```bash
+make integration-test TEST=route-close-01
+make integration-db-down
+```
+
+El runner compila el backend, crea una base desechable `sls_routeclose01_<uuid>`, aplica todas
+las migraciones mediante `prisma migrate deploy` y ejecuta en banda `test/route-close-lifecycle.e2e-spec.ts`
+y `test/route-close-http.e2e-spec.ts` con el cliente runtime `sls_app`. La base se elimina en `finally`,
+incluso si una prueba falla.
+
+La ejecución cubre:
+1. Cierre operativo regular (`REGULAR`) de rutas con todas sus paradas atendidas y paquetes entregados, persistiendo snapshot inmutable en `RouteClosure`, outbox event `RouteCompleted` (`producer: routes`, `version: 1`) y log de auditoría `CLOSE_ROUTE`.
+2. Cierre contingente forzado (`FORCED`) con resolución obligatoria de custodia física restante en depósito (`depotReceipt`), conciliación exacta del balance de manifiesto ($7 = 2 + 1 + 1 + 1 + 2$) y recuperación contextual de paquetes no visitados a `PENDING_ASSIGNMENT`.
+3. Idempotencia y protección anti-tampering por hash SHA-256 (`Idempotency-Key` UUID): respuestas cacheadas en replays idénticos y rechazo con código 409 (`IdempotencyKeyReusedError`) ante payloads modificados.
+4. Consulta autorizada del resumen de cierre con proyecciones por rol: desglose completo para coordinadores y vista redactada (sin notas ni códigos internos de motivo) para mensajeros asignados.
+5. Aislamiento multi-tenant estricto forzado por PostgreSQL 17 RLS bajo el rol no privilegiado `sls_app`.
+

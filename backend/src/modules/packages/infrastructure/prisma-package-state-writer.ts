@@ -13,7 +13,7 @@ import {
 	RoutePackageSnapshot,
 	PackageStateUpdateItem,
 	PackageStatusHistoryItem,
-} from '../../routes/application/ports/route-lifecycle-unit-of-work';
+} from '../../routes/application/ports/route-lifecycle-unit-of-work.port';
 
 interface RawLockedPackageRow {
 	readonly id: string;
