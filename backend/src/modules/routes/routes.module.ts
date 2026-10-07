@@ -10,6 +10,10 @@ import { PrepareRouteUseCase } from './application/use-cases/prepare-route.use-c
 import { StartRouteUseCase } from './application/use-cases/start-route.use-case';
 import { CancelRouteUseCase } from './application/use-cases/cancel-route.use-case';
 import { InterruptRouteUseCase } from './application/use-cases/interrupt-route.use-case';
+import { PrismaRouteCloseUnitOfWork } from './infrastructure/persistence/prisma-route-close-unit-of-work';
+import { PrismaRouteSummaryReader } from './infrastructure/persistence/prisma-route-summary-reader';
+import { CloseRouteUseCase } from './application/use-cases/close-route.use-case';
+import { GetRouteSummaryUseCase } from './application/use-cases/get-route-summary.use-case';
 import { RoutesController } from './presentation/routes.controller';
 
 @Module({
@@ -18,6 +22,8 @@ import { RoutesController } from './presentation/routes.controller';
   providers: [
     PrismaRouteRepository,
     PrismaRouteLifecycleUnitOfWork,
+    PrismaRouteCloseUnitOfWork,
+    PrismaRouteSummaryReader,
     PrismaRouteResourcesAdapter,
     AuthRouteAccessAdapter,
     {
@@ -78,6 +84,32 @@ import { RoutesController } from './presentation/routes.controller';
       ) => new InterruptRouteUseCase(unitOfWork, accessPort),
       inject: [PrismaRouteLifecycleUnitOfWork, AuthRouteAccessAdapter],
     },
+    {
+      provide: CloseRouteUseCase,
+      useFactory: (
+        unitOfWork: PrismaRouteCloseUnitOfWork,
+        accessPort: AuthRouteAccessAdapter,
+      ) => new CloseRouteUseCase(unitOfWork, accessPort),
+      inject: [PrismaRouteCloseUnitOfWork, AuthRouteAccessAdapter],
+    },
+    {
+      provide: GetRouteSummaryUseCase,
+      useFactory: (
+        routeRepository: PrismaRouteRepository,
+        summaryReader: PrismaRouteSummaryReader,
+        accessPort: AuthRouteAccessAdapter,
+      ) =>
+        new GetRouteSummaryUseCase(
+          routeRepository,
+          summaryReader,
+          accessPort,
+        ),
+      inject: [
+        PrismaRouteRepository,
+        PrismaRouteSummaryReader,
+        AuthRouteAccessAdapter,
+      ],
+    },
   ],
   exports: [
     ListRoutesUseCase,
@@ -86,8 +118,12 @@ import { RoutesController } from './presentation/routes.controller';
     StartRouteUseCase,
     CancelRouteUseCase,
     InterruptRouteUseCase,
+    CloseRouteUseCase,
+    GetRouteSummaryUseCase,
     PrismaRouteRepository,
     PrismaRouteLifecycleUnitOfWork,
+    PrismaRouteCloseUnitOfWork,
+    PrismaRouteSummaryReader,
   ],
 })
 export class RoutesModule {}

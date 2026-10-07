@@ -11,22 +11,30 @@ import { PrepareRouteUseCase } from '../application/use-cases/prepare-route.use-
 import { StartRouteUseCase } from '../application/use-cases/start-route.use-case';
 import { CancelRouteUseCase } from '../application/use-cases/cancel-route.use-case';
 import { InterruptRouteUseCase } from '../application/use-cases/interrupt-route.use-case';
+import { CloseRouteUseCase } from '../application/use-cases/close-route.use-case';
+import { GetRouteSummaryUseCase } from '../application/use-cases/get-route-summary.use-case';
 import {
+  IdempotencyKeyReusedError,
+  RouteAlreadyCompletedError,
   RouteConcurrencyConflictError,
+  RouteCustodyUnresolvedError,
   RouteForbiddenError,
   RouteManifestInvalidError,
+  RouteNotCompletedError,
   RouteNotFoundError,
   RouteResourceUnavailableError,
   RouteStateConflictError,
   RouteValidationError,
 } from '../domain/route-errors';
 import { RouteState } from '../domain/route-state';
+import { RouteClosureMode } from '../domain/route-closure.types';
 import type { RequestContext } from '../../../shared/presentation/request-context.decorator';
 import type {
   PaginatedRoutesResult,
   RouteDetailResult,
   RouteOperationResult,
 } from '../application/ports/route-contracts';
+import type { CloseRouteResult } from '../application/ports/route-close-contracts';
 
 const TENANT_ID = '10000000-0000-4000-8000-000000000001';
 const ACTOR_USER_ID = 'user-coord-001';
@@ -81,6 +89,14 @@ function createTestContext() {
     execute: jest.fn(),
   } as unknown as jest.Mocked<InterruptRouteUseCase>;
 
+  const closeRouteUseCase = {
+    execute: jest.fn(),
+  } as unknown as jest.Mocked<CloseRouteUseCase>;
+
+  const getRouteSummaryUseCase = {
+    execute: jest.fn(),
+  } as unknown as jest.Mocked<GetRouteSummaryUseCase>;
+
   const controller = new RoutesController(
     listRoutesUseCase,
     getRouteDetailUseCase,
@@ -88,6 +104,8 @@ function createTestContext() {
     startRouteUseCase,
     cancelRouteUseCase,
     interruptRouteUseCase,
+    closeRouteUseCase,
+    getRouteSummaryUseCase,
   );
 
   return {
@@ -98,6 +116,8 @@ function createTestContext() {
     startRouteUseCase,
     cancelRouteUseCase,
     interruptRouteUseCase,
+    closeRouteUseCase,
+    getRouteSummaryUseCase,
   };
 }
 
@@ -807,6 +827,211 @@ describe('RoutesController', () => {
 
       // Assert
       await expect(execute).rejects.toThrow(NotFoundException);
+    });
+  });
+
+  describe('closeRoute', () => {
+    const IDEMPOTENCY_KEY = '55555555-5555-4555-8555-555555555555';
+    const VALID_HEADERS = { 'idempotency-key': IDEMPOTENCY_KEY };
+
+    it('successfully closes route in REGULAR mode', async () => {
+      const { controller, closeRouteUseCase } = createTestContext();
+      const context = createRequestContext();
+      const mockResult: CloseRouteResult = {
+        routeId: ROUTE_ID,
+        closureId: 'closure-1',
+        state: 'COMPLETED',
+        completedAt: new Date(),
+        summary: {
+          totalAssigned: 3,
+          deliveredCount: 3,
+          failedCount: 0,
+          rescheduledCount: 0,
+          returnedCount: 0,
+          pendingCount: 0,
+          deliveryEffectiveness: 1,
+        },
+        replayed: false,
+      };
+      closeRouteUseCase.execute.mockResolvedValue(mockResult);
+
+      const result = await controller.closeRoute(
+        context,
+        VALID_HEADERS,
+        ROUTE_ID,
+        { mode: 'REGULAR' },
+      );
+
+      expect(result).toEqual(mockResult);
+      expect(closeRouteUseCase.execute).toHaveBeenCalledWith(
+        expect.objectContaining({
+          tenantId: context.tenantId,
+          actorUserId: context.actorUserId,
+          routeId: ROUTE_ID,
+          requestId: IDEMPOTENCY_KEY,
+          mode: RouteClosureMode.REGULAR,
+        }),
+      );
+    });
+
+    it('rejects with BadRequestException when idempotency key is missing or invalid', async () => {
+      const { controller } = createTestContext();
+      const context = createRequestContext();
+
+      await expect(
+        controller.closeRoute(context, {}, ROUTE_ID, { mode: 'REGULAR' }),
+      ).rejects.toThrow(BadRequestException);
+
+      await expect(
+        controller.closeRoute(
+          context,
+          { 'idempotency-key': 'not-a-uuid' },
+          ROUTE_ID,
+          { mode: 'REGULAR' },
+        ),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('rejects with BadRequestException when mode is FORCED without reasonCode or notes', async () => {
+      const { controller } = createTestContext();
+      const context = createRequestContext();
+
+      await expect(
+        controller.closeRoute(context, VALID_HEADERS, ROUTE_ID, {
+          mode: 'FORCED',
+        }),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('maps RouteCustodyUnresolvedError to ConflictException', async () => {
+      const { controller, closeRouteUseCase } = createTestContext();
+      const context = createRequestContext();
+      closeRouteUseCase.execute.mockRejectedValue(
+        new RouteCustodyUnresolvedError('Remaining cargo requires physical receipt'),
+      );
+
+      await expect(
+        controller.closeRoute(context, VALID_HEADERS, ROUTE_ID, {
+          mode: 'REGULAR',
+        }),
+      ).rejects.toThrow(ConflictException);
+    });
+
+    it('maps RouteAlreadyCompletedError to ConflictException', async () => {
+      const { controller, closeRouteUseCase } = createTestContext();
+      const context = createRequestContext();
+      closeRouteUseCase.execute.mockRejectedValue(
+        new RouteAlreadyCompletedError(ROUTE_ID),
+      );
+
+      await expect(
+        controller.closeRoute(context, VALID_HEADERS, ROUTE_ID, {
+          mode: 'REGULAR',
+        }),
+      ).rejects.toThrow(ConflictException);
+    });
+
+    it('maps IdempotencyKeyReusedError to ConflictException', async () => {
+      const { controller, closeRouteUseCase } = createTestContext();
+      const context = createRequestContext();
+      closeRouteUseCase.execute.mockRejectedValue(
+        new IdempotencyKeyReusedError(IDEMPOTENCY_KEY),
+      );
+
+      await expect(
+        controller.closeRoute(context, VALID_HEADERS, ROUTE_ID, {
+          mode: 'REGULAR',
+        }),
+      ).rejects.toThrow(ConflictException);
+    });
+
+    it('maps RouteForbiddenError to ForbiddenException', async () => {
+      const { controller, closeRouteUseCase } = createTestContext();
+      const context = createRequestContext();
+      closeRouteUseCase.execute.mockRejectedValue(
+        new RouteForbiddenError(),
+      );
+
+      await expect(
+        controller.closeRoute(context, VALID_HEADERS, ROUTE_ID, {
+          mode: 'REGULAR',
+        }),
+      ).rejects.toThrow(ForbiddenException);
+    });
+
+    it('maps RouteNotFoundError to NotFoundException', async () => {
+      const { controller, closeRouteUseCase } = createTestContext();
+      const context = createRequestContext();
+      closeRouteUseCase.execute.mockRejectedValue(
+        new RouteNotFoundError(ROUTE_ID),
+      );
+
+      await expect(
+        controller.closeRoute(context, VALID_HEADERS, ROUTE_ID, {
+          mode: 'REGULAR',
+        }),
+      ).rejects.toThrow(NotFoundException);
+    });
+  });
+
+  describe('getRouteSummary', () => {
+    it('returns summary when route is closed and user is authorized', async () => {
+      const { controller, getRouteSummaryUseCase } = createTestContext();
+      const context = createRequestContext();
+      const mockSummary = {
+        routeId: ROUTE_ID,
+        closureId: 'closure-1',
+        totalAssigned: 5,
+        deliveredCount: 5,
+        effectiveness: 1,
+      } as any;
+      getRouteSummaryUseCase.execute.mockResolvedValue(mockSummary);
+
+      const result = await controller.getRouteSummary(context, ROUTE_ID);
+
+      expect(result).toEqual(mockSummary);
+      expect(getRouteSummaryUseCase.execute).toHaveBeenCalledWith({
+        tenantId: context.tenantId,
+        actorUserId: context.actorUserId,
+        correlationId: context.correlationId,
+        routeId: ROUTE_ID,
+      });
+    });
+
+    it('maps RouteNotCompletedError to ConflictException when route is still open', async () => {
+      const { controller, getRouteSummaryUseCase } = createTestContext();
+      const context = createRequestContext();
+      getRouteSummaryUseCase.execute.mockRejectedValue(
+        new RouteNotCompletedError(ROUTE_ID),
+      );
+
+      await expect(
+        controller.getRouteSummary(context, ROUTE_ID),
+      ).rejects.toThrow(ConflictException);
+    });
+
+    it('maps RouteNotFoundError to NotFoundException', async () => {
+      const { controller, getRouteSummaryUseCase } = createTestContext();
+      const context = createRequestContext();
+      getRouteSummaryUseCase.execute.mockRejectedValue(
+        new RouteNotFoundError(ROUTE_ID),
+      );
+
+      await expect(
+        controller.getRouteSummary(context, ROUTE_ID),
+      ).rejects.toThrow(NotFoundException);
+    });
+
+    it('maps RouteForbiddenError to ForbiddenException', async () => {
+      const { controller, getRouteSummaryUseCase } = createTestContext();
+      const context = createRequestContext();
+      getRouteSummaryUseCase.execute.mockRejectedValue(
+        new RouteForbiddenError(),
+      );
+
+      await expect(
+        controller.getRouteSummary(context, ROUTE_ID),
+      ).rejects.toThrow(ForbiddenException);
     });
   });
 });

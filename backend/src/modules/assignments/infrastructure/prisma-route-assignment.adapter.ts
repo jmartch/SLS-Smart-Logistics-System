@@ -6,7 +6,7 @@ import {
 import {
 	RouteAssignmentWriterPort,
 	RouteAssignmentSnapshot,
-} from '../../routes/application/ports/route-lifecycle-unit-of-work';
+} from '../../routes/application/ports/route-lifecycle-unit-of-work.port';
 
 @Injectable()
 export class PrismaRouteAssignmentAdapter

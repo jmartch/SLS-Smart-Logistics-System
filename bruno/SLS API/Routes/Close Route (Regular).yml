@@ -1,0 +1,30 @@
+info:
+  name: Close Route (Regular)
+  type: http
+  seq: 7
+
+http:
+  method: POST
+  url: "{{baseUrl}}/routes/{{routeId}}/close"
+  auth: inherit
+  headers:
+    - name: Content-Type
+      value: application/json
+    - name: x-tenant-id
+      value: "{{tenantId}}"
+    - name: Idempotency-Key
+      value: "{{idempotencyKey}}"
+  body:
+    type: json
+    data: |-
+      {
+        "mode": "REGULAR",
+        "actualDistanceM": 5350.5
+      }
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+  forwardAuthorizationHeader: false

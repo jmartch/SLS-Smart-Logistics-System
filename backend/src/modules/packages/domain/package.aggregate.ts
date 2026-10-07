@@ -117,6 +117,13 @@ export class PackageAggregate {
         });
     }
 
+    recoverToPendingAssignment(reasonCode: string, options?: TransitionOptions): void {
+        this.transitionTo(PackageStatus.PENDING_ASSIGNMENT, {
+            ...this.toMetadata(options),
+            reasonCode,
+        });
+    }
+
     transitionTo(
         targetState: PackageStateName,
         metadata: PackageTransitionMetadata = {},

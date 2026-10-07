@@ -7,7 +7,7 @@ import {
   RouteStateConflictError,
   RouteValidationError,
 } from '../../domain/route-errors';
-import { RouteLifecycleUnitOfWork } from '../ports/route-lifecycle-unit-of-work';
+import { RouteLifecycleUnitOfWork } from '../ports/route-lifecycle-unit-of-work.port';
 import { RouteAccessPort } from '../ports/route-access.port';
 import { RouteResourcesPort } from '../ports/route-resources.port';
 import {
@@ -20,7 +20,7 @@ export class PrepareRouteUseCase {
     private readonly unitOfWork: RouteLifecycleUnitOfWork,
     private readonly accessPort: RouteAccessPort,
     private readonly resourcesPort: RouteResourcesPort,
-  ) {}
+  ) { }
 
   async execute(command: PrepareRouteCommand): Promise<RouteOperationResult> {
     if (!command.depotConfirmed) {
