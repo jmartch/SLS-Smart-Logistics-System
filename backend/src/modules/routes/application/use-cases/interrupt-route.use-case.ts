@@ -5,7 +5,7 @@ import {
   RouteStateConflictError,
   RouteValidationError,
 } from '../../domain/route-errors';
-import { RouteLifecycleUnitOfWork } from '../ports/route-lifecycle-unit-of-work';
+import { RouteLifecycleUnitOfWork } from '../ports/route-lifecycle-unit-of-work.port';
 import { RouteAccessPort } from '../ports/route-access.port';
 import {
   InterruptRouteCommand,
@@ -16,7 +16,7 @@ export class InterruptRouteUseCase {
   constructor(
     private readonly unitOfWork: RouteLifecycleUnitOfWork,
     private readonly accessPort: RouteAccessPort,
-  ) {}
+  ) { }
 
   async execute(command: InterruptRouteCommand): Promise<RouteOperationResult> {
     if (!command.reasonCode || !command.reasonCode.trim()) {
