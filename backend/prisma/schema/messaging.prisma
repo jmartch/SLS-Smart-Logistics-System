@@ -55,6 +55,7 @@ model OutboxEvent {
   eventId       String            @unique @db.Uuid
   correlationId String?           @db.Uuid
   eventType     String
+  producer      String?
   version       Int               @default(1)
   payload       Json
   status        OutboxEventStatus @default(PENDING)

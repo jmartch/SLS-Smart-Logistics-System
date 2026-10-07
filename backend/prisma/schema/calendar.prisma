@@ -7,6 +7,7 @@ model Depot {
   openingHours Json
   tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Restrict)
   routes Route[]
+  receivedCargoAssignments Assignment[] @relation("AssignmentDepotReceipt")
   @@unique([tenantId, id])
   @@unique([tenantId, name])
   @@index([tenantId])

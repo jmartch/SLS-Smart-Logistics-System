@@ -79,6 +79,34 @@ export class AuthRouteAccessAdapter implements RouteAccessPort {
     return this.isUserActiveInTenant(tenantId, actorUserId);
   }
 
+  async canCloseRoute(
+    tenantId: string,
+    actorUserId: string,
+    _mode: any,
+  ): Promise<boolean> {
+    return this.hasCoordinatorRole(tenantId, actorUserId);
+  }
+
+  async canReceiveDepotCargo(
+    tenantId: string,
+    actorUserId: string,
+  ): Promise<boolean> {
+    return this.isUserActiveInTenant(tenantId, actorUserId);
+  }
+
+  async canViewRouteSummary(
+    tenantId: string,
+    actorUserId: string,
+    routeCourierId: string,
+  ): Promise<boolean> {
+    const courierId = await this.getCourierIdForUser(tenantId, actorUserId);
+    if (courierId) {
+      return courierId === routeCourierId;
+    }
+
+    return this.isUserActiveInTenant(tenantId, actorUserId);
+  }
+
   private async isUserActiveInTenant(
     tenantId: string,
     userId: string,
