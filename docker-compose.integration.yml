@@ -15,3 +15,21 @@ services:
       retries: 20
     profiles:
       - integration
+
+  integration-rabbitmq:
+    image: rabbitmq:4-management
+    container_name: sls-integration-rabbitmq
+    hostname: integration-rabbitmq
+    environment:
+      RABBITMQ_DEFAULT_USER: integration_admin
+      RABBITMQ_DEFAULT_PASS: integration_test_password
+    tmpfs:
+      - /var/lib/rabbitmq
+    healthcheck:
+      test: [ "CMD", "rabbitmq-diagnostics", "-q", "ping" ]
+      interval: 2s
+      timeout: 5s
+      retries: 20
+      start_period: 10s
+    profiles:
+      - integration
