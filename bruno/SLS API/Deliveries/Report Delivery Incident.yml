@@ -1,0 +1,33 @@
+info:
+  name: Report Delivery Incident
+  type: http
+  seq: 7
+
+http:
+  method: POST
+  url: "{{baseUrl}}/deliveries/incidents"
+  auth: inherit
+  headers:
+    - name: Content-Type
+      value: application/json
+    - name: x-tenant-id
+      value: "{{tenantId}}"
+    - name: Idempotency-Key
+      value: "incident-10000000-0000-4000-8000-000000000001"
+  body:
+    type: json
+    data: |-
+      {
+        "routeId": "{{routeId}}",
+        "routeStopId": "{{stopId}}",
+        "packageId": "{{packageId}}",
+        "type": "CLIENT_CONTACT_FAILED",
+        "description": "Teléfono de contacto fuera de servicio y timbre averiado"
+      }
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+  forwardAuthorizationHeader: false

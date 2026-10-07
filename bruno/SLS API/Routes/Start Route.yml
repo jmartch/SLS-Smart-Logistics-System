@@ -1,0 +1,25 @@
+info:
+  name: Start Route
+  type: http
+  seq: 4
+
+http:
+  method: POST
+  url: "{{baseUrl}}/routes/{{routeId}}/start"
+  auth: inherit
+  headers:
+    - name: Content-Type
+      value: application/json
+    - name: x-tenant-id
+      value: "{{tenantId}}"
+  body:
+    type: json
+    data: |-
+      {}
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+  forwardAuthorizationHeader: false

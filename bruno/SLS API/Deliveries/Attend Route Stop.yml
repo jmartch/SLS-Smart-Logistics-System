@@ -1,0 +1,27 @@
+info:
+  name: Attend Route Stop
+  type: http
+  seq: 1
+
+http:
+  method: POST
+  url: "{{baseUrl}}/deliveries/routes/{{routeId}}/stops/{{stopId}}/attend"
+  auth: inherit
+  headers:
+    - name: Content-Type
+      value: application/json
+    - name: x-tenant-id
+      value: "{{tenantId}}"
+    - name: Idempotency-Key
+      value: "attend-10000000-0000-4000-8000-000000000001"
+  body:
+    type: json
+    data: |-
+      {}
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+  forwardAuthorizationHeader: false
