@@ -389,6 +389,7 @@ export class PrismaDeliverySession implements DeliverySession {
         payload: message.payload as Prisma.InputJsonValue,
         status: 'PENDING',
         occurredAt: message.occurredAt,
+        producer: message.producer ?? 'sls-backend.deliveries',
       },
     });
   }

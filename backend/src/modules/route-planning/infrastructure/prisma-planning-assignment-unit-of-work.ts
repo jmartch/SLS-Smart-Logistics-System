@@ -679,9 +679,11 @@ export class PrismaPlanningAssignmentSession implements PlanningAssignmentSessio
                 eventId: e.eventId,
                 correlationId: e.correlationId,
                 eventType: e.eventType,
-                version: 1,
+                version: e.version ?? 1,
                 payload: e.payload as Prisma.InputJsonValue,
                 status: OutboxEventStatus.PENDING,
+                producer: e.producer ?? 'sls-backend.route-planning',
+                occurredAt: e.occurredAt ?? new Date(),
             })),
         });
     }

@@ -77,6 +77,7 @@ export class PrismaRouteLifecycleUnitOfWork implements RouteLifecycleUnitOfWork 
                     payload: e.payload as Prisma.InputJsonValue,
                     status: OutboxEventStatus.PENDING,
                     occurredAt: e.occurredAt,
+                    producer: 'sls-backend.routes',
                   })),
                 });
               },

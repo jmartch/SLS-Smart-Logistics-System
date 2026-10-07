@@ -114,6 +114,9 @@ export interface CreateOutboxEventData {
     readonly correlationId: string;
     readonly eventType: string;
     readonly payload: Record<string, unknown>;
+    readonly producer?: string;
+    readonly version?: number;
+    readonly occurredAt?: Date;
 }
 
 export interface PlanningAssignmentSession {

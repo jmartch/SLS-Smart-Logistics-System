@@ -1,0 +1,211 @@
+{
+  "rabbit_version": "4.0.0",
+  "vhosts": [
+    {
+      "name": "sls"
+    }
+  ],
+  "users": [
+    {
+      "name": "sls",
+      "password_hash": "2H3v9m1m5WjZkL0v7B6NqA==",
+      "hashing_algorithm": "rabbit_password_hashing_sha256",
+      "tags": ["administrator"]
+    }
+  ],
+  "permissions": [
+    {
+      "user": "sls",
+      "vhost": "sls",
+      "configure": ".*",
+      "write": ".*",
+      "read": ".*"
+    }
+  ],
+  "exchanges": [
+    {
+      "name": "sls.events.v1",
+      "vhost": "sls",
+      "type": "topic",
+      "durable": true,
+      "auto_delete": false,
+      "internal": false,
+      "arguments": {}
+    },
+    {
+      "name": "sls.retry.v1",
+      "vhost": "sls",
+      "type": "direct",
+      "durable": true,
+      "auto_delete": false,
+      "internal": false,
+      "arguments": {}
+    },
+    {
+      "name": "sls.return.v1",
+      "vhost": "sls",
+      "type": "direct",
+      "durable": true,
+      "auto_delete": false,
+      "internal": false,
+      "arguments": {}
+    },
+    {
+      "name": "sls.dead.v1",
+      "vhost": "sls",
+      "type": "direct",
+      "durable": true,
+      "auto_delete": false,
+      "internal": false,
+      "arguments": {}
+    },
+    {
+      "name": "sls.quarantine.v1",
+      "vhost": "sls",
+      "type": "direct",
+      "durable": true,
+      "auto_delete": false,
+      "internal": false,
+      "arguments": {}
+    }
+  ],
+  "queues": [
+    {
+      "name": "sls.audit.integration-events.v1",
+      "vhost": "sls",
+      "durable": true,
+      "auto_delete": false,
+      "arguments": {
+        "x-queue-type": "quorum",
+        "x-dead-letter-exchange": "sls.dead.v1",
+        "x-dead-letter-routing-key": "audit.integration-events.v1",
+        "x-delivery-limit": 20
+      }
+    },
+    {
+      "name": "sls.audit.integration-events.v1.retry.5s",
+      "vhost": "sls",
+      "durable": true,
+      "auto_delete": false,
+      "arguments": {
+        "x-queue-type": "quorum",
+        "x-message-ttl": 5000,
+        "x-dead-letter-exchange": "sls.return.v1",
+        "x-dead-letter-routing-key": "audit.integration-events.v1"
+      }
+    },
+    {
+      "name": "sls.audit.integration-events.v1.retry.10s",
+      "vhost": "sls",
+      "durable": true,
+      "auto_delete": false,
+      "arguments": {
+        "x-queue-type": "quorum",
+        "x-message-ttl": 10000,
+        "x-dead-letter-exchange": "sls.return.v1",
+        "x-dead-letter-routing-key": "audit.integration-events.v1"
+      }
+    },
+    {
+      "name": "sls.audit.integration-events.v1.retry.20s",
+      "vhost": "sls",
+      "durable": true,
+      "auto_delete": false,
+      "arguments": {
+        "x-queue-type": "quorum",
+        "x-message-ttl": 20000,
+        "x-dead-letter-exchange": "sls.return.v1",
+        "x-dead-letter-routing-key": "audit.integration-events.v1"
+      }
+    },
+    {
+      "name": "sls.audit.integration-events.v1.dlq",
+      "vhost": "sls",
+      "durable": true,
+      "auto_delete": false,
+      "arguments": {
+        "x-queue-type": "quorum"
+      }
+    },
+    {
+      "name": "sls.quarantine.v1",
+      "vhost": "sls",
+      "durable": true,
+      "auto_delete": false,
+      "arguments": {
+        "x-queue-type": "quorum"
+      }
+    }
+  ],
+  "bindings": [
+    {
+      "source": "sls.events.v1",
+      "vhost": "sls",
+      "destination": "sls.audit.integration-events.v1",
+      "destination_type": "queue",
+      "routing_key": "tenant.*.#",
+      "arguments": {}
+    },
+    {
+      "source": "sls.return.v1",
+      "vhost": "sls",
+      "destination": "sls.audit.integration-events.v1",
+      "destination_type": "queue",
+      "routing_key": "audit.integration-events.v1",
+      "arguments": {}
+    },
+    {
+      "source": "sls.retry.v1",
+      "vhost": "sls",
+      "destination": "sls.audit.integration-events.v1.retry.5s",
+      "destination_type": "queue",
+      "routing_key": "audit.integration-events.v1.retry.1",
+      "arguments": {}
+    },
+    {
+      "source": "sls.retry.v1",
+      "vhost": "sls",
+      "destination": "sls.audit.integration-events.v1.retry.10s",
+      "destination_type": "queue",
+      "routing_key": "audit.integration-events.v1.retry.2",
+      "arguments": {}
+    },
+    {
+      "source": "sls.retry.v1",
+      "vhost": "sls",
+      "destination": "sls.audit.integration-events.v1.retry.20s",
+      "destination_type": "queue",
+      "routing_key": "audit.integration-events.v1.retry.3",
+      "arguments": {}
+    },
+    {
+      "source": "sls.dead.v1",
+      "vhost": "sls",
+      "destination": "sls.audit.integration-events.v1.dlq",
+      "destination_type": "queue",
+      "routing_key": "audit.integration-events.v1",
+      "arguments": {}
+    },
+    {
+      "source": "sls.quarantine.v1",
+      "vhost": "sls",
+      "destination": "sls.quarantine.v1",
+      "destination_type": "queue",
+      "routing_key": "unattributed",
+      "arguments": {}
+    }
+  ],
+  "policies": [
+    {
+      "vhost": "sls",
+      "name": "sls-quorum-policies",
+      "pattern": "^sls\\.",
+      "apply-to": "queues",
+      "definition": {
+        "dead-letter-strategy": "at-least-once",
+        "overflow": "reject-publish"
+      },
+      "priority": 0
+    }
+  ]
+}

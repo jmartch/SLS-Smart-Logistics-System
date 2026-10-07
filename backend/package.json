@@ -11,7 +11,10 @@
     "start": "nest start",
     "start:dev": "nest start --watch",
     "start:debug": "nest start --debug --watch",
-    "start:prod": "node dist/main",
+    "start:prod": "node dist/src/main",
+    "start:worker": "node dist/src/worker",
+    "start:worker:dev": "nest start --entryFile worker --watch",
+    "messaging:ops": "node dist/src/shared/infrastructure/messaging/messaging-ops",
     "prisma:studio": "prisma studio --port 5555 --browser none",
     "lint": "eslint \"{src,apps,libs,test}/**/*.ts\" --fix",
     "test": "cross-env NODE_OPTIONS=--experimental-vm-modules jest",
@@ -27,7 +30,8 @@
     "test:assign-01": "npm run build && node test/integration/assign-01.cjs",
     "test:route-01": "npm run build && node test/integration/route-01.cjs",
     "test:delivery-01": "npm run build && node test/integration/delivery-01.cjs",
-    "test:route-close-01": "npm run build && node test/integration/route-close-01.cjs"
+    "test:route-close-01": "npm run build && node test/integration/route-close-01.cjs",
+    "test:rmq-01": "npm run build && node test/integration/rmq-01.cjs"
   },
   "dependencies": {
     "@nestjs/common": "^11.0.1",
@@ -35,6 +39,8 @@
     "@nestjs/platform-express": "^11.0.1",
     "@prisma/adapter-pg": "^7.10.0",
     "@prisma/client": "^7.10.0",
+    "@types/amqplib": "^0.10.8",
+    "amqplib": "^2.2.0",
     "pg": "^8.23.0",
     "prisma": "^7.10.0",
     "reflect-metadata": "^0.2.2",
