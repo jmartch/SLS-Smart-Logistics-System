@@ -39,6 +39,7 @@ model Tenant {
   outboxEvents           OutboxEvent[]
   processedEvents        ProcessedEvent[]
   deadLetterMessages     DeadLetterMessage[]
+  deadLetterRedrives     DeadLetterRedrive[]
   auditLogs              AuditLog[]
   addresses              Address[]
   geocodingAttempts      GeocodingAttempt[]

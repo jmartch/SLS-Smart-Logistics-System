@@ -212,6 +212,7 @@ describe('PrismaDeliveryUnitOfWork', () => {
           payload: { packageId: 'pkg-1', attemptId: 'att-1' },
           status: 'PENDING',
           occurredAt: outboxMsg.occurredAt,
+          producer: 'sls-backend.deliveries',
         },
       });
     });

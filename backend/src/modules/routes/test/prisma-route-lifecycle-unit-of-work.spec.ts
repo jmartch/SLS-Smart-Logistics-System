@@ -140,6 +140,7 @@ describe('PrismaRouteLifecycleUnitOfWork', () => {
           payload: { routeId: 'route-1' },
           status: 'PENDING',
           occurredAt: eventEntry.occurredAt,
+          producer: 'sls-backend.routes',
         },
       ],
     });

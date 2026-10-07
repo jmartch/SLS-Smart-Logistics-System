@@ -427,6 +427,9 @@ export class PlanAndAssignRoutesService implements PlanAndAssignRoutesUseCase {
                         eventId: randomUUID(),
                         correlationId: context.correlationId,
                         eventType: event.eventType,
+                        producer: 'sls-backend.route-planning',
+                        version: event.version ?? 1,
+                        occurredAt: event.occurredAt,
                         payload: {
                             ...event,
                             occurredAt: event.occurredAt.toISOString(),

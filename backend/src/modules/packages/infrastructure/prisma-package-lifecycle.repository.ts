@@ -104,6 +104,7 @@ export class PrismaPackageLifecycleRepository extends PackageLifecycleRepository
                         eventType: event.eventType,
                         version: event.version,
                         occurredAt: event.occurredAt,
+                        producer: 'sls-backend.packages',
                         payload: {
                             producer: 'sls-backend.packages',
                             packageId: event.aggregateId,
