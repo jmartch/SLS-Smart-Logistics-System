@@ -25,12 +25,12 @@ Estado: `IN_PROGRESS` para el MVP completo. Actualizado al 2026-10-05 en rama `f
 
 | Etapa | Módulos | Estado | Avance reciente |
 | --- | --- | --- | --- |
-| 0 | Contratos y fronteras | `IN_PROGRESS` | Contratos de clustering (`CLUSTER-01`), ordenamiento (`SEQ-01`), asignación transaccional (`ASSIGN-01`) y ciclo operativo/Iterator (`ROUTE-01`) cerrados con ADR-003, ADR-004, ADR-005 y ADR-006. |
+| 0 | Contratos y fronteras | `IN_PROGRESS` | Contratos de clustering (`CLUSTER-01`), ordenamiento (`SEQ-01`), asignación transaccional (`ASSIGN-01`), ciclo operativo/Iterator (`ROUTE-01`) y entregas/evidencias (`DELIVERY-01`) cerrados con ADR-003, ADR-004, ADR-005, ADR-006 y ADR-007. |
 | 1 | AUTH-01 / TENANT-01 / UI-01 | `TODO` | Pendiente sesión y aislamiento HTTP interactivo. |
 | 2 | ZONE-01 / PKG-01 / VEH-01 / UI-02 | `TODO` | Pendiente integración de casos de uso y endpoints de catálogos/recursos. |
 | 3 | EVT-01 / RMQ-01 / IDEMP-01 / DLQ-01 | `TODO` | Infraestructura lista; outbox events generados; pendiente worker y pipeline de reintentos/DLQ. |
 | 4 | GEO-01 / CLUSTER-01 / SEQ-01 / ASSIGN-01 / UI-03 | `IN_PROGRESS` | **Backend completo al 100%: algoritmos, persistencia transaccional y RoutePlanningController con 55 suites unitarias y pruebas E2E en PostgreSQL/PostGIS**. Resta `UI-03` (pantallas de planificación). |
-| 5 | ROUTE-01 / DELIVERY-01 / ROUTE-CLOSE-01 | `IN_PROGRESS` | **ROUTE-01 e ITER-01 completados al 100% (ciclo operativo, GoF Stop Iterator, UoW SERIALIZABLE, migración aditiva y 6 endpoints HTTP con 68 suites unitarias y 23 tests E2E en PostgreSQL/PostGIS)**. Resta `DELIVERY-01` y `ROUTE-CLOSE-01`. |
+| 5 | ROUTE-01 / DELIVERY-01 / ROUTE-CLOSE-01 | `IN_PROGRESS` | **ROUTE-01, ITER-01 y DELIVERY-01 completados al 100% (ciclo operativo de rutas, GoF Stop Iterator, UoW SERIALIZABLE de rutas y entregas, captura de evidencias con hash SHA-256, políticas de resolución multipaquete y endpoints HTTP con 75 suites unitarias y 29 tests E2E en PostgreSQL/PostGIS)**. Resta `ROUTE-CLOSE-01`. |
 | 6 | NOTIF-01 / NOTIF-02 / UI-04 | `TODO` | Modelos listos; pendiente consumers y adapter de email. |
 | 7 | SEC-01 / QA-01 / EVID-01 / DOC-01/02 | `IN_PROGRESS` | Documentación viva actualizada; suites de tests unitarios, de arquitectura y de integración PostgreSQL/PostGIS en crecimiento continuo. |
 
@@ -50,18 +50,18 @@ Estado: `IN_PROGRESS` para el MVP completo. Actualizado al 2026-10-05 en rama `f
 - **Pruebas automatizadas backend**:
   ```bash
   docker compose exec backend npm test -- --runInBand
-  # Test Suites: 55 passed, 55 total
-  # Tests:       442 passed, 442 total
+  # Test Suites: 75 passed, 75 total
+  # Tests:       692 passed, 692 total
   # Snapshots:   0 total
   ```
 - **Pruebas de integración E2E (PostgreSQL 17 + PostGIS en base desechable)**:
   ```bash
-  make integration-test TEST=assign-01
-  # Test Suites: 1 passed, 1 total
-  # Tests:       5 passed, 5 total (CA-01 a CA-08)
+  make integration-test TEST=delivery-01
+  # Test Suites: 2 passed, 2 total
+  # Tests:       29 passed, 29 total (CA-01 a CA-15)
   ```
-- **Auditoría arquitectónica**: Cumplimiento estricto de Clean Architecture en `modules/route-planning` y `modules/assignments` (aislamiento total de NestJS/Prisma en dominio y aplicación).
+- **Auditoría arquitectónica**: Cumplimiento estricto de Clean Architecture en `modules/deliveries`, `modules/routes`, `modules/route-planning` y `modules/assignments` (aislamiento total de NestJS/Prisma en dominio y aplicación).
 
 ## Cierre
 
-El núcleo backend de planificación y asignación logística del MVP (`GEO-01`, `CLUSTER-01`, `SEQ-01` y `ASSIGN-01`) se encuentra completamente implementado, documentado con cinco ADRs y verificado con pruebas unitarias, de arquitectura e integración E2E con PostgreSQL 17 + PostGIS bajo aislamiento multi-tenant RLS. Los siguientes pasos recomendados son avanzar hacia el ciclo de ejecución de rutas (`ROUTE-01`, `DELIVERY-01`), el worker asíncrono RabbitMQ (`EVT-01`), o las pantallas de planificación en el frontend (`UI-03`).
+El núcleo backend de planificación, asignación y ejecución operativa de rutas y entregas del MVP (`GEO-01`, `CLUSTER-01`, `SEQ-01`, `ASSIGN-01`, `ROUTE-01` y `DELIVERY-01`) se encuentra completamente implementado, documentado con siete ADRs ([ADR-001](../adr/001-shared-schema-multitenancy.md) a [ADR-007](../adr/007-delivery-attempts-evidence-and-final-lifecycle.md)) y verificado con 75 suites unitarias (692 tests) y suites de integración E2E con PostgreSQL 17 + PostGIS bajo aislamiento multi-tenant RLS. Los siguientes pasos recomendados son avanzar hacia el cierre de rutas (`ROUTE-CLOSE-01`), el worker asíncrono RabbitMQ (`EVT-01`), o las pantallas del frontend (`UI-01` a `UI-04`).

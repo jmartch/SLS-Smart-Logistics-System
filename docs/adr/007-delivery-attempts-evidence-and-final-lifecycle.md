@@ -1,9 +1,9 @@
 # ADR-007: Intentos de entrega atómicos, custodia física y evidencias desacopladas
 
 Fecha: 2026-10-06  
-Estado: Aceptado  
+Estado: Aceptado e implementado  
 Plan canónico: [docs/plans/delivery-01.md](../plans/delivery-01.md)  
-Informe previsto: [docs/modules/delivery-01-report.md](../modules/delivery-01-report.md)
+Informe de implementación: [docs/modules/delivery-01-report.md](../modules/delivery-01-report.md)
 
 ## Contexto
 
