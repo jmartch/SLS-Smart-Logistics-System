@@ -61,6 +61,7 @@ export class InTransitState extends BasePackageState {
     readonly status = PackageStatus.IN_TRANSIT;
     protected readonly allowedTransitions = [
         PackageStatus.OUT_FOR_DELIVERY,
+        PackageStatus.PENDING_ASSIGNMENT,
     ] as const;
 }
 
@@ -69,6 +70,7 @@ export class OutForDeliveryState extends BasePackageState {
     protected readonly allowedTransitions = [
         PackageStatus.DELIVERED,
         PackageStatus.DELIVERY_FAILED,
+        PackageStatus.PENDING_ASSIGNMENT,
     ] as const;
 }
 
