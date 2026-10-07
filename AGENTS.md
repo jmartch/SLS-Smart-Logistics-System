@@ -652,6 +652,19 @@ Tests must demonstrate behavior, not merely execute lines. Use factories/fixture
 - Follow the existing formatter and ESLint configuration.
 - Comments should explain non-obvious decisions or constraints, not restate code.
 
+### File and artifact naming conventions
+
+- **Entity and Value Object classes (rich models with behavior):** use kebab-case (`route.ts`, `route-stop.ts`, `route-closure-summary.ts`, `route-errors.ts`).
+- **Architectural roles and patterns:** use dot notation before the role suffix (`.<role>.ts`):
+  - Type definitions and contracts: `.<entity>.types.ts` (e.g. `route-closure.types.ts`, `package-state.types.ts`)
+  - Domain policies: `.<entity>.policy.ts` (e.g. `route-closure.policy.ts`, `route-manifest-reconciliation.policy.ts`)
+  - Repositories and ports: `.<entity>.repository.ts`, `.<port-name>.port.ts` (e.g. `route.repository.ts`)
+  - Domain events: `.<entity>.event.ts` (e.g. `route-lifecycle.event.ts`)
+  - Application use cases: `.<action>.use-case.ts` (e.g. `prepare-route.use-case.ts`, `close-route.use-case.ts`)
+  - Presentation DTOs: `.<action>.dto.ts` (e.g. `prepare-route.dto.ts`, `close-route.dto.ts`)
+  - Framework modules and controllers: `.<name>.module.ts`, `.<name>.controller.ts` (e.g. `routes.module.ts`, `routes.controller.ts`)
+  - Tests and fixtures: `*.spec.ts`, `*.fixtures.ts` (e.g. `route.spec.ts`, `route-closure.fixtures.ts`)
+
 ## 22. Development commands
 
 Docker Compose is the required execution environment for this repository. Run
