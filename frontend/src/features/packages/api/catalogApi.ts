@@ -23,15 +23,25 @@ const MOCK_SECTORS: SectorOption[] = [
 // tipos de envío todavía no están implementados según AGENTS.md §26).
 export function fetchZones(): Promise<CatalogOption[]> {
   if (USE_MOCK_DATA) return Promise.resolve(MOCK_ZONES);
-  return apiFetch<CatalogOption[]>('/zones');
+  return fetchCatalog<CatalogOption>('/zones');
 }
 
 export function fetchSectors(zoneId: string): Promise<SectorOption[]> {
   if (USE_MOCK_DATA) return Promise.resolve(MOCK_SECTORS.filter((sector) => sector.zoneId === zoneId));
-  return apiFetch<SectorOption[]>(`/zones/${zoneId}/sectors`);
+  return fetchCatalog<SectorOption>(`/zones/${zoneId}/sectors`);
 }
 
 export function fetchShipmentTypes(): Promise<CatalogOption[]> {
   if (USE_MOCK_DATA) return Promise.resolve(MOCK_SHIPMENT_TYPES);
-  return apiFetch<CatalogOption[]>('/shipment-types');
+  return fetchCatalog<CatalogOption>('/shipment-types');
+}
+
+async function fetchCatalog<T>(path: string): Promise<T[]> {
+  const result = await apiFetch<unknown>(path);
+
+  if (!Array.isArray(result)) {
+    throw new Error(`La respuesta de ${path} no es un catálogo válido.`);
+  }
+
+  return result as T[];
 }

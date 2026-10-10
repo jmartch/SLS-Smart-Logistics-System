@@ -1,0 +1,165 @@
+enum RoadProfile {
+  MOTOR_VEHICLE
+  MOTORCYCLE
+  BICYCLE
+  FOOT
+}
+
+enum RoadTurnRestrictionType {
+  NO_TURN
+  ONLY_TURN
+}
+
+enum NetworkAttachmentStatus {
+  AUTO_ACCEPTED
+  REVIEW_REQUIRED
+  APPROVED
+  REJECTED
+}
+
+model RoadNode {
+  id        String                              @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  datasetId String                              @db.Uuid
+  osmNodeId BigInt?
+  location  Unsupported("geometry(Point,4326)")
+  createdAt DateTime                            @default(now()) @db.Timestamptz(3)
+
+  dataset                  GeoDataset            @relation(fields: [datasetId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  outgoingEdges            RoadEdge[]            @relation("RoadEdgeFrom")
+  incomingEdges            RoadEdge[]            @relation("RoadEdgeTo")
+  viaTurnRestrictions      RoadTurnRestriction[] @relation("RoadTurnRestrictionViaNode")
+  networkAttachments       NetworkAttachment[]
+  routeLegsStartingAtNode  RouteLeg[]            @relation("RouteLegFromNode")
+  routeLegsFinishingAtNode RouteLeg[]            @relation("RouteLegToNode")
+
+  @@unique([datasetId, id])
+  @@unique([datasetId, osmNodeId])
+  @@index([datasetId])
+}
+
+model RoadEdge {
+  id         String                                   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  datasetId  String                                   @db.Uuid
+  fromNodeId String                                   @db.Uuid
+  toNodeId   String                                   @db.Uuid
+  osmWayId   BigInt?
+  profile    RoadProfile
+  distanceM  Decimal                                  @db.Decimal(12, 3)
+  durationS  Decimal                                  @db.Decimal(12, 3)
+  roadClass  String
+  geometry   Unsupported("geometry(LineString,4326)")
+  sourceTags Json?
+  createdAt  DateTime                                 @default(now()) @db.Timestamptz(3)
+
+  dataset                  GeoDataset            @relation(fields: [datasetId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  fromNode                 RoadNode              @relation("RoadEdgeFrom", fields: [datasetId, fromNodeId], references: [datasetId, id], onDelete: Restrict, onUpdate: Restrict)
+  toNode                   RoadNode              @relation("RoadEdgeTo", fields: [datasetId, toNodeId], references: [datasetId, id], onDelete: Restrict, onUpdate: Restrict)
+  incomingTurnRestrictions RoadTurnRestriction[] @relation("RoadTurnRestrictionIncomingEdge")
+  outgoingTurnRestrictions RoadTurnRestriction[] @relation("RoadTurnRestrictionOutgoingEdge")
+  networkAttachments       NetworkAttachment[]
+  routeLegEdges            RouteLegEdge[]
+
+  @@unique([datasetId, id])
+  @@index([datasetId, profile, fromNodeId])
+  @@index([datasetId, profile, toNodeId])
+  @@index([datasetId, osmWayId])
+}
+
+model RoadTurnRestriction {
+  id                String                  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  datasetId         String                  @db.Uuid
+  incomingEdgeId    String                  @db.Uuid
+  outgoingEdgeId    String                  @db.Uuid
+  viaNodeId         String?                 @db.Uuid
+  osmRelationId     BigInt?
+  viaOsmWayId       BigInt?
+  profile           RoadProfile
+  restrictionType   RoadTurnRestrictionType
+  sourceRestriction String
+  sourceTags        Json?
+  createdAt         DateTime                @default(now()) @db.Timestamptz(3)
+
+  dataset      GeoDataset @relation(fields: [datasetId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  incomingEdge RoadEdge   @relation("RoadTurnRestrictionIncomingEdge", fields: [datasetId, incomingEdgeId], references: [datasetId, id], onDelete: Restrict, onUpdate: Restrict)
+  outgoingEdge RoadEdge   @relation("RoadTurnRestrictionOutgoingEdge", fields: [datasetId, outgoingEdgeId], references: [datasetId, id], onDelete: Restrict, onUpdate: Restrict)
+  viaNode      RoadNode?  @relation("RoadTurnRestrictionViaNode", fields: [datasetId, viaNodeId], references: [datasetId, id], onDelete: Restrict, onUpdate: Restrict)
+
+  @@unique([datasetId, id])
+  @@index([datasetId, profile, incomingEdgeId])
+  @@index([datasetId, profile, outgoingEdgeId])
+  @@index([datasetId, osmRelationId])
+}
+
+model NetworkAttachment {
+  id                   String                              @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId             String                              @db.Uuid
+  datasetId            String                              @db.Uuid
+  geocodingCandidateId String                              @db.Uuid
+  profile              RoadProfile
+  roadNodeId           String?                             @db.Uuid
+  roadEdgeId           String?                             @db.Uuid
+  snappedLocation      Unsupported("geometry(Point,4326)")
+  accessDistanceM      Decimal                             @db.Decimal(12, 3)
+  status               NetworkAttachmentStatus
+  reviewedByUserId     String?                             @db.Uuid
+  reviewReason         String?
+  reviewedAt           DateTime?                           @db.Timestamptz(3)
+  createdAt            DateTime                            @default(now()) @db.Timestamptz(3)
+
+  tenant             Tenant             @relation(fields: [tenantId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  dataset            GeoDataset         @relation(fields: [datasetId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  geocodingCandidate GeocodingCandidate @relation(fields: [tenantId, geocodingCandidateId, datasetId], references: [tenantId, id, datasetId], onDelete: Restrict, onUpdate: Restrict)
+  roadNode           RoadNode?          @relation(fields: [datasetId, roadNodeId], references: [datasetId, id], onDelete: Restrict, onUpdate: Restrict)
+  roadEdge           RoadEdge?          @relation(fields: [datasetId, roadEdgeId], references: [datasetId, id], onDelete: Restrict, onUpdate: Restrict)
+  reviewedByUser     User?              @relation(fields: [tenantId, reviewedByUserId], references: [tenantId, id], onDelete: Restrict, onUpdate: Restrict)
+
+  @@unique([tenantId, id])
+  @@unique([tenantId, geocodingCandidateId, datasetId, profile])
+  @@index([datasetId, profile, roadNodeId])
+  @@index([datasetId, profile, roadEdgeId])
+  @@index([tenantId, status])
+}
+
+model RouteLeg {
+  id         String      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId   String      @db.Uuid
+  routeId    String      @db.Uuid
+  datasetId  String      @db.Uuid
+  sequence   Int
+  profile    RoadProfile
+  fromNodeId String      @db.Uuid
+  toNodeId   String      @db.Uuid
+  distanceM  Decimal     @db.Decimal(12, 3)
+  durationS  Decimal     @db.Decimal(12, 3)
+  createdAt  DateTime    @default(now()) @db.Timestamptz(3)
+
+  tenant   Tenant         @relation(fields: [tenantId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  route    Route          @relation(fields: [tenantId, routeId], references: [tenantId, id], onDelete: Restrict, onUpdate: Restrict)
+  dataset  GeoDataset     @relation(fields: [datasetId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  fromNode RoadNode       @relation("RouteLegFromNode", fields: [datasetId, fromNodeId], references: [datasetId, id], onDelete: Restrict, onUpdate: Restrict)
+  toNode   RoadNode       @relation("RouteLegToNode", fields: [datasetId, toNodeId], references: [datasetId, id], onDelete: Restrict, onUpdate: Restrict)
+  edges    RouteLegEdge[]
+
+  @@unique([tenantId, id])
+  @@unique([tenantId, id, datasetId])
+  @@unique([tenantId, routeId, sequence])
+  @@index([datasetId, profile])
+}
+
+model RouteLegEdge {
+  id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId   String   @db.Uuid
+  routeLegId String   @db.Uuid
+  datasetId  String   @db.Uuid
+  roadEdgeId String   @db.Uuid
+  sequence   Int
+  createdAt  DateTime @default(now()) @db.Timestamptz(3)
+
+  tenant   Tenant   @relation(fields: [tenantId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  routeLeg RouteLeg @relation(fields: [tenantId, routeLegId, datasetId], references: [tenantId, id, datasetId], onDelete: Restrict, onUpdate: Restrict)
+  roadEdge RoadEdge @relation(fields: [datasetId, roadEdgeId], references: [datasetId, id], onDelete: Restrict, onUpdate: Restrict)
+
+  @@unique([tenantId, id])
+  @@unique([tenantId, routeLegId, sequence])
+  @@index([datasetId, roadEdgeId])
+}

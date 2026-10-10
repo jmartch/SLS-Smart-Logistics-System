@@ -236,6 +236,54 @@ Rules:
 - Export only the providers that form a module's intentional public interface.
 - Avoid circular dependencies and global modules except for truly cross-cutting infrastructure.
 
+### Clean Architecture boundaries
+
+The backend applies **Clean Architecture** inside the modular monolith. Organize
+code by business capability first and preserve the following dependency direction
+inside each capability:
+
+```text
+Presentation -> Application -> Domain
+Infrastructure -> Application/Domain
+```
+
+Mandatory boundaries:
+
+- `domain/` contains entities, aggregates, value objects, domain services,
+  policies, domain events, and contracts that belong to the domain.
+- `domain/` must not import NestJS, Prisma, HTTP DTOs, controllers, RabbitMQ,
+  email providers, storage providers, or infrastructure implementations.
+- `application/` contains use cases, commands, application results, and the
+  ports required to execute those use cases.
+- Application use cases coordinate the business workflow. A persistence
+  adapter must not decide the use-case flow, invoke validation policy on behalf
+  of the use case, or determine business outcomes beyond translating persisted
+  state and infrastructure failures.
+- `application/` may depend on `domain/`, but it must not import concrete
+  implementations from `infrastructure/` or framework-specific presentation
+  code.
+- `infrastructure/` implements ports owned by the inner layers and contains
+  Prisma, SQL, RabbitMQ, email, storage, and other external integrations.
+- `presentation/` validates and maps external input, obtains trusted identity
+  and tenant context, invokes one application use case, and maps its result. It
+  must not contain authoritative business rules.
+- NestJS modules are composition roots. They may know both ports and adapters
+  solely to wire dependencies, but application and domain classes must remain
+  instantiable without NestJS.
+- Transactional consistency may use an application-owned unit-of-work or
+  transactional port. Do not move business policy into a Prisma adapter merely
+  to keep an operation atomic.
+- Repository and gateway contracts must model capabilities needed by the inner
+  layers rather than expose Prisma models, transaction clients, or framework
+  types.
+- Add automated import-boundary rules or architecture tests as modules are
+  introduced. At minimum, reject imports from `domain/` to `application/`,
+  `infrastructure/`, or `presentation/`, and from `application/` to
+  `infrastructure/` or `presentation/`.
+- Existing code that does not yet satisfy these boundaries is technical debt,
+  not a precedent. Refactor it in a focused task without mixing unrelated
+  feature work.
+
 ## 9. Multi-tenancy
 
 Every company is a `Tenant`. All tenant-owned entities must include `tenantId` directly or through an enforceable parent relation.
@@ -606,37 +654,68 @@ Tests must demonstrate behavior, not merely execute lines. Use factories/fixture
 
 ## 22. Development commands
 
-From the repository root:
+Docker Compose is the required execution environment for this repository. Run
+all application commands, package-manager commands, builds, formatters, linters,
+tests, Prisma commands, and development servers through their Compose service.
+Do not run `npm`, `npx`, NestJS, Prisma, Jest, ESLint, Prettier, Vite, or other
+project tooling directly on the host.
+
+This rule keeps the Node.js version, installed dependencies, environment
+variables, generated Prisma client, and file ownership consistent. Mixing host
+and container execution can leave bind-mounted artifacts such as `backend/dist`
+or generated files owned by a different user and cause `EACCES` errors on later
+commands.
+
+All commands below are run from the repository root. Start the required services
+before using `docker compose exec`:
 
 ```bash
-docker compose up --build
+docker compose up -d --build
 docker compose ps
 docker compose logs -f
 ```
 
-Backend checks from `backend/`:
+Backend checks:
 
 ```bash
-npm run build
-npm test
-npm run test:e2e
+docker compose exec backend npm run build
+docker compose exec backend npm test -- --runInBand
+docker compose exec backend npm run test:e2e
 ```
 
-Frontend checks from `frontend/`:
+`test:gdb-01` requires a separate disposable PostgreSQL/PostGIS server; never
+point it at the shared SLS database. Pass its administrative URL into the
+container as documented in `backend/test/integration/README.md`.
+
+Backend formatting and linting, only when the task authorizes modifying files:
 
 ```bash
-npm run build
-npm run lint
+docker compose exec backend npm run format
+docker compose exec backend npm run lint
 ```
 
-Prisma through Docker after schema changes:
+Frontend checks:
+
+```bash
+docker compose exec frontend npm run build
+docker compose exec frontend npm run lint
+```
+
+Prisma after schema changes:
 
 ```bash
 docker compose exec backend npx prisma generate
 docker compose exec backend npx prisma migrate dev --name <migration_name>
 ```
 
-Note that the current backend `lint` script includes `--fix` and modifies files. Do not run it during read-only review.
+For a one-off command when the service is not already running, use
+`docker compose run --rm <service> <command>` instead of executing the project
+tool on the host. Do not mix `exec` and host-side `npm`/`npx` commands to work
+around permissions. Diagnose the owner and origin of an existing artifact before
+changing permissions or deleting it.
+
+The current backend `lint` script includes `--fix` and modifies files. Do not run
+it during read-only review.
 
 ## 23. Git workflow
 
@@ -653,16 +732,17 @@ Ownership indicates coordination responsibility, not exclusive knowledge.
 
 | Area                                           | Primary  | Secondary |
 | ---------------------------------------------- | -------- | --------- |
-| Backend architecture, Prisma, auth, tenants    | P1       | P3        |
-| Packages, states, classification               | P2       | P4        |
-| Planning, zones, routes, vehicles, assignments | P3       | P2/P1     |
-| Frontend and UX                                | P4       | P2        |
-| RabbitMQ, idempotency, DLQ                     | P1       | P3        |
-| Notifications                                  | P4/P1    | P2        |
-| Delivery flow and evidence                     | P3/P4    | P2        |
+| Backend architecture, Prisma, auth, tenants    | Juanangel       | Humberto        |
+| Packages, states, classification               | Vivian       | Santiago        |
+| Planning, zones, routes, assignments | Humberto | Vivian/Juanangel |
+| Vehicles and couriers | Vivian | Humberto |
+| Frontend and UX                                | Santiago       | Vivian        |
+| RabbitMQ, idempotency, DLQ                     | Juanangel       | Humberto        |
+| Notifications                                  | Santiago/Juanangel    | Vivian        |
+| Delivery flow and evidence                     | Humberto/Santiago    | Vivian        |
 | Testing and documentation                      | Everyone | Everyone  |
 
-Replace P1-P4 with actual names when the team confirms ownership.
+Team names confirmed by Humberto on 2026-09-30: Juanangel owns AUTH-01/TENANT-01; Vivian owns PKG-01/VEH-01; Humberto owns ZONE-01 and coordinates clustering; Santiago owns frontend. Other ownership entries retain the existing coordination split with names substituted; priorities P0/P1/P2 are unchanged.
 
 ## 25. Task format and Definition of Done
 
@@ -671,7 +751,7 @@ Task format:
 ```text
 ID: ASSIGN-01
 Title: Implement assignment validation chain
-Owner: P3
+Owner: Humberto
 Priority: P0
 Status: TODO
 Dependencies: DATA-01, PKG-01, VEH-01
@@ -709,59 +789,59 @@ This board reflects the repository state when this file was created. Update stat
 | ID           | Task                                                                  | Owner    | Status      | Dependencies                                 | Acceptance                                                                      |
 | ------------ | --------------------------------------------------------------------- | -------- | ----------- | -------------------------------------------- | ------------------------------------------------------------------------------- |
 | DOC-01       | Keep technical document aligned with implementation                   | Everyone | IN_PROGRESS | None                                         | 6-10 page PDF matches real code and evidence.                                   |
-| PAT-CHAIN-01 | Implement Chain interfaces, context, and concrete validation handlers | P3       | TODO        | FOUND-01                                     | Valid and invalid requests demonstrate delegation and interruption.             |
-| PAT-CHAIN-02 | Add unit/integration tests for the complete chain                     | P3/P2    | TODO        | PAT-CHAIN-01                                 | Success, coordinate failure, capacity failure, order, and extension tests pass. |
-| PAT-STATE-01 | Implement package State model and controlled transitions              | P2       | TODO        | FOUND-01                                     | Valid/invalid transitions and emitted events are tested.                        |
-| EVT-01       | Define versioned event envelope and core contracts                    | P1       | TODO        | FOUND-01                                     | Events include IDs, tenant, correlation, type, time, producer, and version.     |
-| RMQ-01       | Add RabbitMQ to Docker Compose and NestJS worker entry point          | P1       | TODO        | EVT-01                                       | API publishes and worker consumes a durable test event with manual ACK.         |
-| IDEMP-01     | Implement `ProcessedEvent` and idempotent consumer wrapper            | P1/P3    | TODO        | DATA-01, RMQ-01                              | Duplicate delivery produces one business effect.                                |
-| DLQ-01       | Configure bounded retry and DLQ demonstration                         | P1/P3    | TODO        | RMQ-01                                       | Poison event reaches DLQ with failure context after limited attempts.           |
+| PAT-CHAIN-01 | Implement Chain interfaces, context, and concrete validation handlers | Humberto       | TODO        | FOUND-01                                     | Valid and invalid requests demonstrate delegation and interruption.             |
+| PAT-CHAIN-02 | Add unit/integration tests for the complete chain                     | Humberto/Vivian    | TODO        | PAT-CHAIN-01                                 | Success, coordinate failure, capacity failure, order, and extension tests pass. |
+| PAT-STATE-01 | Implement package State model and controlled transitions              | Vivian       | TODO        | FOUND-01                                     | Valid/invalid transitions and emitted events are tested.                        |
+| EVT-01       | Define versioned event envelope and core contracts                    | Juanangel       | TODO        | FOUND-01                                     | Events include IDs, tenant, correlation, type, time, producer, and version.     |
+| RMQ-01       | Add RabbitMQ to Docker Compose and NestJS worker entry point          | Juanangel       | TODO        | EVT-01                                       | API publishes and worker consumes a durable test event with manual ACK.         |
+| IDEMP-01     | Implement `ProcessedEvent` and idempotent consumer wrapper            | Juanangel/Humberto    | TODO        | DATA-01, RMQ-01                              | Duplicate delivery produces one business effect.                                |
+| DLQ-01       | Configure bounded retry and DLQ demonstration                         | Juanangel/Humberto    | TODO        | RMQ-01                                       | Poison event reaches DLQ with failure context after limited attempts.           |
 | EVID-01      | Capture test commands and output for the workshop                     | Everyone | TODO        | PAT-CHAIN-02, PAT-STATE-01, IDEMP-01, DLQ-01 | Repository/anex documents reproducible evidence.                                |
 
 ### P0 - foundation
 
 | ID        | Task                                                                 | Owner | Status | Dependencies     | Acceptance                                                                 |
 | --------- | -------------------------------------------------------------------- | ----- | ------ | ---------------- | -------------------------------------------------------------------------- |
-| FOUND-01  | Create modular backend skeleton and shared infrastructure boundaries | P1    | TODO   | None             | Modules compile without circular dependencies.                             |
-| DATA-01   | Design Prisma core schema and initial migration                      | P1/P3 | TODO   | FOUND-01         | Tenant-aware entities, enums, indexes, and histories validate and migrate. |
-| TENANT-01 | Implement tenant context and isolation helpers                       | P1    | TODO   | DATA-01          | All tenant-owned repository operations require trusted tenant context.     |
-| AUTH-01   | Implement authentication, roles, and guards                          | P1    | TODO   | TENANT-01        | Protected routes enforce role and tenant membership.                       |
-| PKG-01    | Implement package registration, dimensions, status, and history      | P2    | TODO   | DATA-01, AUTH-01 | Unique package per tenant can be registered and audited.                   |
-| ZONE-01   | Implement zones and optional sectors                                 | P3/P2 | TODO   | DATA-01          | Tenant zones classify known destinations.                                  |
-| VEH-01    | Implement vehicles, couriers, availability, and capacity             | P3    | TODO   | DATA-01          | Weight/volume availability is computed in canonical units.                 |
+| FOUND-01  | Create modular backend skeleton and shared infrastructure boundaries | Juanangel    | TODO   | None             | Modules compile without circular dependencies.                             |
+| DATA-01   | Design Prisma core schema and initial migration                      | Juanangel/Humberto | TODO   | FOUND-01         | Tenant-aware entities, enums, indexes, and histories validate and migrate. |
+| TENANT-01 | Implement tenant context and isolation helpers                       | Juanangel    | TODO   | DATA-01          | All tenant-owned repository operations require trusted tenant context.     |
+| AUTH-01   | Implement authentication, roles, and guards                          | Juanangel    | TODO   | TENANT-01        | Protected routes enforce role and tenant membership.                       |
+| PKG-01    | Implement package registration, dimensions, status, and history      | Vivian    | TODO   | DATA-01, AUTH-01 | Unique package per tenant can be registered and audited.                   |
+| ZONE-01   | Implement zones and optional sectors                                 | Humberto | TODO   | DATA-01          | Tenant zones classify known destinations.                                  |
+| VEH-01    | Implement vehicles, couriers, availability, and capacity             | Vivian | TODO   | DATA-01          | Weight/volume availability is computed in canonical units.                 |
 
 ### P1 - planning and route execution
 
 | ID             | Task                                                             | Owner | Status  | Dependencies                             | Acceptance                                                               |
 | -------------- | ---------------------------------------------------------------- | ----- | ------- | ---------------------------------------- | ------------------------------------------------------------------------ |
-| GEO-01         | Implement coordinate parsing, validation, and Haversine          | P3    | TODO    | FOUND-01                                 | Known distances and invalid coordinates are covered by tests.            |
-| CLUSTER-01     | Implement deterministic clustering prototype                     | P3    | TODO    | GEO-01                                   | Small dataset produces reproducible clusters.                            |
-| SEQ-01         | Implement nearest-neighbor stop ordering                         | P3    | TODO    | GEO-01                                   | Every stop is visited once in deterministic order.                       |
-| ASSIGN-01      | Integrate clustering, capacity, and Chain into planning use case | P3/P2 | TODO    | CLUSTER-01, SEQ-01, PAT-CHAIN-01, VEH-01 | Valid plans create routes; unresolved packages remain pending.           |
-| ROUTE-01       | Implement route/stop lifecycle and coordinator review            | P3    | TODO    | DATA-01, ASSIGN-01                       | Route can move from draft through ready and start.                       |
-| ITER-01        | Implement route-stop Iterator prototype                          | P3    | BACKLOG | ROUTE-01                                 | Ordered and pending iterators pass tests.                                |
-| DELIVERY-01    | Implement attempts, delivery, failure, reschedule, and return    | P2/P3 | TODO    | ROUTE-01, PAT-STATE-01                   | Complete route flow records history and valid transitions.               |
-| ROUTE-CLOSE-01 | Implement route closure summary                                  | P3    | TODO    | DELIVERY-01                              | Assigned, delivered, failed, rescheduled, and returned counts reconcile. |
+| GEO-01         | Implement coordinate parsing, validation, and Haversine          | Humberto    | TODO    | FOUND-01                                 | Known distances and invalid coordinates are covered by tests.            |
+| CLUSTER-01     | Implement deterministic clustering prototype                     | Humberto    | TODO    | GEO-01                                   | Small dataset produces reproducible clusters.                            |
+| SEQ-01         | Implement nearest-neighbor stop ordering                         | Humberto    | TODO    | GEO-01                                   | Every stop is visited once in deterministic order.                       |
+| ASSIGN-01      | Integrate clustering, capacity, and Chain into planning use case | Humberto/Vivian | TODO    | CLUSTER-01, SEQ-01, PAT-CHAIN-01, VEH-01 | Valid plans create routes; unresolved packages remain pending.           |
+| ROUTE-01       | Implement route/stop lifecycle and coordinator review            | Humberto    | TODO    | DATA-01, ASSIGN-01                       | Route can move from draft through ready and start.                       |
+| ITER-01        | Implement route-stop Iterator prototype                          | Humberto    | BACKLOG | ROUTE-01                                 | Ordered and pending iterators pass tests.                                |
+| DELIVERY-01    | Implement attempts, delivery, failure, reschedule, and return    | Vivian/Humberto | TODO    | ROUTE-01, PAT-STATE-01                   | Complete route flow records history and valid transitions.               |
+| ROUTE-CLOSE-01 | Implement route closure summary                                  | Humberto    | TODO    | DELIVERY-01                              | Assigned, delivered, failed, rescheduled, and returned counts reconcile. |
 
 ### P1 - notifications and frontend
 
 | ID       | Task                                                          | Owner | Status | Dependencies          | Acceptance                                                        |
 | -------- | ------------------------------------------------------------- | ----- | ------ | --------------------- | ----------------------------------------------------------------- |
-| NOTIF-01 | Implement internal notification persistence                   | P4/P1 | TODO   | DATA-01, EVT-01       | Tenant users can view event-derived notifications.                |
-| NOTIF-02 | Implement email adapter and worker consumer                   | P1/P4 | TODO   | RMQ-01, NOTIF-01      | Email failures do not roll back logistics and are retried safely. |
-| UI-01    | Replace Vite starter with authenticated application shell     | P4    | TODO   | AUTH-01               | Login and role-aware navigation work.                             |
-| UI-02    | Implement package registration and pending assignment screens | P4/P2 | TODO   | PKG-01, ASSIGN-01     | Users can register and review package outcomes.                   |
-| UI-03    | Implement planning, route, and courier execution screens      | P4/P3 | TODO   | ROUTE-01, DELIVERY-01 | Coordinator and courier complete the core workflow.               |
-| UI-04    | Implement notification inbox and public status view           | P4    | TODO   | NOTIF-01, PKG-01      | Tenant and public views expose only permitted information.        |
+| NOTIF-01 | Implement internal notification persistence                   | Santiago/Juanangel | TODO   | DATA-01, EVT-01       | Tenant users can view event-derived notifications.                |
+| NOTIF-02 | Implement email adapter and worker consumer                   | Juanangel/Santiago | TODO   | RMQ-01, NOTIF-01      | Email failures do not roll back logistics and are retried safely. |
+| UI-01    | Replace Vite starter with authenticated application shell     | Santiago    | TODO   | AUTH-01               | Login and role-aware navigation work.                             |
+| UI-02    | Implement package registration and pending assignment screens | Santiago/Vivian | TODO   | PKG-01, ASSIGN-01     | Users can register and review package outcomes.                   |
+| UI-03    | Implement planning, route, and courier execution screens      | Santiago/Humberto | TODO   | ROUTE-01, DELIVERY-01 | Coordinator and courier complete the core workflow.               |
+| UI-04    | Implement notification inbox and public status view           | Santiago    | TODO   | NOTIF-01, PKG-01      | Tenant and public views expose only permitted information.        |
 
 ### P2 - hardening and optional patterns
 
 | ID        | Task                                                  | Owner    | Status  | Dependencies        | Acceptance                                                 |
 | --------- | ----------------------------------------------------- | -------- | ------- | ------------------- | ---------------------------------------------------------- |
-| INTERP-01 | Implement limited Interpreter prototype               | P2/P3    | BACKLOG | ASSIGN-01           | Valid expressions evaluate; invalid grammar is rejected.   |
-| AUDIT-01  | Implement audit log for sensitive actions and redrive | P1       | BACKLOG | DATA-01, DLQ-01     | Actor, tenant, action, target, and result are recorded.    |
-| OBS-01    | Add structured logging and correlation IDs            | P1       | TODO    | EVT-01              | One operation can be traced across API and worker logs.    |
-| SEC-01    | Add tenant-isolation and authorization test suite     | P1/P4    | TODO    | AUTH-01, core APIs  | Cross-tenant access is denied without resource disclosure. |
+| INTERP-01 | Implement limited Interpreter prototype               | Vivian/Humberto    | BACKLOG | ASSIGN-01           | Valid expressions evaluate; invalid grammar is rejected.   |
+| AUDIT-01  | Implement audit log for sensitive actions and redrive | Juanangel       | BACKLOG | DATA-01, DLQ-01     | Actor, tenant, action, target, and result are recorded.    |
+| OBS-01    | Add structured logging and correlation IDs            | Juanangel       | TODO    | EVT-01              | One operation can be traced across API and worker logs.    |
+| SEC-01    | Add tenant-isolation and authorization test suite     | Juanangel/Santiago    | TODO    | AUTH-01, core APIs  | Cross-tenant access is denied without resource disclosure. |
 | QA-01     | Add end-to-end critical-flow fixtures and tests       | Everyone | TODO    | Core P0/P1 tasks    | Registration-to-delivery scenarios are reproducible.       |
 | DOC-02    | Update README, execution guide, diagrams, and ADRs    | Everyone | TODO    | Core implementation | A new contributor can run and understand the project.      |
 
@@ -781,9 +861,9 @@ The board is ordered by priority, but dependencies determine the actual implemen
 
 Parallel-work rules:
 
-- P1 should publish tenant, persistence, and event contracts early so other areas do not guess them.
-- P2 and P3 should agree on package states and assignment inputs before implementing their modules independently.
-- P4 may build against typed mock contracts initially, but must replace them with real API integration before marking a UI task done.
+- Juanangel should publish tenant, persistence, and event contracts early so other areas do not guess them.
+- Vivian and Humberto should agree on package states and assignment inputs before implementing their modules independently.
+- Santiago may build against typed mock contracts initially, but must replace them with real API integration before marking a UI task done.
 - A task that changes a shared contract must notify all dependent owners and update tests or fixtures in the same change.
 - If an academic deadline arrives before a whole wave is complete, prioritize the smallest end-to-end demonstrable slice over disconnected module scaffolding.
 
@@ -796,6 +876,8 @@ Before changing code:
 3. Identify tenant, event, and state implications.
 4. Preserve user changes and avoid unrelated rewrites.
 5. Confirm whether a described feature exists or is only target design.
+6. Run repository tooling through Docker Compose as specified in section 22;
+   never invoke project `npm` or `npx` commands directly on the host.
 
 During implementation:
 
@@ -809,7 +891,7 @@ During implementation:
 
 After implementation:
 
-1. Run the relevant build and tests.
+1. Run the relevant build and tests through Docker Compose.
 2. Report files changed and commands run.
 3. Report migrations, new environment variables, and operational steps.
 4. Update this task board only when status is verified.

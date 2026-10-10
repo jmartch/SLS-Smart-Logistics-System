@@ -1,0 +1,17 @@
+services:
+  integration-postgres:
+    image: postgis/postgis:17-3.6-alpine
+    container_name: sls-integration-postgres
+    environment:
+      POSTGRES_USER: integration_admin
+      POSTGRES_PASSWORD: integration_test_password
+      POSTGRES_DB: postgres
+    tmpfs:
+      - /var/lib/postgresql/data
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U integration_admin -d postgres" ]
+      interval: 2s
+      timeout: 5s
+      retries: 20
+    profiles:
+      - integration

@@ -4,8 +4,7 @@ import tailwindcss from '@tailwindcss/vite'
 import path from 'node:path'
 
 import { frontendAssets } from './.figma/make/import-assets.mjs'
-import siteConfiguration from './.figma/make/site.json'
-
+import siteConfiguration from './.figma/make/site.json' with { type: 'json' }
 
 // Vite config — https://vitejs.dev/config/
 export default defineConfig(({ mode }) => {
@@ -29,12 +28,12 @@ export default defineConfig(({ mode }) => {
     ],
     resolve: {
       alias: {
-        '@': path.resolve(__dirname, './src'),
+        '@': path.resolve(import.meta.dirname, './src'),
       },
     },
     server: {
       host: process.env.FIGMA_DEV_SERVER_HOST || '0.0.0.0',
-      port: parseInt(process.env.PORT || '8443'),
+      port: parseInt(process.env.PORT || '5173'),
       strictPort: false,
       watch: {
         ignored: [
@@ -44,7 +43,7 @@ export default defineConfig(({ mode }) => {
     },
     preview: {
       host: process.env.FIGMA_DEV_SERVER_HOST || '0.0.0.0',
-      port: parseInt(process.env.PORT || '8443'),
+      port: parseInt(process.env.PORT || '5173'),
     },
   }
 })
