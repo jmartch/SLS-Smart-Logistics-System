@@ -817,8 +817,8 @@ This board reflects the repository state when this file was created. Update stat
 | --------- | -------------------------------------------------------------------- | ----- | ------ | ---------------- | -------------------------------------------------------------------------- |
 | FOUND-01  | Create modular backend skeleton and shared infrastructure boundaries | Juanangel    | TODO   | None             | Modules compile without circular dependencies.                             |
 | DATA-01   | Design Prisma core schema and initial migration                      | Juanangel/Humberto | TODO   | FOUND-01         | Tenant-aware entities, enums, indexes, and histories validate and migrate. |
-| TENANT-01 | Implement tenant context and isolation helpers                       | Juanangel    | TODO   | DATA-01          | All tenant-owned repository operations require trusted tenant context.     |
-| AUTH-01   | Implement authentication, roles, and guards                          | Juanangel    | TODO   | TENANT-01        | Protected routes enforce role and tenant membership.                       |
+| TENANT-01 | Implement tenant context and isolation helpers                       | Juanangel    | DONE   | DATA-01          | All tenant-owned repository operations require trusted tenant context.     |
+| AUTH-01   | Implement authentication, roles, and guards                          | Juanangel    | DONE   | TENANT-01        | Protected routes enforce role and tenant membership.                       |
 | PKG-01    | Implement package registration, dimensions, status, and history      | Vivian    | TODO   | DATA-01, AUTH-01 | Unique package per tenant can be registered and audited.                   |
 | ZONE-01   | Implement zones and optional sectors                                 | Humberto | TODO   | DATA-01          | Tenant zones classify known destinations.                                  |
 | VEH-01    | Implement vehicles, couriers, availability, and capacity             | Vivian | TODO   | DATA-01          | Weight/volume availability is computed in canonical units.                 |

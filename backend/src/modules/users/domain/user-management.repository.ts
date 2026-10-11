@@ -1,4 +1,9 @@
-import type { EmployeeRecord, EmployeeStatus } from './employee';
+import type {
+  EmployeeAuditEntry,
+  EmployeeRecord,
+  EmployeeStatus,
+  RoleRecord,
+} from './employee';
 
 // Reads and writes bound to one tenant transaction that holds that tenant's
 // employee-administration lock. Every method is scoped to the tenant given to
@@ -27,6 +32,9 @@ export interface UserManagementTx {
   // Replaces all roles. False (and nothing written) when the user is not in
   // the tenant.
   setRoles(userId: string, roleIds: readonly string[]): Promise<boolean>;
+  // Atomically records an employee administration audit event in the same
+  // tenant transaction. Never stores passwords, hashes, or session tokens.
+  recordAudit(entry: EmployeeAuditEntry): Promise<void>;
 }
 
 // INVARIANT: the last-admin rule (some ACTIVE user of the tenant keeps
@@ -40,6 +48,8 @@ export interface UserManagementTx {
 // administer it before it exists.
 export abstract class UserManagementRepository {
   abstract list(tenantId: string): Promise<readonly EmployeeRecord[]>;
+
+  abstract listRoles(tenantId: string): Promise<readonly RoleRecord[]>;
 
   // Runs `work` in a single transaction of the tenant, serialized with every
   // other runExclusive of the same tenant: decisions taken from its reads

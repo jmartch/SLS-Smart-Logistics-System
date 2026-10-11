@@ -109,12 +109,14 @@ describe('run-with-tenant', () => {
 });
 
 describe('runWithTenant', () => {
+  const TENANT_ID = '123e4567-e89b-12d3-a456-426614174000';
+
   // A stand-in client: the callback runs with a fake transaction so the test
   // can see which arguments reach $transaction.
   function fakeClient() {
     const executeRawUnsafe = jest.fn().mockResolvedValue(0);
     const $transaction = jest.fn(
-      (callback: (tx: unknown) => Promise<unknown>) =>
+      (callback: (tx: unknown) => Promise<unknown>, _options?: unknown) =>
         callback({ $executeRawUnsafe: executeRawUnsafe }),
     );
 

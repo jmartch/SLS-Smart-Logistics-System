@@ -8,7 +8,7 @@ import { Reflector } from '@nestjs/core';
 import {
   getCurrentActor,
   type RequestWithActor,
-} from './current-actor.decorator';
+} from '../../../shared/presentation/request-context.decorator';
 import {
   AUTHENTICATED_ONLY_KEY,
   REQUIRED_PERMISSION_KEY,

@@ -70,7 +70,7 @@ function fieldNames(response: request.Response): string[] {
   ].sort();
 }
 
-describe('Employee management /api/users (e2e)', () => {
+describe('Employee management /api/v1/users (e2e)', () => {
   jest.setTimeout(30_000);
 
   let app: INestApplication;
@@ -167,7 +167,7 @@ describe('Employee management /api/users (e2e)', () => {
 
   function loginRequest(tenant: TenantFixture, email: string) {
     return http()
-      .post('/api/auth/login')
+      .post('/api/v1/auth/login')
       .send({ slug: tenant.slug, email, password });
   }
 
@@ -181,11 +181,11 @@ describe('Employee management /api/users (e2e)', () => {
   }
 
   function createEmployee(cookie: string, body: Record<string, unknown>) {
-    return http().post('/api/users').set('Cookie', cookie).send(body);
+    return http().post('/api/v1/users').set('Cookie', cookie).send(body);
   }
 
   function listEmployees(cookie: string) {
-    return http().get('/api/users').set('Cookie', cookie);
+    return http().get('/api/v1/users').set('Cookie', cookie);
   }
 
   function patchStatus(
@@ -195,14 +195,14 @@ describe('Employee management /api/users (e2e)', () => {
     target: INestApplication = app,
   ) {
     return http(target)
-      .patch(`/api/users/${id}/status`)
+      .patch(`/api/v1/users/${id}/status`)
       .set('Cookie', cookie)
       .send({ status });
   }
 
   function patchRoles(cookie: string, id: string, roleIds: unknown) {
     return http()
-      .patch(`/api/users/${id}/roles`)
+      .patch(`/api/v1/users/${id}/roles`)
       .set('Cookie', cookie)
       .send({ roleIds });
   }
@@ -288,6 +288,7 @@ describe('Employee management /api/users (e2e)', () => {
     if (tenantIds.length > 0) {
       const byTenant = { where: { tenantId: { in: tenantIds } } };
       await attempt(() => admin.session.deleteMany(byTenant));
+      await attempt(() => admin.auditLog.deleteMany(byTenant));
       await attempt(() => admin.userRole.deleteMany(byTenant));
       await attempt(() => admin.rolePermission.deleteMany(byTenant));
       await attempt(() => admin.role.deleteMany(byTenant));
@@ -417,7 +418,7 @@ describe('Employee management /api/users (e2e)', () => {
     });
     created.platformAdminIds.push(platformAdmin.id);
     const platformLogin = await http()
-      .post('/api/platform/login')
+      .post('/api/v1/platform/login')
       .send({ email: platformEmail, password });
     expect(platformLogin.status).toBe(200);
     const cookie = sessionCookie(platformLogin);
@@ -439,7 +440,7 @@ describe('Employee management /api/users (e2e)', () => {
     expect(await statusOf(target.id)).toBe('ACTIVE');
     expect(await roleIdsOf(target.id)).toEqual([tenant.courierRoleId]);
 
-    const anonymous = await http().get('/api/users');
+    const anonymous = await http().get('/api/v1/users');
     expect(anonymous.status).toBe(401);
     expect(errorOf(anonymous).code).toBe('SESSION_EXPIRED');
   });
@@ -539,7 +540,7 @@ describe('Employee management /api/users (e2e)', () => {
     const firstCookie = await login(tenant, first);
     const secondCookie = await login(tenant, second);
     const meBefore = await http()
-      .get('/api/auth/me')
+      .get('/api/v1/auth/me')
       .set('Cookie', secondCookie);
     expect(meBefore.status).toBe(200);
     expect(meBefore.body).toEqual({
@@ -555,7 +556,7 @@ describe('Employee management /api/users (e2e)', () => {
     expect(deactivate.body).toEqual({ ok: true });
     expect(await statusOf(second.id)).toBe('INACTIVE');
 
-    const me = await http().get('/api/auth/me').set('Cookie', secondCookie);
+    const me = await http().get('/api/v1/auth/me').set('Cookie', secondCookie);
     expect(me.status).toBe(401);
     expect(
       await admin.session.count({
@@ -857,5 +858,64 @@ describe('Employee management /api/users (e2e)', () => {
     }
     expect(await userIdsOf(tenant.id)).toEqual(usersBefore);
     expect(await statusOf(owner.id)).toBe('ACTIVE');
+  });
+
+  it('lists tenant assignable roles at GET /api/v1/users/roles and records atomic AuditLog entries on employee mutations', async () => {
+    const tenant = await createTenant('roles-and-audit');
+    const other = await createTenant('roles-and-audit-other');
+    const owner = await createUser(tenant, [tenant.adminRoleId], 'owner');
+    const cookie = await login(tenant, owner);
+
+    const rolesResponse = await http()
+      .get('/api/v1/users/roles')
+      .set('Cookie', cookie);
+
+    expect(rolesResponse.status).toBe(200);
+    const roles = rolesResponse.body as {
+      id: string;
+      name: string;
+      permissions: string[];
+    }[];
+    expect(roles.map((r) => r.id).sort()).toEqual(
+      [tenant.adminRoleId, tenant.altAdminRoleId, tenant.courierRoleId].sort(),
+    );
+    expect(roles.some((r) => r.id === other.adminRoleId)).toBe(false);
+
+    const createdRes = await createEmployee(cookie, {
+      email: `audited-${run}@users-e2e.test`,
+      password,
+      roleIds: [tenant.courierRoleId],
+    });
+    expect(createdRes.status).toBe(201);
+    const createdEmployee = createdRes.body as EmployeeBody;
+
+    const rolesPatchRes = await patchRoles(cookie, createdEmployee.id, [
+      tenant.altAdminRoleId,
+    ]);
+    expect(rolesPatchRes.status).toBe(200);
+
+    const statusPatchRes = await patchStatus(
+      cookie,
+      createdEmployee.id,
+      'SUSPENDED',
+    );
+    expect(statusPatchRes.status).toBe(200);
+
+    const auditRows = await admin.auditLog.findMany({
+      where: { tenantId: tenant.id, entityId: createdEmployee.id },
+      orderBy: { createdAt: 'asc' },
+    });
+
+    expect(auditRows.map((row) => row.action)).toEqual([
+      'EMPLOYEE_CREATED',
+      'EMPLOYEE_ROLES_UPDATED',
+      'EMPLOYEE_STATUS_UPDATED',
+    ]);
+    for (const row of auditRows) {
+      expect(row.actorUserId).toBe(owner.id);
+      expect(row.entityType).toBe('User');
+      expect(JSON.stringify(row.metadata)).not.toContain(password);
+      expect(JSON.stringify(row.metadata)).not.toContain('$argon2');
+    }
   });
 });

@@ -23,8 +23,16 @@ describe('Zone and catalog management E2E (ZONE-01)', () => {
 
     await admin.tenant.createMany({
       data: [
-        { id: tenantAId, name: `Zone E2E Tenant A ${tenantAId}` },
-        { id: tenantBId, name: `Zone E2E Tenant B ${tenantBId}` },
+        {
+          id: tenantAId,
+          name: `Zone E2E Tenant A ${tenantAId}`,
+          slug: `zone-e2e-a-${tenantAId}`,
+        },
+        {
+          id: tenantBId,
+          name: `Zone E2E Tenant B ${tenantBId}`,
+          slug: `zone-e2e-b-${tenantBId}`,
+        },
       ],
     });
 

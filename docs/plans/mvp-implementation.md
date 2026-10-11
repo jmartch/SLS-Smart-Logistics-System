@@ -42,7 +42,7 @@ Todos los pasos de implementación corresponden a `USER`, con la persona indicad
 | Etapa | Tareas y responsable | Estado del trabajo restante | Dependencia | Resultado verificable |
 | --- | --- | --- | --- | --- |
 | 0 | Contratos y fronteras: Juanangel, Vivian, Humberto y Santiago | `TODO` | Auditoría actual | Contexto, permisos, errores, unidades, APIs y eventos tienen dueños y ejemplos acordados |
-| 1 | AUTH-01/TENANT-01: Juanangel; UI-01: Santiago | `TODO` | Contrato etapa 0 | Login real A/B, identidad actual y navegación; lectura/mutación ajena denegadas |
+| 1 | AUTH-01/TENANT-01: Juanangel; UI-01: Santiago | `REVIEW` | Contrato etapa 0 | Backend integrado; build/migraciones/enrutamiento real y UI sin mocks aún bloquean el cierre |
 | 2 | ZONE-01: Humberto; PKG-01/VEH-01: Vivian; UI-02/admin: Santiago | `TODO` | Contratos etapa 0; HTTP final requiere 1 | Registrar/consultar paquete persistido; administrar catálogos y recursos con capacidad/tenant válidos |
 | 3 | EVT-01/RMQ-01/IDEMP-01/DLQ-01/OBS-01: Juanangel con apoyo de Humberto | `TODO` | Contratos etapa 0; base tenant y persistencia | Evento real del flujo publicado/consumido; duplicado sin doble efecto; fallo acotado llega a DLQ y puede recuperarse deliberadamente |
 | 4 | GEO-01/CLUSTER-01/SEQ-01/ASSIGN-01: Humberto con Vivian; UI-03: Santiago | `IN_PROGRESS` (Backend completo al 100%: algoritmos, UoW y RoutePlanningController con 55 suites / 442 tests; resta `UI-03`) | Datos de 2; transporte de 3 para planificación asíncrona | Dataset pequeño produce rutas reproducibles, capacidad válida, orden de paradas y pendientes visibles |

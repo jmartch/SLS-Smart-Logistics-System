@@ -14,15 +14,20 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { AuthGuard } from '../../auth/presentation/auth.guard';
-import { CurrentTenant } from '../../auth/presentation/current-tenant.decorator';
+import { CurrentTenantContext } from '../../../shared/presentation/request-context.decorator';
 import { PermissionsGuard } from '../../auth/presentation/permissions.guard';
 import { RequirePermission } from '../../auth/presentation/require-permission.decorator';
 import type { TenantContext } from '../../../shared/application/tenant-context';
 import { CreateEmployeeService } from '../application/create-employee.service';
 import { ListEmployeesService } from '../application/list-employees.service';
+import { ListRolesService } from '../application/list-roles.service';
 import { UpdateEmployeeStatusService } from '../application/update-employee-status.service';
 import { UpdateEmployeeRolesService } from '../application/update-employee-roles.service';
-import { MANAGE_EMPLOYEES, type EmployeeRecord } from '../domain/employee';
+import {
+  MANAGE_EMPLOYEES,
+  type EmployeeRecord,
+  type RoleRecord,
+} from '../domain/employee';
 import { CreateEmployeeDto } from './dto/create-employee.dto';
 import { UpdateEmployeeStatusDto } from './dto/update-employee-status.dto';
 import { UpdateEmployeeRolesDto } from './dto/update-employee-roles.dto';
@@ -105,16 +110,25 @@ function toResponse(employee: EmployeeRecord) {
   };
 }
 
+function toRoleResponse(role: RoleRecord) {
+  return {
+    id: role.id,
+    name: role.name,
+    permissions: [...role.permissions],
+  };
+}
+
 // Class-level requirement: every handler, including any added later, needs
 // MANAGE_EMPLOYEES. The guards run before the ValidationPipe, so callers
 // without it get 403 before any 400.
-@Controller('api/users')
+@Controller('users')
 @UseGuards(AuthGuard, PermissionsGuard)
 @RequirePermission(MANAGE_EMPLOYEES)
 export class UsersController {
   constructor(
     private readonly createEmployee: CreateEmployeeService,
     private readonly listEmployees: ListEmployeesService,
+    private readonly listRolesService: ListRolesService,
     private readonly updateEmployeeStatus: UpdateEmployeeStatusService,
     private readonly updateEmployeeRoles: UpdateEmployeeRolesService,
   ) {}
@@ -122,7 +136,7 @@ export class UsersController {
   @Post()
   async create(
     @Body() dto: CreateEmployeeDto,
-    @CurrentTenant() tenant: TenantContext,
+    @CurrentTenantContext() tenant: TenantContext,
   ) {
     const result = await this.createEmployee.create(tenant, {
       email: dto.email,
@@ -157,16 +171,22 @@ export class UsersController {
 
   // Not paginated yet: tenants have tens of employees in the MVP.
   @Get()
-  async list(@CurrentTenant() tenant: TenantContext) {
+  async list(@CurrentTenantContext() tenant: TenantContext) {
     const employees = await this.listEmployees.list(tenant);
     return employees.map(toResponse);
+  }
+
+  @Get('roles')
+  async listRoles(@CurrentTenantContext() tenant: TenantContext) {
+    const roles = await this.listRolesService.listRoles(tenant);
+    return roles.map(toRoleResponse);
   }
 
   @Patch(':id/status')
   async patchStatus(
     @Param('id', employeeIdPipe) id: string,
     @Body() dto: UpdateEmployeeStatusDto,
-    @CurrentTenant() tenant: TenantContext,
+    @CurrentTenantContext() tenant: TenantContext,
   ) {
     const result = await this.updateEmployeeStatus.updateStatus(
       tenant,
@@ -197,7 +217,7 @@ export class UsersController {
   async patchRoles(
     @Param('id', employeeIdPipe) id: string,
     @Body() dto: UpdateEmployeeRolesDto,
-    @CurrentTenant() tenant: TenantContext,
+    @CurrentTenantContext() tenant: TenantContext,
   ) {
     const result = await this.updateEmployeeRoles.updateRoles(
       tenant,

@@ -94,7 +94,9 @@ describe('PrismaSessionRepository', () => {
     };
 
     await step(async () => {
-      const owners = [];
+      const owners: Array<
+        { tenantId: { in: string[] } } | { platformAdminId: { in: string[] } }
+      > = [];
       if (createdTenantIds.length > 0) {
         owners.push({ tenantId: { in: createdTenantIds } });
       }
@@ -309,5 +311,49 @@ describe('PrismaSessionRepository', () => {
     });
     expect(after.expiresAt).toEqual(before.expiresAt);
     expect(after.lastUsedAt).toEqual(before.lastUsedAt);
+  });
+
+  it('enforces Session_actor_coherence_check at the database level against incoherent actor rows', async () => {
+    // 1. TENANT_USER missing userId/tenantId
+    await expect(
+      admin.session.create({
+        data: {
+          tokenHash: newHash(),
+          actorType: 'TENANT_USER',
+          tenantId: null,
+          userId: null,
+          platformAdminId: null,
+          expiresAt: futureDate(),
+        },
+      }),
+    ).rejects.toThrow();
+
+    // 2. TENANT_USER carrying platformAdminId simultaneously
+    await expect(
+      admin.session.create({
+        data: {
+          tokenHash: newHash(),
+          actorType: 'TENANT_USER',
+          tenantId,
+          userId,
+          platformAdminId,
+          expiresAt: futureDate(),
+        },
+      }),
+    ).rejects.toThrow();
+
+    // 3. PLATFORM_ADMIN missing platformAdminId or carrying tenantId
+    await expect(
+      admin.session.create({
+        data: {
+          tokenHash: newHash(),
+          actorType: 'PLATFORM_ADMIN',
+          tenantId,
+          userId: null,
+          platformAdminId,
+          expiresAt: futureDate(),
+        },
+      }),
+    ).rejects.toThrow();
   });
 });

@@ -26,9 +26,9 @@ model Session {
   lastUsedAt      DateTime         @default(now())
   revokedAt       DateTime?
 
-  tenant        Tenant?        @relation(fields: [tenantId], references: [id])
-  user          User?          @relation(fields: [tenantId, userId], references: [tenantId, id])
-  platformAdmin PlatformAdmin? @relation(fields: [platformAdminId], references: [id])
+  tenant        Tenant?        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  user          User?          @relation(fields: [tenantId, userId], references: [tenantId, id], onDelete: Cascade)
+  platformAdmin PlatformAdmin? @relation(fields: [platformAdminId], references: [id], onDelete: Cascade)
 
   @@index([userId])
   @@index([platformAdminId])

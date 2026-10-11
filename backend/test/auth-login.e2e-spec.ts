@@ -59,7 +59,7 @@ describe('Auth endpoints (e2e)', () => {
   }
 
   function login(body: Record<string, unknown>) {
-    return http().post('/api/auth/login').send(body);
+    return http().post('/api/v1/auth/login').send(body);
   }
 
   function sessionCookie(response: request.Response): string {
@@ -179,7 +179,7 @@ describe('Auth endpoints (e2e)', () => {
     }
   });
 
-  describe('POST /api/auth/login', () => {
+  describe('POST /api/v1/auth/login', () => {
     it('logs in with correct credentials and sets an HttpOnly, SameSite=Lax session cookie', async () => {
       const response = await login({
         slug,
@@ -266,7 +266,7 @@ describe('Auth endpoints (e2e)', () => {
 
     it('rejects a malformed JSON body with 400 in the error envelope', async () => {
       const response = await http()
-        .post('/api/auth/login')
+        .post('/api/v1/auth/login')
         .set('Content-Type', 'application/json')
         .send('{"slug": ');
 
@@ -289,15 +289,65 @@ describe('Auth endpoints (e2e)', () => {
         sessions.some((s) => s.tokenHash === hashSessionToken(rawToken)),
       ).toBe(true);
     });
+
+    it('does not expose duplicated prefix route /api/v1/api/auth/login (returns 404)', async () => {
+      const response = await http().post('/api/v1/api/auth/login').send({
+        slug,
+        email: activeEmail,
+        password: PASSWORD,
+      });
+
+      expect(response.status).toBe(404);
+    });
+
+    it('enforces non-enumerating rate limiting (429 TOO_MANY_REQUESTS) after consecutive failed attempts', async () => {
+      const targetEmail = `ratelimit-${run}@auth-e2e.test`;
+      for (let i = 0; i < 5; i += 1) {
+        const attempt = await login({
+          slug: `unknown-${run}`,
+          email: targetEmail,
+          password: 'wrong-password',
+        });
+        expect(attempt.status).toBe(401);
+        expect(errorOf(attempt).code).toBe('INVALID_CREDENTIALS');
+      }
+
+      const throttled = await login({
+        slug: `unknown-${run}`,
+        email: targetEmail,
+        password: 'wrong-password',
+      });
+      expect(throttled.status).toBe(429);
+      expect(errorOf(throttled).code).toBe('TOO_MANY_REQUESTS');
+      expect(throttled.headers['retry-after']).toBeDefined();
+    });
+
+    it('rejects state-changing requests from an untrusted Origin with 403 CSRF_ORIGIN_MISMATCH', async () => {
+      const response = await http()
+        .post('/api/v1/auth/login')
+        .set('Origin', 'https://malicious.example.com')
+        .send({
+          slug,
+          email: activeEmail,
+          password: PASSWORD,
+        });
+
+      expect(response.status).toBe(403);
+      expect(errorOf(response)).toEqual({
+        code: 'CSRF_ORIGIN_MISMATCH',
+        message: 'Cross-origin state-changing request is not allowed.',
+        fields: null,
+      });
+    });
   });
 
-  describe('GET /api/auth/me', () => {
+  describe('GET /api/v1/auth/me', () => {
     it('returns the session identity with email, roles and permissions (spec 6.3)', async () => {
       const cookie = sessionCookie(
         await login({ slug, email: activeEmail, password: PASSWORD }),
       );
 
-      const response = await http().get('/api/auth/me').set('Cookie', cookie);
+      const response = await http().get('/api/v1/auth/me').set('Cookie', cookie);
 
       expect(response.status).toBe(200);
       expect(response.body).toEqual({
@@ -312,7 +362,7 @@ describe('Auth endpoints (e2e)', () => {
     });
 
     it('answers 401 SESSION_EXPIRED without a cookie', async () => {
-      const response = await http().get('/api/auth/me');
+      const response = await http().get('/api/v1/auth/me');
 
       expect(response.status).toBe(401);
       expect(errorOf(response).code).toBe('SESSION_EXPIRED');
@@ -321,7 +371,7 @@ describe('Auth endpoints (e2e)', () => {
 
     it('answers 401 (not 500) for a JSON-style cookie value', async () => {
       const response = await http()
-        .get('/api/auth/me')
+        .get('/api/v1/auth/me')
         .set('Cookie', `${COOKIE_NAME}=${encodeURIComponent('j:{"a":1}')}`);
 
       expect(response.status).toBe(401);
@@ -334,7 +384,7 @@ describe('Auth endpoints (e2e)', () => {
       );
 
       const response = await http()
-        .get('/api/auth/me')
+        .get('/api/v1/auth/me')
         .query({ tenantId: otherTenantId })
         .set('Cookie', cookie)
         .set('X-Tenant-Id', otherTenantId);
@@ -390,7 +440,7 @@ describe('Auth endpoints (e2e)', () => {
       const cookie = sessionCookie(
         await login({ slug: fixtureSlug, email, password: PASSWORD }),
       );
-      const me = await http().get('/api/auth/me').set('Cookie', cookie);
+      const me = await http().get('/api/v1/auth/me').set('Cookie', cookie);
       expect(me.status).toBe(200);
 
       return {
@@ -411,7 +461,7 @@ describe('Auth endpoints (e2e)', () => {
     it('keeps an ACTIVE user without roles authenticated, with no permissions', async () => {
       const actor = await freshTenantUser(false);
 
-      const me = await http().get('/api/auth/me').set('Cookie', actor.cookie);
+      const me = await http().get('/api/v1/auth/me').set('Cookie', actor.cookie);
 
       expect(me.status).toBe(200);
       expect(me.body).toEqual({
@@ -432,7 +482,7 @@ describe('Auth endpoints (e2e)', () => {
           data: { status },
         });
 
-        const me = await http().get('/api/auth/me').set('Cookie', actor.cookie);
+        const me = await http().get('/api/v1/auth/me').set('Cookie', actor.cookie);
         expect(me.status).toBe(401);
         expect(errorOf(me)).toEqual({
           code: 'SESSION_EXPIRED',
@@ -447,7 +497,7 @@ describe('Auth endpoints (e2e)', () => {
           data: { status: 'ACTIVE' },
         });
         const stale = await http()
-          .get('/api/auth/me')
+          .get('/api/v1/auth/me')
           .set('Cookie', actor.cookie);
         expect(stale.status).toBe(401);
         const relogin = await login({
@@ -457,7 +507,7 @@ describe('Auth endpoints (e2e)', () => {
         });
         expect(relogin.status).toBe(200);
         const fresh = await http()
-          .get('/api/auth/me')
+          .get('/api/v1/auth/me')
           .set('Cookie', sessionCookie(relogin));
         expect(fresh.status).toBe(200);
       },
@@ -470,7 +520,7 @@ describe('Auth endpoints (e2e)', () => {
         data: { status: 'SUSPENDED' },
       });
 
-      const me = await http().get('/api/auth/me').set('Cookie', actor.cookie);
+      const me = await http().get('/api/v1/auth/me').set('Cookie', actor.cookie);
 
       expect(me.status).toBe(401);
       expect(errorOf(me).code).toBe('SESSION_EXPIRED');
@@ -491,20 +541,20 @@ describe('Auth endpoints (e2e)', () => {
         data: { status: 'ACTIVE' },
       });
 
-      const me = await http().get('/api/auth/me').set('Cookie', actor.cookie);
+      const me = await http().get('/api/v1/auth/me').set('Cookie', actor.cookie);
 
       expect(me.status).toBe(200);
     });
   });
 
-  describe('POST /api/auth/logout', () => {
+  describe('POST /api/v1/auth/logout', () => {
     it('revokes the session and clears the cookie', async () => {
       const cookie = sessionCookie(
         await login({ slug, email: activeEmail, password: PASSWORD }),
       );
 
       const logout = await http()
-        .post('/api/auth/logout')
+        .post('/api/v1/auth/logout')
         .set('Cookie', cookie);
 
       expect(logout.status).toBe(200);
@@ -516,17 +566,17 @@ describe('Auth endpoints (e2e)', () => {
       expect(cleared).toMatch(/;\s*Path=\/(;|$)/);
       expect(cleared).toContain('Expires=Thu, 01 Jan 1970');
 
-      const me = await http().get('/api/auth/me').set('Cookie', cookie);
+      const me = await http().get('/api/v1/auth/me').set('Cookie', cookie);
       expect(me.status).toBe(401);
       expect(errorOf(me).code).toBe('SESSION_EXPIRED');
     });
 
     it('is harmless without a cookie or with a non-string cookie', async () => {
-      const without = await http().post('/api/auth/logout');
+      const without = await http().post('/api/v1/auth/logout');
       expect(without.status).toBe(200);
 
       const jsonCookie = await http()
-        .post('/api/auth/logout')
+        .post('/api/v1/auth/logout')
         .set('Cookie', `${COOKIE_NAME}=${encodeURIComponent('j:{"a":1}')}`);
       expect(jsonCookie.status).toBe(200);
       expect(jsonCookie.body).toEqual({ ok: true });

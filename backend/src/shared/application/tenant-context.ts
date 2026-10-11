@@ -7,9 +7,14 @@ export interface TenantContext {
 }
 
 export class NotATenantActorError extends Error {
-  constructor() {
-    super('This operation requires a tenant-user actor, not a platform admin');
-    this.name = 'NotATenantActorError';
+  readonly code = 'FORBIDDEN';
+
+  constructor(
+    message = 'This operation requires a tenant-user actor, not a platform admin',
+  ) {
+    super(message);
+    this.name = new.target.name;
+    Object.setPrototypeOf(this, new.target.prototype);
   }
 }
 

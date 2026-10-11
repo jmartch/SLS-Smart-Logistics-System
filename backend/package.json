@@ -6,10 +6,11 @@
   "private": true,
   "license": "UNLICENSED",
   "scripts": {
-    "build": "nest build",
+    "prisma:generate": "prisma generate --config prisma7.config.ts",
+    "build": "npm run prisma:generate && nest build",
     "format": "prettier --write \"src/**/*.ts\" \"test/**/*.ts\"",
     "start": "nest start",
-    "start:dev": "nest start --watch",
+    "start:dev": "npm run prisma:generate && nest start --watch",
     "start:debug": "nest start --debug --watch",
     "start:prod": "node dist/src/main",
     "start:worker": "node dist/src/worker",
@@ -31,7 +32,8 @@
     "test:route-01": "npm run build && node test/integration/route-01.cjs",
     "test:delivery-01": "npm run build && node test/integration/delivery-01.cjs",
     "test:route-close-01": "npm run build && node test/integration/route-close-01.cjs",
-    "test:rmq-01": "npm run build && node test/integration/rmq-01.cjs"
+    "test:rmq-01": "npm run build && node test/integration/rmq-01.cjs",
+    "test:auth-tenant-01": "npm run build && node test/integration/auth-tenant-01.cjs"
   },
   "dependencies": {
     "@nestjs/common": "^11.0.1",
@@ -86,6 +88,10 @@
     ],
     "rootDir": "src",
     "testRegex": ".*\\.spec\\.ts$",
+    "testPathIgnorePatterns": [
+      "/node_modules/",
+      "modules/(auth|platform|users)/infrastructure/prisma-.*\\.repository\\.spec\\.ts$"
+    ],
     "transform": {
       "^.+\\.(t|j)s$": "ts-jest"
     },

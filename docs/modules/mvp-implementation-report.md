@@ -26,7 +26,7 @@ Estado: `IN_PROGRESS` para el MVP completo. Actualizado al 2026-10-05 en rama `f
 | Etapa | Módulos | Estado | Avance reciente |
 | --- | --- | --- | --- |
 | 0 | Contratos y fronteras | `IN_PROGRESS` | Contratos de clustering (`CLUSTER-01`), ordenamiento (`SEQ-01`), asignación transaccional (`ASSIGN-01`), ciclo operativo/Iterator (`ROUTE-01`) y entregas/evidencias (`DELIVERY-01`) cerrados con ADR-003, ADR-004, ADR-005, ADR-006 y ADR-007. |
-| 1 | AUTH-01 / TENANT-01 / UI-01 | `TODO` | Pendiente sesión y aislamiento HTTP interactivo. |
+| 1 | AUTH-01 / TENANT-01 / UI-01 | `REVIEW` | Backend de acceso integrado; build, migraciones, prefijo/versionado real y frontend sin mocks aún bloquean el cierre. |
 | 2 | ZONE-01 / PKG-01 / VEH-01 / UI-02 | `TODO` | Pendiente integración de casos de uso y endpoints de catálogos/recursos. |
 | 3 | EVT-01 / RMQ-01 / IDEMP-01 / DLQ-01 | `TODO` | Infraestructura lista; outbox events generados; pendiente worker y pipeline de reintentos/DLQ. |
 | 4 | GEO-01 / CLUSTER-01 / SEQ-01 / ASSIGN-01 / UI-03 | `IN_PROGRESS` | **Backend completo al 100%: algoritmos, persistencia transaccional y RoutePlanningController con 55 suites unitarias y pruebas E2E en PostgreSQL/PostGIS**. Resta `UI-03` (pantallas de planificación). |

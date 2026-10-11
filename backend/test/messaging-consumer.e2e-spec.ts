@@ -33,8 +33,16 @@ describe('Messaging Consumer Idempotency, DLQ & Redrive E2E (IDEMP-01 / DLQ-01)'
   beforeAll(async () => {
     await admin.tenant.createMany({
       data: [
-        { id: tenantA, name: `Tenant A Consumer E2E ${tenantA.slice(0, 8)}` },
-        { id: tenantB, name: `Tenant B Consumer E2E ${tenantB.slice(0, 8)}` },
+        {
+          id: tenantA,
+          name: `Tenant A Consumer E2E ${tenantA.slice(0, 8)}`,
+          slug: `rmq-consumer-a-${tenantA}`,
+        },
+        {
+          id: tenantB,
+          name: `Tenant B Consumer E2E ${tenantB.slice(0, 8)}`,
+          slug: `rmq-consumer-b-${tenantB}`,
+        },
       ],
     });
 

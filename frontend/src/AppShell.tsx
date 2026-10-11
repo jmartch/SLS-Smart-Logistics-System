@@ -17,7 +17,7 @@ import {
 import { useState } from "react"
 import { Link, NavLink, Navigate, Outlet, useNavigate } from "react-router"
 
-import { useAuth, Role } from "./auth"
+import { useAuth, Role, type User } from "./auth"
 import { NOTIFICATIONS } from "./mockData"
 
 function Brand({ compact = false }: { compact?: boolean }) {
@@ -82,6 +82,95 @@ function navForRole(role: Role): NavItem[] {
   }
 }
 
+function navForUser(user: User): NavItem[] {
+  if (user.kind === "PLATFORM_ADMIN" || user.role === "superadmin") {
+    return [
+      { to: "/app/admin/empresas", label: "Empresas", icon: <Building2 size={17} /> },
+      { to: "/app/notificaciones", label: "Notificaciones", icon: <Bell size={17} /> },
+    ]
+  }
+
+  const perms = new Set(user.permissions)
+  if (perms.size === 0) {
+    return navForRole(user.role)
+  }
+
+  const items: NavItem[] = []
+  if (
+    perms.has("REGISTER_PACKAGES") ||
+    perms.has("CLASSIFY_PACKAGES") ||
+    perms.has("COORDINATE_ROUTES") ||
+    perms.has("MANAGE_TENANT")
+  ) {
+    items.push({
+      to: "/app/paquetes",
+      label: "Paquetes",
+      icon: <Package size={17} />,
+    })
+  }
+  if (perms.has("REGISTER_PACKAGES")) {
+    items.push({
+      to: "/app/paquetes/nuevo",
+      label: "Nuevo paquete",
+      icon: <PackagePlus size={17} />,
+    })
+  }
+  if (perms.has("CLASSIFY_PACKAGES")) {
+    items.push({
+      to: "/app/clasificacion",
+      label: "Clasificación",
+      icon: <ClipboardList size={17} />,
+    })
+  }
+  if (perms.has("COORDINATE_ROUTES")) {
+    items.push(
+      {
+        to: "/app/planificacion",
+        label: "Planificación",
+        icon: <LayoutDashboard size={17} />,
+      },
+      {
+        to: "/app/pendientes",
+        label: "Pendientes",
+        icon: <Clock size={17} />,
+      },
+      {
+        to: "/app/rutas",
+        label: "Rutas",
+        icon: <Route size={17} />,
+      },
+    )
+  }
+  if (perms.has("OPERATE_DELIVERIES") && !perms.has("MANAGE_TENANT")) {
+    items.push({
+      to: "/app/mi-ruta",
+      label: "Mi ruta",
+      icon: <MapPin size={17} />,
+    })
+  }
+  if (perms.has("MANAGE_EMPLOYEES")) {
+    items.push({
+      to: "/app/admin/usuarios",
+      label: "Usuarios",
+      icon: <Users size={17} />,
+    })
+  }
+  if (perms.has("MANAGE_TENANT")) {
+    items.push({
+      to: "/app/admin/vehiculos",
+      label: "Vehículos",
+      icon: <Truck size={17} />,
+    })
+  }
+  items.push({
+    to: "/app/notificaciones",
+    label: "Notificaciones",
+    icon: <Bell size={17} />,
+  })
+
+  return items
+}
+
 function topbarTitle(role: Role): string {
   switch (role) {
     case "reception": return "Portal de Recepción"
@@ -94,19 +183,35 @@ function topbarTitle(role: Role): string {
 }
 
 export function AppShell() {
-  const { user, logout } = useAuth()
+  const { user, initializing, logout } = useAuth()
   const navigate = useNavigate()
   const [sidebarOpen, setSidebarOpen] = useState(false)
+
+  if (initializing) {
+    return (
+      <div
+        style={{
+          minHeight: "100svh",
+          display: "grid",
+          placeItems: "center",
+          color: "var(--navy)",
+          fontWeight: 700,
+        }}
+      >
+        Verificando sesión...
+      </div>
+    )
+  }
 
   if (!user) {
     return <Navigate to="/login" replace />
   }
 
-  const navItems = navForRole(user.role)
+  const navItems = navForUser(user)
   const unreadCount = NOTIFICATIONS.filter((n) => !n.read).length
 
-  const handleLogout = () => {
-    logout()
+  const handleLogout = async () => {
+    await logout()
     navigate("/login", { replace: true })
   }
 
@@ -145,7 +250,7 @@ export function AppShell() {
           ))}
         </nav>
 
-        <button className="sidebar-logout" onClick={handleLogout}>
+        <button className="sidebar-logout" onClick={() => void handleLogout()}>
           <LogOut size={16} />
           Cerrar sesión
         </button>
@@ -189,11 +294,12 @@ export function AppShell() {
 }
 
 export function RequireAuth({ children }: { children: React.ReactNode }) {
-  const { user } = useAuth()
-  const navigate = useNavigate()
-  if (!user) {
-    navigate("/login", { replace: true })
+  const { user, initializing } = useAuth()
+  if (initializing) {
     return null
+  }
+  if (!user) {
+    return <Navigate to="/login" replace />
   }
   return <>{children}</>
 }

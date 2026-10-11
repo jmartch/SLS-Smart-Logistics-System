@@ -21,9 +21,10 @@ import {
   User,
   XCircle,
 } from "lucide-react"
-import { FormEvent, useState } from "react"
-import { Link, useNavigate, useParams, useSearchParams } from "react-router"
-import { useAuth, ROLE_LABELS } from "./auth"
+import { FormEvent, useEffect, useState } from "react"
+import { Link, Navigate, useNavigate, useParams, useSearchParams } from "react-router"
+import { useAuth, defaultHomeForUser } from "./auth"
+import { ApiError, apiFetch } from "./shared/api/httpClient"
 import {
   NOTIFICATIONS,
   PACKAGES,
@@ -40,38 +41,37 @@ import {
 // ──────────────────────────────────────────────────────────
 
 export function LoginPage() {
-  const { login, user } = useAuth()
-  const navigate = useNavigate()
+  const { login, user, initializing } = useAuth()
+  const [mode, setMode] = useState<"tenant" | "platform">("tenant")
+  const [slug, setSlug] = useState("")
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [showPw, setShowPw] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState("")
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({})
 
-  if (user) {
-    navigate("/app/paquetes", { replace: true })
-    return null
+  if (!initializing && user) {
+    return <Navigate to={defaultHomeForUser(user)} replace />
   }
-
-  const demoAccounts = [
-    { email: "recepcion@sls.com", label: "Recepción" },
-    { email: "clasificacion@sls.com", label: "Clasificación" },
-    { email: "coordinador@sls.com", label: "Coordinador" },
-    { email: "mensajero@sls.com", label: "Mensajero" },
-    { email: "admin@sls.com", label: "Administrador" },
-  ]
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault()
     setError("")
+    setFieldErrors({})
     setLoading(true)
-    const result = await login(email, password)
+    const result = await login({
+      mode,
+      slug: mode === "tenant" ? slug : undefined,
+      email,
+      password,
+    })
     setLoading(false)
     if (!result.ok) {
-      setError(result.error ?? "Error inesperado")
+      setError(result.error ?? "Credenciales inválidas.")
+      setFieldErrors(result.fields ?? {})
       return
     }
-    navigate("/app/paquetes", { replace: true })
   }
 
   return (
@@ -99,9 +99,9 @@ export function LoginPage() {
             <h2>Portal operativo</h2>
             <p>Accede a tu bandeja de trabajo según tu rol. Cada usuario ve solo lo que necesita para operar.</p>
             <div className="auth-benefits">
-              <span><CheckCircle2 size={17} /> Navegación por rol</span>
+              <span><CheckCircle2 size={17} /> Navegación por permisos</span>
               <span><CheckCircle2 size={17} /> Datos aislados por empresa</span>
-              <span><CheckCircle2 size={17} /> Sesión segura</span>
+              <span><CheckCircle2 size={17} /> Sesión segura HttpOnly</span>
             </div>
           </div>
           <div className="auth-route" aria-hidden="true">
@@ -116,60 +116,168 @@ export function LoginPage() {
           <div className="auth-form-heading">
             <p className="eyebrow">Acceso al sistema</p>
             <h1>Iniciar sesión</h1>
-            <p>Ingresa tus credenciales para acceder a tu portal de trabajo.</p>
+            <p>Ingresa el identificador de tu empresa y tus credenciales para acceder al portal.</p>
           </div>
 
-          <form className="portal-form" onSubmit={handleSubmit}>
+          <div
+            role="tablist"
+            aria-label="Tipo de acceso"
+            style={{
+              display: "grid",
+              gridTemplateColumns: "1fr 1fr",
+              gap: "0.4rem",
+              padding: "0.3rem",
+              background: "var(--blue-pale)",
+              borderRadius: "var(--radius-sm)",
+              marginBottom: "1.2rem",
+            }}
+          >
+            <button
+              type="button"
+              role="tab"
+              aria-selected={mode === "tenant"}
+              onClick={() => {
+                setMode("tenant")
+                setError("")
+                setFieldErrors({})
+              }}
+              style={{
+                padding: "0.55rem 0.8rem",
+                borderRadius: "var(--radius-sm)",
+                border: "none",
+                background: mode === "tenant" ? "white" : "transparent",
+                color: mode === "tenant" ? "var(--navy)" : "var(--text-muted)",
+                fontWeight: 700,
+                fontSize: "0.78rem",
+              }}
+            >
+              Acceso de empresa
+            </button>
+            <button
+              type="button"
+              role="tab"
+              aria-selected={mode === "platform"}
+              onClick={() => {
+                setMode("platform")
+                setError("")
+                setFieldErrors({})
+              }}
+              style={{
+                padding: "0.55rem 0.8rem",
+                borderRadius: "var(--radius-sm)",
+                border: "none",
+                background: mode === "platform" ? "white" : "transparent",
+                color: mode === "platform" ? "var(--navy)" : "var(--text-muted)",
+                fontWeight: 700,
+                fontSize: "0.78rem",
+              }}
+            >
+              Plataforma SaaS
+            </button>
+          </div>
+
+          <form className="portal-form" onSubmit={(e) => void handleSubmit(e)}>
+            {mode === "tenant" && (
+              <div className="field">
+                <label htmlFor="slug">Identificador de empresa (slug)</label>
+                <input
+                  id="slug"
+                  type="text"
+                  required
+                  autoComplete="organization"
+                  placeholder="ej. logistica-del-norte"
+                  value={slug}
+                  onChange={(e) => setSlug(e.target.value)}
+                />
+                {fieldErrors.slug && (
+                  <small style={{ color: "#c0392b", fontSize: "0.72rem", fontWeight: 600 }}>
+                    {fieldErrors.slug}
+                  </small>
+                )}
+              </div>
+            )}
+
             <div className="field">
               <label htmlFor="email">Correo electrónico</label>
               <input
-                id="email" type="email" required autoComplete="email"
-                placeholder="usuario@empresa.com"
-                value={email} onChange={(e) => setEmail(e.target.value)}
+                id="email"
+                type="email"
+                required
+                autoComplete="email"
+                placeholder={
+                  mode === "platform"
+                    ? "superadmin@sls.local"
+                    : "usuario@empresa.com"
+                }
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
               />
+              {fieldErrors.email && (
+                <small style={{ color: "#c0392b", fontSize: "0.72rem", fontWeight: 600 }}>
+                  {fieldErrors.email}
+                </small>
+              )}
             </div>
+
             <div className="field">
               <label htmlFor="password">Contraseña</label>
               <div className="input-with-action">
                 <input
-                  id="password" type={showPw ? "text" : "password"} required
-                  autoComplete="current-password" placeholder="••••••••"
-                  value={password} onChange={(e) => setPassword(e.target.value)}
+                  id="password"
+                  type={showPw ? "text" : "password"}
+                  required
+                  autoComplete="current-password"
+                  placeholder="••••••••"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
                 />
-                <button type="button" className="field-action" onClick={() => setShowPw(!showPw)} aria-label={showPw ? "Ocultar contraseña" : "Mostrar contraseña"}>
+                <button
+                  type="button"
+                  className="field-action"
+                  onClick={() => setShowPw(!showPw)}
+                  aria-label={showPw ? "Ocultar contraseña" : "Mostrar contraseña"}
+                >
                   {showPw ? <EyeOff size={17} /> : <Eye size={17} />}
                 </button>
               </div>
+              {fieldErrors.password && (
+                <small style={{ color: "#c0392b", fontSize: "0.72rem", fontWeight: 600 }}>
+                  {fieldErrors.password}
+                </small>
+              )}
             </div>
 
             {error && (
-              <div style={{ display: "flex", alignItems: "center", gap: "0.55rem", padding: "0.8rem 1rem", background: "#fff3f3", border: "1px solid #fcc", borderRadius: "var(--radius-sm)", color: "#c0392b", fontSize: "0.8rem", fontWeight: 600 }}>
+              <div
+                role="alert"
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "0.55rem",
+                  padding: "0.8rem 1rem",
+                  background: "#fff3f3",
+                  border: "1px solid #fcc",
+                  borderRadius: "var(--radius-sm)",
+                  color: "#c0392b",
+                  fontSize: "0.8rem",
+                  fontWeight: 600,
+                }}
+              >
                 <AlertCircle size={16} />
                 {error}
               </div>
             )}
 
-            <button className="form-submit" type="submit" disabled={loading} style={{ width: "100%" }}>
+            <button
+              className="form-submit"
+              type="submit"
+              disabled={loading}
+              style={{ width: "100%" }}
+            >
               {loading ? <Loader2 size={17} className="spin" /> : <ArrowRight size={17} />}
               {loading ? "Verificando..." : "Entrar"}
             </button>
           </form>
-
-          <div style={{ marginTop: "2rem", paddingTop: "1.5rem", borderTop: "1px solid var(--border)" }}>
-            <p style={{ margin: "0 0 0.8rem", color: "var(--text-muted)", fontSize: "0.72rem", fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase" }}>Accesos de demostración</p>
-            <div style={{ display: "flex", flexWrap: "wrap", gap: "0.5rem" }}>
-              {demoAccounts.map((a) => (
-                <button
-                  key={a.email} type="button"
-                  onClick={() => { setEmail(a.email); setPassword("demo1234") }}
-                  style={{ padding: "0.4rem 0.75rem", background: "var(--blue-pale)", border: "1px solid var(--border)", borderRadius: "999px", color: "var(--navy)", fontSize: "0.72rem", fontWeight: 700 }}
-                >
-                  {a.label}
-                </button>
-              ))}
-            </div>
-            <p style={{ margin: "0.6rem 0 0", color: "var(--text-muted)", fontSize: "0.68rem" }}>Contraseña para todos: <code style={{ background: "var(--blue-pale)", padding: "0.1em 0.4em", borderRadius: "4px" }}>demo1234</code></p>
-          </div>
         </div>
       </section>
 
@@ -1404,8 +1512,454 @@ export function PublicTrackingPage() {
 }
 
 // ──────────────────────────────────────────────────────────
-// Admin stubs
+// Admin: Users & Tenants (Real Backend API)
 // ──────────────────────────────────────────────────────────
+
+interface EmployeeApiItem {
+  readonly id: string
+  readonly email: string
+  readonly status: "ACTIVE" | "DISABLED"
+  readonly roleIds: readonly string[]
+}
+
+interface RoleApiItem {
+  readonly id: string
+  readonly name: string
+  readonly permissions: readonly string[]
+}
+
+export function AdminUsersPage() {
+  const { hasPermission } = useAuth()
+  const [employees, setEmployees] = useState<EmployeeApiItem[]>([])
+  const [roles, setRoles] = useState<RoleApiItem[]>([])
+  const [loading, setLoading] = useState(true)
+  const [loadError, setLoadError] = useState<string | null>(null)
+  const [forbidden, setForbidden] = useState(false)
+
+  const [email, setEmail] = useState("")
+  const [password, setPassword] = useState("")
+  const [selectedRoleIds, setSelectedRoleIds] = useState<string[]>([])
+  const [submitting, setSubmitting] = useState(false)
+  const [formError, setFormError] = useState<string | null>(null)
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({})
+  const [actionBusyId, setActionBusyId] = useState<string | null>(null)
+
+  const canManage = hasPermission("MANAGE_EMPLOYEES")
+
+  const loadData = async () => {
+    setLoading(true)
+    setLoadError(null)
+    setForbidden(false)
+    try {
+      const [empList, roleList] = await Promise.all([
+        apiFetch<EmployeeApiItem[]>("/users"),
+        apiFetch<RoleApiItem[]>("/users/roles"),
+      ])
+      setEmployees(empList)
+      setRoles(roleList)
+    } catch (err) {
+      if (err instanceof ApiError && err.status === 403) {
+        setForbidden(true)
+      } else if (err instanceof ApiError) {
+        setLoadError(err.message)
+      } else {
+        setLoadError("No se pudo cargar la lista de usuarios.")
+      }
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    let active = true
+    void (async () => {
+      try {
+        const [empList, roleList] = await Promise.all([
+          apiFetch<EmployeeApiItem[]>("/users"),
+          apiFetch<RoleApiItem[]>("/users/roles"),
+        ])
+        if (active) {
+          setEmployees(empList)
+          setRoles(roleList)
+        }
+      } catch (err) {
+        if (!active) return
+        if (err instanceof ApiError && err.status === 403) {
+          setForbidden(true)
+        } else if (err instanceof ApiError) {
+          setLoadError(err.message)
+        } else {
+          setLoadError("No se pudo cargar la lista de usuarios.")
+        }
+      } finally {
+        if (active) {
+          setLoading(false)
+        }
+      }
+    })()
+    return () => {
+      active = false
+    }
+  }, [])
+
+  const toggleCreateRole = (roleId: string) => {
+    setSelectedRoleIds((prev) =>
+      prev.includes(roleId)
+        ? prev.filter((id) => id !== roleId)
+        : [...prev, roleId],
+    )
+  }
+
+  const handleCreateEmployee = async (e: FormEvent) => {
+    e.preventDefault()
+    setFormError(null)
+    setFieldErrors({})
+    setSubmitting(true)
+    try {
+      const created = await apiFetch<EmployeeApiItem>("/users", {
+        method: "POST",
+        body: JSON.stringify({
+          email: email.trim(),
+          password,
+          roleIds: selectedRoleIds,
+        }),
+      })
+      setEmployees((prev) => [...prev, created])
+      setEmail("")
+      setPassword("")
+      setSelectedRoleIds([])
+    } catch (err) {
+      if (err instanceof ApiError) {
+        setFormError(err.message)
+        setFieldErrors(err.fields)
+      } else {
+        setFormError("Ocurrió un error al crear el empleado.")
+      }
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  const handleToggleStatus = async (emp: EmployeeApiItem) => {
+    const nextStatus = emp.status === "ACTIVE" ? "DISABLED" : "ACTIVE"
+    setActionBusyId(emp.id)
+    setFormError(null)
+    try {
+      await apiFetch<{ ok: boolean }>(`/users/${emp.id}/status`, {
+        method: "PATCH",
+        body: JSON.stringify({ status: nextStatus }),
+      })
+      setEmployees((prev) =>
+        prev.map((item) =>
+          item.id === emp.id ? { ...item, status: nextStatus } : item,
+        ),
+      )
+    } catch (err) {
+      if (err instanceof ApiError) {
+        setFormError(err.message)
+      } else {
+        setFormError("No se pudo actualizar el estado del empleado.")
+      }
+    } finally {
+      setActionBusyId(null)
+    }
+  }
+
+  const handleToggleEmployeeRole = async (
+    emp: EmployeeApiItem,
+    roleId: string,
+  ) => {
+    const hasRole = emp.roleIds.includes(roleId)
+    const nextRoleIds = hasRole
+      ? emp.roleIds.filter((id) => id !== roleId)
+      : [...emp.roleIds, roleId]
+    if (nextRoleIds.length === 0) {
+      setFormError("El empleado debe conservar al menos un rol asignado.")
+      return
+    }
+    setActionBusyId(emp.id)
+    setFormError(null)
+    try {
+      await apiFetch<{ ok: boolean }>(`/users/${emp.id}/roles`, {
+        method: "PATCH",
+        body: JSON.stringify({ roleIds: nextRoleIds }),
+      })
+      setEmployees((prev) =>
+        prev.map((item) =>
+          item.id === emp.id ? { ...item, roleIds: nextRoleIds } : item,
+        ),
+      )
+    } catch (err) {
+      if (err instanceof ApiError) {
+        setFormError(err.message)
+      } else {
+        setFormError("No se pudieron actualizar los roles del empleado.")
+      }
+    } finally {
+      setActionBusyId(null)
+    }
+  }
+
+  if (forbidden || !canManage) {
+    return (
+      <>
+        <div className="company-page-heading">
+          <div>
+            <h1>Usuarios y roles</h1>
+            <p>Gestiona empleados, estados y roles de tu empresa.</p>
+          </div>
+        </div>
+        <div
+          className="dashboard-panel"
+          style={{ display: "grid", placeItems: "center", minHeight: 260, textAlign: "center" }}
+        >
+          <div>
+            <ShieldAlert size={36} color="#c0392b" style={{ marginBottom: "0.8rem" }} />
+            <h2 style={{ margin: "0 0 0.4rem", color: "var(--navy)" }}>Acceso restringido (403)</h2>
+            <p style={{ margin: 0, color: "var(--text-muted)", maxWidth: 380 }}>
+              No cuentas con el permiso <code>MANAGE_EMPLOYEES</code> para administrar usuarios de la empresa.
+            </p>
+          </div>
+        </div>
+      </>
+    )
+  }
+
+  return (
+    <>
+      <div className="company-page-heading">
+        <div>
+          <h1>Usuarios y roles</h1>
+          <p>Registra empleados de tu empresa, asigna roles y controla su estado operativo.</p>
+        </div>
+      </div>
+
+      {formError && (
+        <div
+          role="alert"
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: "0.6rem",
+            padding: "0.85rem 1.1rem",
+            marginBottom: "1rem",
+            background: "#fff3f3",
+            border: "1px solid #fcc",
+            borderRadius: "var(--radius-sm)",
+            color: "#c0392b",
+            fontSize: "0.82rem",
+            fontWeight: 600,
+          }}
+        >
+          <AlertCircle size={17} />
+          {formError}
+        </div>
+      )}
+
+      <div style={{ display: "grid", gap: "1.2rem", gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))", alignItems: "start" }}>
+        <div className="company-form-card">
+          <form className="portal-form" onSubmit={(e) => void handleCreateEmployee(e)}>
+            <div className="form-section-heading">
+              <span><User size={20} /></span>
+              <div>
+                <h2>Nuevo empleado</h2>
+                <p>Las credenciales quedan aisladas dentro de tu empresa actual.</p>
+              </div>
+            </div>
+
+            <div className="field">
+              <label htmlFor="emp-email">Correo electrónico</label>
+              <input
+                id="emp-email"
+                type="email"
+                required
+                placeholder="empleado@empresa.com"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+              />
+              {fieldErrors.email && (
+                <small style={{ color: "#c0392b", fontSize: "0.72rem", fontWeight: 600 }}>
+                  {fieldErrors.email}
+                </small>
+              )}
+            </div>
+
+            <div className="field">
+              <label htmlFor="emp-password">Contraseña inicial (mín. 8 caracteres)</label>
+              <input
+                id="emp-password"
+                type="password"
+                required
+                minLength={8}
+                placeholder="••••••••"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+              />
+              {fieldErrors.password && (
+                <small style={{ color: "#c0392b", fontSize: "0.72rem", fontWeight: 600 }}>
+                  {fieldErrors.password}
+                </small>
+              )}
+            </div>
+
+            <div className="field">
+              <label>Roles asignados</label>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: "0.5rem" }}>
+                {roles.map((role) => {
+                  const active = selectedRoleIds.includes(role.id)
+                  return (
+                    <button
+                      key={role.id}
+                      type="button"
+                      onClick={() => toggleCreateRole(role.id)}
+                      style={{
+                        padding: "0.45rem 0.85rem",
+                        borderRadius: "999px",
+                        border: `1px solid ${active ? "var(--blue)" : "var(--border)"}`,
+                        background: active ? "var(--blue)" : "var(--blue-pale)",
+                        color: active ? "white" : "var(--navy)",
+                        fontSize: "0.75rem",
+                        fontWeight: 700,
+                      }}
+                    >
+                      {role.name}
+                    </button>
+                  )
+                })}
+              </div>
+              {fieldErrors.roleIds && (
+                <small style={{ color: "#c0392b", fontSize: "0.72rem", fontWeight: 600 }}>
+                  {fieldErrors.roleIds}
+                </small>
+              )}
+            </div>
+
+            <button
+              className="form-submit"
+              type="submit"
+              disabled={submitting || selectedRoleIds.length === 0}
+              style={{ width: "100%" }}
+            >
+              {submitting ? <Loader2 size={17} className="spin" /> : <Check size={17} />}
+              {submitting ? "Creando empleado..." : "Crear empleado"}
+            </button>
+          </form>
+        </div>
+
+        <div className="dashboard-panel">
+          <div className="panel-heading">
+            <div>
+              <span style={{ color: "var(--text-muted)", fontSize: "0.65rem", fontWeight: 600 }}>
+                Directorio del tenant
+              </span>
+              <h2>Empleados ({employees.length})</h2>
+            </div>
+            <button
+              type="button"
+              onClick={() => void loadData()}
+              style={{
+                padding: "0.45rem 0.9rem",
+                background: "var(--blue-pale)",
+                border: "1px solid var(--border)",
+                borderRadius: "999px",
+                color: "var(--navy)",
+                fontSize: "0.74rem",
+                fontWeight: 700,
+              }}
+            >
+              Actualizar
+            </button>
+          </div>
+
+          {loading ? (
+            <p style={{ color: "var(--text-muted)", fontSize: "0.82rem" }}>Cargando empleados...</p>
+          ) : loadError ? (
+            <div style={{ color: "#c0392b", fontSize: "0.82rem", fontWeight: 600 }}>
+              {loadError}
+            </div>
+          ) : employees.length === 0 ? (
+            <EmptyState
+              icon={<User size={32} />}
+              title="Sin empleados registrados"
+              body="Crea el primer empleado usando el formulario."
+            />
+          ) : (
+            <div style={{ display: "grid", gap: "0.75rem" }}>
+              {employees.map((emp) => (
+                <div
+                  key={emp.id}
+                  style={{
+                    padding: "0.95rem 1rem",
+                    borderRadius: "var(--radius-sm)",
+                    border: "1px solid var(--border)",
+                    background: emp.status === "ACTIVE" ? "white" : "var(--surface-muted)",
+                    display: "grid",
+                    gap: "0.6rem",
+                  }}
+                >
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: "0.6rem", flexWrap: "wrap" }}>
+                    <div>
+                      <strong style={{ color: "var(--navy)", fontSize: "0.86rem", display: "block" }}>
+                        {emp.email}
+                      </strong>
+                      <span
+                        className={`status ${emp.status === "ACTIVE" ? "status--active" : "status--Alert"}`}
+                        style={{ fontSize: "0.68rem", marginTop: "0.2rem", display: "inline-block" }}
+                      >
+                        {emp.status === "ACTIVE" ? "Activo" : "Deshabilitado"}
+                      </span>
+                    </div>
+                    <button
+                      type="button"
+                      disabled={actionBusyId === emp.id}
+                      onClick={() => void handleToggleStatus(emp)}
+                      style={{
+                        padding: "0.4rem 0.85rem",
+                        borderRadius: "999px",
+                        border: "1px solid var(--border)",
+                        background: emp.status === "ACTIVE" ? "#fff3f3" : "#f0faf5",
+                        color: emp.status === "ACTIVE" ? "#c0392b" : "var(--success)",
+                        fontSize: "0.72rem",
+                        fontWeight: 700,
+                      }}
+                    >
+                      {emp.status === "ACTIVE" ? "Desactivar" : "Activar"}
+                    </button>
+                  </div>
+
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: "0.4rem" }}>
+                    {roles.map((role) => {
+                      const assigned = emp.roleIds.includes(role.id)
+                      return (
+                        <button
+                          key={role.id}
+                          type="button"
+                          disabled={actionBusyId === emp.id}
+                          onClick={() => void handleToggleEmployeeRole(emp, role.id)}
+                          style={{
+                            padding: "0.3rem 0.7rem",
+                            borderRadius: "999px",
+                            border: `1px solid ${assigned ? "var(--navy)" : "var(--border)"}`,
+                            background: assigned ? "var(--navy)" : "transparent",
+                            color: assigned ? "white" : "var(--text-muted)",
+                            fontSize: "0.7rem",
+                            fontWeight: 700,
+                          }}
+                        >
+                          {role.name}
+                        </button>
+                      )
+                    })}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+    </>
+  )
+}
 
 function AdminStub({ title, description }: { title: string; description: string }) {
   return (
@@ -1424,14 +1978,233 @@ function AdminStub({ title, description }: { title: string; description: string 
   )
 }
 
-export function AdminUsersPage() {
-  return <AdminStub title="Usuarios y roles" description="Gestiona usuarios, roles y permisos del tenant." />
-}
 export function AdminVehiclesPage() {
   return <AdminStub title="Vehículos" description="Capacidad, disponibilidad y estado de los vehículos." />
 }
+
 export function AdminTenantsPage() {
-  return <AdminStub title="Empresas" description="Activación y estado de los tenants del SaaS." />
+  const { user } = useAuth()
+  const [name, setName] = useState("")
+  const [adminEmail, setAdminEmail] = useState("")
+  const [adminPassword, setAdminPassword] = useState("")
+  const [submitting, setSubmitting] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({})
+  const [createdTenants, setCreatedTenants] = useState<
+    Array<{ tenantId: string; slug: string; name: string; adminEmail: string }>
+  >([])
+
+  if (user?.kind !== "PLATFORM_ADMIN") {
+    return (
+      <>
+        <div className="company-page-heading">
+          <div>
+            <h1>Empresas</h1>
+            <p>Aprovisionamiento de tenants del SaaS.</p>
+          </div>
+        </div>
+        <div
+          className="dashboard-panel"
+          style={{ display: "grid", placeItems: "center", minHeight: 260, textAlign: "center" }}
+        >
+          <div>
+            <ShieldAlert size={36} color="#c0392b" style={{ marginBottom: "0.8rem" }} />
+            <h2 style={{ margin: "0 0 0.4rem", color: "var(--navy)" }}>Acceso restringido (403)</h2>
+            <p style={{ margin: 0, color: "var(--text-muted)", maxWidth: 380 }}>
+              Solo un superadministrador de plataforma puede aprovisionar empresas.
+            </p>
+          </div>
+        </div>
+      </>
+    )
+  }
+
+  const handleProvision = async (e: FormEvent) => {
+    e.preventDefault()
+    setError(null)
+    setFieldErrors({})
+    setSubmitting(true)
+    try {
+      const created = await apiFetch<{ tenantId: string; slug: string }>(
+        "/platform/tenants",
+        {
+          method: "POST",
+          body: JSON.stringify({
+            name: name.trim(),
+            adminEmail: adminEmail.trim(),
+            adminPassword,
+          }),
+        },
+      )
+      setCreatedTenants((prev) => [
+        {
+          tenantId: created.tenantId,
+          slug: created.slug,
+          name: name.trim(),
+          adminEmail: adminEmail.trim(),
+        },
+        ...prev,
+      ])
+      setName("")
+      setAdminEmail("")
+      setAdminPassword("")
+    } catch (err) {
+      if (err instanceof ApiError) {
+        setError(err.message)
+        setFieldErrors(err.fields)
+      } else {
+        setError("Ocurrió un error al aprovisionar la empresa.")
+      }
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  return (
+    <>
+      <div className="company-page-heading">
+        <div>
+          <h1>Empresas (SaaS)</h1>
+          <p>Aprovisiona nuevos tenants con su catálogo inicial de roles y primer administrador.</p>
+        </div>
+      </div>
+
+      {error && (
+        <div
+          role="alert"
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: "0.6rem",
+            padding: "0.85rem 1.1rem",
+            marginBottom: "1rem",
+            background: "#fff3f3",
+            border: "1px solid #fcc",
+            borderRadius: "var(--radius-sm)",
+            color: "#c0392b",
+            fontSize: "0.82rem",
+            fontWeight: 600,
+          }}
+        >
+          <AlertCircle size={17} />
+          {error}
+        </div>
+      )}
+
+      <div style={{ display: "grid", gap: "1.2rem", gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))", alignItems: "start" }}>
+        <div className="company-form-card">
+          <form className="portal-form" onSubmit={(e) => void handleProvision(e)}>
+            <div className="form-section-heading">
+              <span><CheckCircle2 size={20} /></span>
+              <div>
+                <h2>Aprovisionar empresa</h2>
+                <p>Crea el tenant, sus roles iniciales y el usuario administrador de forma atómica.</p>
+              </div>
+            </div>
+
+            <div className="field">
+              <label htmlFor="tenant-name">Nombre de la empresa</label>
+              <input
+                id="tenant-name"
+                type="text"
+                required
+                placeholder="Logística del Norte S.A."
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+              />
+              {fieldErrors.name && (
+                <small style={{ color: "#c0392b", fontSize: "0.72rem", fontWeight: 600 }}>
+                  {fieldErrors.name}
+                </small>
+              )}
+            </div>
+
+            <div className="field">
+              <label htmlFor="tenant-admin-email">Correo del primer administrador</label>
+              <input
+                id="tenant-admin-email"
+                type="email"
+                required
+                placeholder="admin@empresa.com"
+                value={adminEmail}
+                onChange={(e) => setAdminEmail(e.target.value)}
+              />
+              {fieldErrors.adminEmail && (
+                <small style={{ color: "#c0392b", fontSize: "0.72rem", fontWeight: 600 }}>
+                  {fieldErrors.adminEmail}
+                </small>
+              )}
+            </div>
+
+            <div className="field">
+              <label htmlFor="tenant-admin-password">Contraseña inicial (mín. 8 caracteres)</label>
+              <input
+                id="tenant-admin-password"
+                type="password"
+                required
+                minLength={8}
+                placeholder="••••••••"
+                value={adminPassword}
+                onChange={(e) => setAdminPassword(e.target.value)}
+              />
+              {fieldErrors.adminPassword && (
+                <small style={{ color: "#c0392b", fontSize: "0.72rem", fontWeight: 600 }}>
+                  {fieldErrors.adminPassword}
+                </small>
+              )}
+            </div>
+
+            <button
+              className="form-submit"
+              type="submit"
+              disabled={submitting}
+              style={{ width: "100%" }}
+            >
+              {submitting ? <Loader2 size={17} className="spin" /> : <Check size={17} />}
+              {submitting ? "Aprovisionando..." : "Crear empresa"}
+            </button>
+          </form>
+        </div>
+
+        <div className="dashboard-panel">
+          <div className="panel-heading">
+            <div>
+              <span style={{ color: "var(--text-muted)", fontSize: "0.65rem", fontWeight: 600 }}>
+                Sesión actual
+              </span>
+              <h2>Empresas creadas recientemente</h2>
+            </div>
+          </div>
+          {createdTenants.length === 0 ? (
+            <EmptyState
+              icon={<CheckCircle2 size={32} />}
+              title="Listo para aprovisionar"
+              body="Las empresas aprovisionadas en esta sesión aparecerán aquí con su slug asignado."
+            />
+          ) : (
+            <div style={{ display: "grid", gap: "0.7rem" }}>
+              {createdTenants.map((t) => (
+                <div
+                  key={t.tenantId}
+                  style={{
+                    padding: "0.9rem 1rem",
+                    borderRadius: "var(--radius-sm)",
+                    border: "1px solid var(--border)",
+                    background: "var(--blue-pale)",
+                  }}
+                >
+                  <strong style={{ color: "var(--navy)", display: "block" }}>{t.name}</strong>
+                  <small style={{ color: "var(--text-muted)", display: "block" }}>
+                    Slug: <code>{t.slug}</code> · Admin: {t.adminEmail}
+                  </small>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+    </>
+  )
 }
 
 // ──────────────────────────────────────────────────────────
