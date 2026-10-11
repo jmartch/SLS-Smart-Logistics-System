@@ -50,6 +50,19 @@ enum PlanningPackageOutcome {
   PENDING
 }
 
+enum RouteClosureMode {
+  REGULAR
+  FORCED
+}
+
+enum RouteManifestOutcome {
+  DELIVERED
+  FAILED
+  RESCHEDULED
+  RETURNED
+  PENDING
+}
+
 model Vehicle {
   id          String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   tenantId    String        @db.Uuid
@@ -93,6 +106,7 @@ model RoutePlanningRequest {
   requestedByUserId String                     @db.Uuid
   status            RoutePlanningRequestStatus @default(PENDING)
   parameters        Json
+  resultSnapshot    Json?
   failureReason     String?
   createdAt         DateTime                   @default(now())
   completedAt       DateTime?
@@ -128,22 +142,27 @@ model Route {
   depotId           String?    @db.Uuid
   plannedStartAt    DateTime?  @db.Timestamptz(3)
   plannedEndAt      DateTime?  @db.Timestamptz(3)
-  plannedDistanceM  Decimal?   @db.Decimal(12, 2)
-  plannedDurationS  Int?
+  plannedDistanceM         Decimal?   @db.Decimal(12, 2)
+  plannedDurationS         Int?
+  dispatchManifestSnapshot Json?
 
-  tenant          Tenant               @relation(fields: [tenantId], references: [id])
-  planningRequest RoutePlanningRequest @relation(fields: [tenantId, planningRequestId], references: [tenantId, id], onDelete: Restrict, onUpdate: Cascade)
-  vehicle         Vehicle              @relation(fields: [tenantId, vehicleId], references: [tenantId, id], onDelete: Restrict, onUpdate: Cascade)
-  courier         Courier              @relation(fields: [tenantId, courierId], references: [tenantId, id], onDelete: Restrict, onUpdate: Cascade)
-  stops           RouteStop[]
-  assignments     Assignment[]
-  incidents       Incident[]
-  depot           Depot?               @relation(fields: [tenantId, depotId], references: [tenantId, id], onDelete: Restrict, onUpdate: Restrict)
-  legs            RouteLeg[]
+  tenant           Tenant               @relation(fields: [tenantId], references: [id])
+  planningRequest  RoutePlanningRequest @relation(fields: [tenantId, planningRequestId], references: [tenantId, id], onDelete: Restrict, onUpdate: Cascade)
+  vehicle          Vehicle              @relation(fields: [tenantId, vehicleId], references: [tenantId, id], onDelete: Restrict, onUpdate: Cascade)
+  courier          Courier              @relation(fields: [tenantId, courierId], references: [tenantId, id], onDelete: Restrict, onUpdate: Cascade)
+  stops            RouteStop[]
+  assignments      Assignment[]
+  incidents        Incident[]
+  depot            Depot?               @relation(fields: [tenantId, depotId], references: [tenantId, id], onDelete: Restrict, onUpdate: Restrict)
+  legs             RouteLeg[]
+  deliveryAttempts DeliveryAttempt[]
+  closure          RouteClosure?
 
   @@unique([tenantId, id])
   @@unique([tenantId, id, vehicleId, courierId])
   @@index([tenantId])
+  @@index([tenantId, state, plannedAt])
+  @@index([tenantId, courierId, state])
 }
 
 model RouteStop {
@@ -188,19 +207,60 @@ model Assignment {
   status                 AssignmentStatus @default(ACTIVE)
   reasonCode             String?
   ruleExpressionSnapshot String?
-  createdAt              DateTime         @default(now())
+  routeOutcome           RouteManifestOutcome?
+  routeOutcomeAt         DateTime?             @db.Timestamptz(3)
+  receivedAtDepotId      String?               @db.Uuid
+  receivedAtDepotAt      DateTime?             @db.Timestamptz(3)
+  receivedByUserId       String?               @db.Uuid
+  createdAt              DateTime              @default(now())
   endedAt                DateTime?
 
-  tenant          Tenant       @relation(fields: [tenantId], references: [id])
-  package         Package      @relation(fields: [tenantId, packageId], references: [tenantId, id], onDelete: Restrict, onUpdate: Cascade)
-  route           Route?       @relation(fields: [tenantId, routeId, vehicleId, courierId], references: [tenantId, id, vehicleId, courierId], onDelete: Restrict, onUpdate: Restrict)
-  routeStop       RouteStop?   @relation(fields: [tenantId, routeStopId, routeId], references: [tenantId, id, routeId], onDelete: Restrict, onUpdate: Restrict)
-  vehicle         Vehicle?     @relation(fields: [tenantId, vehicleId], references: [tenantId, id], onDelete: Restrict, onUpdate: Cascade)
-  courier         Courier?     @relation(fields: [tenantId, courierId], references: [tenantId, id], onDelete: Restrict, onUpdate: Cascade)
-  routingRule     RoutingRule? @relation(fields: [tenantId, routingRuleId], references: [tenantId, id], onDelete: Restrict, onUpdate: Cascade)
-  responsibleUser User?        @relation(fields: [tenantId, responsibleUserId], references: [tenantId, id], onDelete: Restrict, onUpdate: Cascade)
+  tenant           Tenant            @relation(fields: [tenantId], references: [id])
+  package          Package           @relation(fields: [tenantId, packageId], references: [tenantId, id], onDelete: Restrict, onUpdate: Cascade)
+  route            Route?            @relation(fields: [tenantId, routeId, vehicleId, courierId], references: [tenantId, id, vehicleId, courierId], onDelete: Restrict, onUpdate: Restrict)
+  routeStop        RouteStop?        @relation(fields: [tenantId, routeStopId, routeId], references: [tenantId, id, routeId], onDelete: Restrict, onUpdate: Restrict)
+  vehicle          Vehicle?          @relation(fields: [tenantId, vehicleId], references: [tenantId, id], onDelete: Restrict, onUpdate: Cascade)
+  courier          Courier?          @relation(fields: [tenantId, courierId], references: [tenantId, id], onDelete: Restrict, onUpdate: Cascade)
+  routingRule      RoutingRule?      @relation(fields: [tenantId, routingRuleId], references: [tenantId, id], onDelete: Restrict, onUpdate: Cascade)
+  responsibleUser  User?             @relation(fields: [tenantId, responsibleUserId], references: [tenantId, id], onDelete: Restrict, onUpdate: Cascade)
+  receivedAtDepot  Depot?            @relation("AssignmentDepotReceipt", fields: [tenantId, receivedAtDepotId], references: [tenantId, id], onDelete: Restrict, onUpdate: Restrict)
+  receivedByUser   User?             @relation("AssignmentCargoReceipt", fields: [tenantId, receivedByUserId], references: [tenantId, id], onDelete: Restrict, onUpdate: Cascade)
+  deliveryAttempts DeliveryAttempt[]
 
   // Partial unique index for ACTIVE rows is maintained in the SQL migration.
   // A full @@unique would incorrectly prevent assignment history.
+  @@unique([tenantId, id])
   @@index([tenantId])
+  @@index([tenantId, routeId, status])
+}
+
+model RouteClosure {
+  id               String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId         String           @db.Uuid
+  routeId          String           @db.Uuid
+  requestId        String           @db.Uuid
+  actorUserId      String           @db.Uuid
+  requestHash      String
+  mode             RouteClosureMode
+  reasonCode       String?
+  notes            String?
+  completedAt      DateTime         @db.Timestamptz(3)
+  schemaVersion    Int              @default(1)
+  totalAssigned    Int
+  deliveredCount   Int
+  failedCount      Int
+  rescheduledCount Int
+  returnedCount    Int
+  pendingCount     Int
+  resultSnapshot   Json             @db.JsonB
+
+  tenant    Tenant @relation(fields: [tenantId], references: [id])
+  route     Route  @relation(fields: [tenantId, routeId], references: [tenantId, id], onDelete: Restrict, onUpdate: Cascade)
+  actorUser User   @relation(fields: [tenantId, actorUserId], references: [tenantId, id], onDelete: Restrict, onUpdate: Cascade)
+
+  @@unique([tenantId, id])
+  @@unique([tenantId, routeId])
+  @@unique([tenantId, requestId])
+  @@index([tenantId])
+  @@index([tenantId, actorUserId])
 }

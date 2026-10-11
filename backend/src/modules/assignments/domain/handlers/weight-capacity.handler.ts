@@ -12,7 +12,7 @@ export class WeightCapacityHandler extends BaseAssignmentValidationHandler {
 
         if (
             vehicle !== null &&
-            context.package.weightKg > vehicle.remainingWeightKg
+            context.package.weightGrams > vehicle.remainingWeightGrams
         ) {
             return this.reject(
                 'WEIGHT_CAPACITY_EXCEEDED',

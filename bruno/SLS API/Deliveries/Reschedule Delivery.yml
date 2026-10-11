@@ -1,0 +1,32 @@
+info:
+  name: Reschedule Delivery
+  type: http
+  seq: 4
+
+http:
+  method: POST
+  url: "{{baseUrl}}/deliveries/packages/{{packageId}}/reschedules"
+  auth: inherit
+  headers:
+    - name: Content-Type
+      value: application/json
+    - name: x-tenant-id
+      value: "{{tenantId}}"
+    - name: Idempotency-Key
+      value: "resched-10000000-0000-4000-8000-000000000001"
+  body:
+    type: json
+    data: |-
+      {
+        "failedAttemptId": "70000000-0000-4000-8000-000000000001",
+        "startAt": "2026-10-08T09:00:00.000Z",
+        "endAt": "2026-10-08T14:00:00.000Z",
+        "reasonCode": "CUSTOMER_REQUESTED_NEW_DATE"
+      }
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+  forwardAuthorizationHeader: false

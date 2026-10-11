@@ -17,10 +17,10 @@ export class CompleteDataValidationHandler extends BaseAssignmentValidationHandl
             packageData.recipientAddress.trim().length === 0;
 
         const hasInvalidMeasurements =
-            !Number.isFinite(packageData.weightKg) ||
-            packageData.weightKg <= 0 ||
-            !Number.isFinite(packageData.volumeM3) ||
-            packageData.volumeM3 <= 0;
+            !Number.isSafeInteger(packageData.weightGrams) ||
+            packageData.weightGrams <= 0 ||
+            !Number.isSafeInteger(packageData.volumeCm3) ||
+            packageData.volumeCm3 <= 0;
 
         if (hasMissingText || hasInvalidMeasurements) {
             return this.reject(

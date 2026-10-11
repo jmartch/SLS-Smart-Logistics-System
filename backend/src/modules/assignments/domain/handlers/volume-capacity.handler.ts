@@ -12,7 +12,7 @@ export class VolumeCapacityHandler extends BaseAssignmentValidationHandler {
 
         if (
             vehicle !== null &&
-            context.package.volumeM3 > vehicle.remainingVolumeM3
+            context.package.volumeCm3 > vehicle.remainingVolumeCm3
         ) {
             return this.reject(
                 'VOLUME_CAPACITY_EXCEEDED',

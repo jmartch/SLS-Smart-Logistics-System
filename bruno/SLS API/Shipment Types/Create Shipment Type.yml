@@ -1,0 +1,29 @@
+info:
+  name: Create Shipment Type
+  type: http
+  seq: 2
+
+http:
+  method: POST
+  url: "{{baseUrl}}/shipment-types"
+  auth: inherit
+  headers:
+    - name: Content-Type
+      value: application/json
+    - name: x-tenant-id
+      value: "{{tenantId}}"
+  body:
+    type: json
+    data: |-
+      {
+        "code": "EXPRESS",
+        "name": "Envío Express",
+        "active": true
+      }
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+  forwardAuthorizationHeader: false

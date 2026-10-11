@@ -21,7 +21,9 @@ describe('PackageAggregate State pattern', () => {
         ['CLASSIFIED', 'ASSIGNED_TO_ROUTE'],
         ['PENDING_ASSIGNMENT', 'ASSIGNED_TO_ROUTE'],
         ['ASSIGNED_TO_ROUTE', 'READY_FOR_DISPATCH'],
+        ['ASSIGNED_TO_ROUTE', 'PENDING_ASSIGNMENT'],
         ['READY_FOR_DISPATCH', 'IN_TRANSIT'],
+        ['READY_FOR_DISPATCH', 'PENDING_ASSIGNMENT'],
         ['IN_TRANSIT', 'OUT_FOR_DELIVERY'],
         ['OUT_FOR_DELIVERY', 'DELIVERED'],
         ['OUT_FOR_DELIVERY', 'DELIVERY_FAILED'],
@@ -107,5 +109,56 @@ describe('PackageAggregate State pattern', () => {
 
         expect(packageAggregate.pullDomainEvents()).toHaveLength(1);
         expect(packageAggregate.pullDomainEvents()).toEqual([]);
+    });
+});
+
+describe('semantic transition methods', () => {
+    it('supports delivery lifecycle flow with semantic methods', () => {
+        const pkg = reconstitute('READY_FOR_DISPATCH');
+        const customDate = new Date('2026-10-06T12:00:00.000Z');
+
+        pkg.markInTransit({ actorUserId: changedByUserId });
+        expect(pkg.state).toBe('IN_TRANSIT');
+
+        pkg.markOutForDelivery({ actorUserId: changedByUserId });
+        expect(pkg.state).toBe('OUT_FOR_DELIVERY');
+
+        pkg.deliver({
+            actorUserId: changedByUserId,
+            correlationId: 'corr-1',
+            occurredAt: customDate,
+        });
+        expect(pkg.state).toBe('DELIVERED');
+
+        const events = pkg.pullDomainEvents();
+        expect(events).toHaveLength(3);
+        expect(events[2].occurredAt).toEqual(customDate);
+        expect(events[2].eventType).toBe('PackageDelivered');
+    });
+
+    it('supports delivery failure and rescheduling via semantic methods', () => {
+        const pkg = reconstitute('OUT_FOR_DELIVERY');
+
+        pkg.failDelivery('RECIPIENT_ABSENT', { actorUserId: changedByUserId });
+        expect(pkg.state).toBe('DELIVERY_FAILED');
+
+        pkg.reschedule('RECIPIENT_REQUEST', { actorUserId: changedByUserId });
+        expect(pkg.state).toBe('RESCHEDULED');
+
+        const events = pkg.pullDomainEvents();
+        expect(events[0].reasonCode).toBe('RECIPIENT_ABSENT');
+        expect(events[1].reasonCode).toBe('RECIPIENT_REQUEST');
+    });
+
+    it('supports return to depot flow via semantic methods', () => {
+        const pkg = reconstitute('DELIVERY_FAILED');
+
+        pkg.requestReturn('UNDELIVERABLE_ADDRESS', {
+            actorUserId: changedByUserId,
+        });
+        expect(pkg.state).toBe('RETURN_PENDING');
+
+        pkg.returnToDepot({ actorUserId: changedByUserId });
+        expect(pkg.state).toBe('RETURNED');
     });
 });

@@ -5,7 +5,7 @@ INTEGRATION_COMPOSE = docker compose \
 
 INTEGRATION_DB_URL = postgresql://integration_admin:integration_test_password@integration-postgres:5432/postgres
 
-INTEGRATION_TESTS = gdb-01 gdb-05 gdb-06 geocode-01
+INTEGRATION_TESTS = gdb-01 gdb-05 gdb-06 geocode-01 assign-01 route-01 delivery-01 route-close-01 rmq-01
 
 .PHONY: integration-db-up integration-db-down integration-db-status integration-test
 

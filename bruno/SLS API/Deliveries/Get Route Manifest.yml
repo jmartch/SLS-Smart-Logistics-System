@@ -1,0 +1,23 @@
+info:
+  name: Get Route Manifest
+  type: http
+  seq: 8
+
+http:
+  method: GET
+  url: "{{baseUrl}}/deliveries/routes/{{routeId}}/manifest?view=all"
+  auth: inherit
+  headers:
+    - name: x-tenant-id
+      value: "{{tenantId}}"
+  params:
+    - name: view
+      value: all
+      enabled: true
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+  forwardAuthorizationHeader: false

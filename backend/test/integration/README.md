@@ -116,3 +116,94 @@ migraciones ni el esquema de producción.
 La suite demuestra geocodificación local contra un catálogo sintético; no
 implementa un proveedor externo, importación OSM, Haversine ni planificación de
 rutas.
+
+## ROUTE-01 — Ciclo de vida operativo de rutas e Iterator GoF
+
+Desde la raíz del repositorio:
+
+```bash
+make integration-test TEST=route-01
+make integration-db-down
+```
+
+El runner compila el backend, crea una base desechable `sls_route01_<uuid>`, aplica todas
+las migraciones mediante `prisma migrate deploy` y ejecuta en banda `test/route-lifecycle.e2e-spec.ts`
+y `test/routes-http.e2e-spec.ts` con el cliente runtime `sls_app`. La base se elimina en `finally`,
+incluso si una prueba falla.
+
+La ejecución cubre:
+1. Ciclo de vida operativo completo (`PLANNED` -> `READY` -> `IN_PROGRESS` -> `INTERRUPTED`)
+   con persistencia atómica de cambios en paquetes (`READY_FOR_DISPATCH`, `IN_TRANSIT`),
+   eventos en `OutboxEvent` y auditoría en `AuditLog`.
+2. Cancelación pre-salida (`PLANNED`/`READY` -> `CANCELLED`) revirtiendo paquetes a
+   `PENDING_ASSIGNMENT` y finalizando asignaciones como `CANCELLED`.
+3. Validaciones de invariantes y recursos: confirmación de depósito obligatoria, validación
+   de vehículos fuera de mantenimiento, autorización estricta del mensajero asignado y
+   rechazo de cancelación en rutas ya iniciadas.
+4. Aislamiento estricto multi-tenant (RLS) en base de datos y endpoints HTTP.
+5. Recorrido de paradas mediante el patrón GoF Iterator (`OrderedRouteStopIterator`)
+   verificado en la proyección de detalle de ruta.
+
+## DELIVERY-01 — Entregas, evidencias, excepciones operativas y RLS
+
+Desde la raíz del repositorio:
+
+```bash
+make integration-test TEST=delivery-01
+make integration-db-down
+```
+
+El runner compila el backend, crea una base desechable `sls_delivery01_<uuid>`, aplica todas
+las migraciones mediante `prisma migrate deploy` y ejecuta en banda `test/delivery-lifecycle.e2e-spec.ts`
+y `test/delivery-http.e2e-spec.ts` con el cliente runtime `sls_app`. La base y los archivos de storage
+temporales se eliminan en `finally`, incluso si una prueba falla.
+
+La ejecución cubre:
+1. Arribo a parada (`attendRouteStop`), transicionando paquetes a `OUT_FOR_DELIVERY` y registrando tiempos reales.
+2. Entregas exitosas (`recordSuccessfulDelivery`) con almacenamiento de evidencias (foto/firma, SHA-256), finalización de asignación en `DELIVERED`, y resolución de paradas multipaquete (`PENDING` -> `COMPLETED`).
+3. Entregas fallidas (`recordFailedDelivery`) conservando custodia física activa (`ACTIVE`), numerando intentos incrementalmente (`1..N`) y resolviendo paradas como `FAILED`.
+4. Reprogramación (`rescheduleDelivery`) con ventana horaria y conservación de custodia.
+5. Solicitud de retorno (`requestPackageReturn`) y recepción física en depósito (`returnPackageToDepot`), distinguiendo finalización de custodia para `RETURNED` y custodia en depósito para `RESCHEDULED`.
+6. Reporte de incidentes operacionales (`reportIncident`).
+7. Consulta de manifiesto con GoF Iterator (`getDeliveryManifest`).
+8. Idempotencia contractual con `Idempotency-Key` (replays limpios y detección de conflictos 409).
+9. Aislamiento multi-tenant estricto mediante RLS en PostgreSQL 17 con rol `sls_app`.
+
+## ROUTE-CLOSE-01 — Cierre operativo de rutas, reconciliación de manifiesto y RLS
+
+```bash
+make integration-test TEST=route-close-01
+make integration-db-down
+```
+
+El runner compila el backend, crea una base desechable `sls_routeclose01_<uuid>`, aplica todas
+las migraciones mediante `prisma migrate deploy` y ejecuta en banda `test/route-close-lifecycle.e2e-spec.ts`
+y `test/route-close-http.e2e-spec.ts` con el cliente runtime `sls_app`. La base se elimina en `finally`,
+incluso si una prueba falla.
+
+La ejecución cubre:
+1. Cierre operativo regular (`REGULAR`) de rutas con todas sus paradas atendidas y paquetes entregados, persistiendo snapshot inmutable en `RouteClosure`, outbox event `RouteCompleted` (`producer: routes`, `version: 1`) y log de auditoría `CLOSE_ROUTE`.
+2. Cierre contingente forzado (`FORCED`) con resolución obligatoria de custodia física restante en depósito (`depotReceipt`), conciliación exacta del balance de manifiesto ($7 = 2 + 1 + 1 + 1 + 2$) y recuperación contextual de paquetes no visitados a `PENDING_ASSIGNMENT`.
+3. Idempotencia y protección anti-tampering por hash SHA-256 (`Idempotency-Key` UUID): respuestas cacheadas en replays idénticos y rechazo con código 409 (`IdempotencyKeyReusedError`) ante payloads modificados.
+4. Consulta autorizada del resumen de cierre con proyecciones por rol: desglose completo para coordinadores y vista redactada (sin notas ni códigos internos de motivo) para mensajeros asignados.
+5. Aislamiento multi-tenant estricto forzado por PostgreSQL 17 RLS bajo el rol no privilegiado `sls_app`.
+
+
+## RMQ-01 — Outbox leases, confirm publisher, consumidor idempotente, DLQ y redrive
+
+Desde la raíz del repositorio:
+
+```bash
+make integration-test TEST=rmq-01
+make integration-db-down
+```
+
+El runner compila el backend, crea una base desechable `sls_rmq01_<uuid>`, aplica todas las migraciones mediante `prisma migrate deploy` y ejecuta en banda `test/messaging-outbox.e2e-spec.ts` y `test/messaging-consumer.e2e-spec.ts` con el cliente runtime `sls_app`. La base se elimina en `finally`, incluso si una prueba falla.
+
+La ejecución cubre:
+1. Publicación transaccional Outbox con leases concurrentes (`FOR UPDATE SKIP LOCKED`), control de expiración de lease y concurrencia multi-tenant.
+2. Confirmación de publicación RabbitMQ (`mandatory: true`, `publisher confirms`, detección de rutas no enrutables y `basic.return`).
+3. Consumo idempotente con registro transaccional en `ProcessedEvent`, deduplicación estricta y aislamiento por tenant.
+4. Políticas de reintento progresivo (5s, 10s, 20s), desvío inmediato a Dead Letter Queue para errores no recuperables y aislamiento de mensajes en cuarentena para inquilinos no autorizados.
+5. Redrive de Dead Letters con auditoría atómica en `DeadLetterRedrive`, validación de permisos de operador y prevención de duplicados.
+

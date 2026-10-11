@@ -1,0 +1,30 @@
+info:
+  name: Request Package Return
+  type: http
+  seq: 5
+
+http:
+  method: POST
+  url: "{{baseUrl}}/deliveries/packages/{{packageId}}/return-requests"
+  auth: inherit
+  headers:
+    - name: Content-Type
+      value: application/json
+    - name: x-tenant-id
+      value: "{{tenantId}}"
+    - name: Idempotency-Key
+      value: "return-req-10000000-0000-4000-8000-000000000001"
+  body:
+    type: json
+    data: |-
+      {
+        "failedAttemptId": "70000000-0000-4000-8000-000000000001",
+        "reasonCode": "EXHAUSTED_ATTEMPTS"
+      }
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+  forwardAuthorizationHeader: false

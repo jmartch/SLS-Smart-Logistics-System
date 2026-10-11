@@ -1,0 +1,29 @@
+info:
+  name: Record Successful Delivery
+  type: http
+  seq: 2
+
+http:
+  method: POST
+  url: "{{baseUrl}}/deliveries/routes/{{routeId}}/stops/{{stopId}}/packages/{{packageId}}/successful-attempts"
+  auth: inherit
+  headers:
+    - name: Content-Type
+      value: application/json
+    - name: x-tenant-id
+      value: "{{tenantId}}"
+    - name: Idempotency-Key
+      value: "success-10000000-0000-4000-8000-000000000001"
+  body:
+    type: json
+    data: |-
+      {
+        "notes": "Entregado en portería a recepcionista principal"
+      }
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+  forwardAuthorizationHeader: false

@@ -12,8 +12,6 @@ services:
     depends_on:
       postgres:
         condition: service_started
-      rabbitmq:
-        condition: service_healthy
   frontend:
     build: ./frontend
     container_name: sls-frontend
@@ -51,6 +49,8 @@ services:
       - "15672:15672"
     volumes:
       - rabbitmq_data:/var/lib/rabbitmq
+      - ./infra/rabbitmq/rabbitmq.conf:/etc/rabbitmq/rabbitmq.conf:ro
+      - ./infra/rabbitmq/definitions.json:/etc/rabbitmq/definitions.json:ro
     healthcheck:
       test: [ "CMD", "rabbitmq-diagnostics", "-q", "ping" ]
       interval: 10s

@@ -1,0 +1,28 @@
+info:
+  name: Create Sector
+  type: http
+  seq: 5
+
+http:
+  method: POST
+  url: "{{baseUrl}}/zones/{{zoneId}}/sectors"
+  auth: inherit
+  headers:
+    - name: Content-Type
+      value: application/json
+    - name: x-tenant-id
+      value: "{{tenantId}}"
+  body:
+    type: json
+    data: |-
+      {
+        "code": "SEC-NORTE-01",
+        "name": "Sector Riomar"
+      }
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+  forwardAuthorizationHeader: false
