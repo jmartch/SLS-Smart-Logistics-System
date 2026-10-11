@@ -30,6 +30,7 @@ generated/
 .windsurf/
 skills-lock.json
 docs/superpowers/
+.superpowers/
 tmp/
 
 # Logs

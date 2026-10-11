@@ -16,8 +16,8 @@ DECLARE
   zone_id uuid := gen_random_uuid();
   sector_id uuid := gen_random_uuid();
 BEGIN
-  INSERT INTO "Tenant" ("id", "name")
-  VALUES (tenant_id, 'Prueba GDB-03');
+  INSERT INTO "Tenant" ("id", "name", "slug")
+  VALUES (tenant_id, 'Prueba GDB-03', 'gdb-03-' || tenant_id);
 
   INSERT INTO "Address" (
     "id", "tenantId", "originalText", "municipalityCode"
@@ -95,8 +95,8 @@ BEGIN
 
   RAISE NOTICE 'PASS: dimensiones y volumen actualizados coherentemente';
 
-    INSERT INTO "Tenant" ("id", "name")
-  VALUES (other_tenant_id, 'Otra empresa de prueba');
+    INSERT INTO "Tenant" ("id", "name", "slug")
+  VALUES (other_tenant_id, 'Otra empresa de prueba', 'gdb-03-other-' || other_tenant_id);
 
   INSERT INTO "Address" (
     "id", "tenantId", "originalText", "municipalityCode"

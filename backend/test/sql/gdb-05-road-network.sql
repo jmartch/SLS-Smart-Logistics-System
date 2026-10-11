@@ -2,9 +2,9 @@
 
 BEGIN;
 
-INSERT INTO "Tenant" ("id", "name") VALUES
-  ('10000000-0000-0000-0000-000000000001', 'GDB05 Tenant A'),
-  ('10000000-0000-0000-0000-000000000002', 'GDB05 Tenant B');
+INSERT INTO "Tenant" ("id", "name", "slug") VALUES
+  ('10000000-0000-0000-0000-000000000001', 'GDB05 Tenant A', 'gdb05-tenant-a'),
+  ('10000000-0000-0000-0000-000000000002', 'GDB05 Tenant B', 'gdb05-tenant-b');
 
 INSERT INTO "User" ("id", "tenantId", "email", "passwordHash") VALUES
   ('20000000-0000-0000-0000-000000000001', '10000000-0000-0000-0000-000000000001', 'gdb05-a@example.test', 'test'),
