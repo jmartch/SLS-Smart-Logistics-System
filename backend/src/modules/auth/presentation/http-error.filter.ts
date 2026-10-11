@@ -40,6 +40,22 @@ function hasErrorEnvelope(body: unknown): body is ErrorEnvelope {
   return typeof error === 'object' && error !== null;
 }
 
+// Operational modules (zones, route-planning, routes, deliveries) map domain
+// errors to { code: string, message: string, field?: string } per
+// sls-error-standardization. Preserve those payloads untouched so their
+// stable `code` and `field` metadata are not overwritten.
+function hasDirectErrorCode(
+  body: unknown,
+): body is { code: string; message: string } {
+  if (typeof body !== 'object' || body === null) {
+    return false;
+  }
+  const candidate = body as { code?: unknown; message?: unknown };
+  return (
+    typeof candidate.code === 'string' && typeof candidate.message === 'string'
+  );
+}
+
 // Client errors raised by the HTTP stack before Nest sees the request (for
 // example body-parser rejecting malformed JSON) are not HttpExceptions but
 // carry an exposed 4xx status.
@@ -71,7 +87,7 @@ export class HttpErrorFilter implements ExceptionFilter {
       const status = exception.getStatus();
       const body = exception.getResponse();
 
-      if (hasErrorEnvelope(body)) {
+      if (hasErrorEnvelope(body) || hasDirectErrorCode(body)) {
         response.status(status).json(body);
         return;
       }

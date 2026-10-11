@@ -187,7 +187,7 @@ describe('Tenant isolation over HTTP (e2e)', () => {
   }
 
   function loginRequest(slug: string, email: string, password: string) {
-    return http().post('/api/auth/login').send({ slug, email, password });
+    return http().post('/api/v1/auth/login').send({ slug, email, password });
   }
 
   async function login(
@@ -204,27 +204,27 @@ describe('Tenant isolation over HTTP (e2e)', () => {
   }
 
   function me(cookie: string) {
-    return http().get('/api/auth/me').set('Cookie', cookie);
+    return http().get('/api/v1/auth/me').set('Cookie', cookie);
   }
 
   function listEmployees(cookie: string) {
-    return http().get('/api/users').set('Cookie', cookie);
+    return http().get('/api/v1/users').set('Cookie', cookie);
   }
 
   function createEmployee(cookie: string, body: Record<string, unknown>) {
-    return http().post('/api/users').set('Cookie', cookie).send(body);
+    return http().post('/api/v1/users').set('Cookie', cookie).send(body);
   }
 
   function patchStatus(cookie: string, id: string, status: unknown) {
     return http()
-      .patch(`/api/users/${id}/status`)
+      .patch(`/api/v1/users/${id}/status`)
       .set('Cookie', cookie)
       .send({ status });
   }
 
   function patchRoles(cookie: string, id: string, roleIds: unknown) {
     return http()
-      .patch(`/api/users/${id}/roles`)
+      .patch(`/api/v1/users/${id}/roles`)
       .set('Cookie', cookie)
       .send({ roleIds });
   }
@@ -624,7 +624,7 @@ describe('Tenant isolation over HTTP (e2e)', () => {
     const beforeB = await snapshot(tenantB.id);
 
     const meSpoofed = await http()
-      .get('/api/auth/me')
+      .get('/api/v1/auth/me')
       .query({ tenantId: tenantB.id })
       .set('x-tenant-id', tenantB.id)
       .set('x-tenant-slug', tenantB.slug)
@@ -642,7 +642,7 @@ describe('Tenant isolation over HTTP (e2e)', () => {
     expect(JSON.stringify(identity)).not.toContain(tenantB.adminRoleId);
 
     const listSpoofed = await http()
-      .get('/api/users')
+      .get('/api/v1/users')
       .query({ tenantId: tenantB.id })
       .set('x-tenant-id', tenantB.id)
       .set('Cookie', cookieAdminA);
@@ -659,15 +659,15 @@ describe('Tenant isolation over HTTP (e2e)', () => {
         .send({ ...body, tenantId: tenantB.id });
 
     const statusAttack = await spoof(
-      http().patch(`/api/users/${victim.id}/status`),
+      http().patch(`/api/v1/users/${victim.id}/status`),
       { status: 'INACTIVE' },
     );
     const rolesAttack = await spoof(
-      http().patch(`/api/users/${victim.id}/roles`),
+      http().patch(`/api/v1/users/${victim.id}/roles`),
       { roleIds: [tenantB.adminRoleId] },
     );
     const createAttack = await spoof(
-      http().post('/api/users'),
+      http().post('/api/v1/users'),
       newEmployeeBody(tenantA, [tenantB.extraRoleId]),
     );
     for (const response of [statusAttack, rolesAttack, createAttack]) {
@@ -678,7 +678,7 @@ describe('Tenant isolation over HTTP (e2e)', () => {
 
     // A stripped (not honored) body tenantId: the new employee lands in A.
     const smuggledBody = newEmployeeBody(tenantA, [tenantA.extraRoleId]);
-    const createOwn = await spoof(http().post('/api/users'), smuggledBody);
+    const createOwn = await spoof(http().post('/api/v1/users'), smuggledBody);
     expect(createOwn.status).toBe(201);
     const createdEmployee = await admin.user.findUniqueOrThrow({
       where: { id: (createOwn.body as EmployeeBody).id },
@@ -690,7 +690,7 @@ describe('Tenant isolation over HTTP (e2e)', () => {
     // Positive control: the same spoofed request on A's own employee works,
     // and acts on tenant A.
     const ownAttempt = await spoof(
-      http().patch(`/api/users/${ownEmployee.id}/status`),
+      http().patch(`/api/v1/users/${ownEmployee.id}/status`),
       { status: 'INACTIVE' },
     );
     expect(ownAttempt.status).toBe(200);
@@ -721,7 +721,7 @@ describe('Tenant isolation over HTTP (e2e)', () => {
 
     // Logging out one A session ends only that session.
     const logout = await http()
-      .post('/api/auth/logout')
+      .post('/api/v1/auth/logout')
       .set('Cookie', sessionA2);
     expect(logout.status).toBe(200);
     expect((await me(sessionA2)).status).toBe(401);
@@ -756,7 +756,7 @@ describe('Tenant isolation over HTTP (e2e)', () => {
     });
     created.platformAdminIds.push(platformAdmin.id);
     const platformLogin = await http()
-      .post('/api/platform/login')
+      .post('/api/v1/platform/login')
       .send({ email: platformEmail, password: platformPassword });
     expect(platformLogin.status).toBe(200);
     const platformCookie = sessionCookie(platformLogin);
@@ -789,7 +789,7 @@ describe('Tenant isolation over HTTP (e2e)', () => {
     // A tenant administrator and an ordinary employee are both refused.
     for (const cookie of [cookieAdminA, employeeCookie]) {
       const provision = await http()
-        .post('/api/platform/tenants')
+        .post('/api/v1/platform/tenants')
         .set('Cookie', cookie)
         .send(provisionBody);
       expect(provision.status).toBe(403);

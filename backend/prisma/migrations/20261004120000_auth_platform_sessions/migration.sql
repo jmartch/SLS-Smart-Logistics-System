@@ -50,13 +50,21 @@ CREATE INDEX "Session_expiresAt_idx" ON "Session"("expiresAt");
 ALTER TABLE "AuditLog" ADD CONSTRAINT "AuditLog_actorPlatformAdminId_fkey" FOREIGN KEY ("actorPlatformAdminId") REFERENCES "PlatformAdmin"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "Session" ADD CONSTRAINT "Session_tenantId_fkey" FOREIGN KEY ("tenantId") REFERENCES "Tenant"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+ALTER TABLE "Session" ADD CONSTRAINT "Session_tenantId_fkey" FOREIGN KEY ("tenantId") REFERENCES "Tenant"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "Session" ADD CONSTRAINT "Session_tenantId_userId_fkey" FOREIGN KEY ("tenantId", "userId") REFERENCES "User"("tenantId", "id") ON DELETE SET NULL ON UPDATE CASCADE;
+ALTER TABLE "Session" ADD CONSTRAINT "Session_tenantId_userId_fkey" FOREIGN KEY ("tenantId", "userId") REFERENCES "User"("tenantId", "id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "Session" ADD CONSTRAINT "Session_platformAdminId_fkey" FOREIGN KEY ("platformAdminId") REFERENCES "PlatformAdmin"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+ALTER TABLE "Session" ADD CONSTRAINT "Session_platformAdminId_fkey" FOREIGN KEY ("platformAdminId") REFERENCES "PlatformAdmin"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- Actor coherence: a session belongs either to a tenant user (both tenantId
+-- and userId set, platformAdminId null) or to a platform admin
+-- (platformAdminId set, tenantId and userId null).
+ALTER TABLE "Session" ADD CONSTRAINT "Session_actor_coherence_check" CHECK (
+  ("actorType" = 'TENANT_USER' AND "tenantId" IS NOT NULL AND "userId" IS NOT NULL AND "platformAdminId" IS NULL)
+  OR ("actorType" = 'PLATFORM_ADMIN' AND "platformAdminId" IS NOT NULL AND "tenantId" IS NULL AND "userId" IS NULL)
+);
 
 -- Six permissions the whole MVP enforces against (spec section 4.4).
 INSERT INTO "Permission" (id, code, description) VALUES
@@ -75,10 +83,13 @@ ON CONFLICT (code) DO NOTHING;
 -- repeated here so this migration states its own invariant.)
 REVOKE INSERT, UPDATE, DELETE ON "Tenant", "Permission" FROM sls_app;
 
+-- Created without LOGIN/PASSWORD in versioned SQL so no environment inherits a
+-- known credential from migration history. Operational bootstrap and disposable
+-- test runners grant LOGIN and rotate the credential from environment secrets.
 DO $$
 BEGIN
   IF NOT EXISTS (SELECT FROM pg_catalog.pg_roles WHERE rolname = 'sls_provisioning') THEN
-    CREATE ROLE sls_provisioning WITH LOGIN PASSWORD 'sls_provisioning_dev_password';
+    CREATE ROLE sls_provisioning NOLOGIN;
   END IF;
 END
 $$;

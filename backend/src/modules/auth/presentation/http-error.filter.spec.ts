@@ -52,6 +52,21 @@ describe('HttpErrorFilter', () => {
     expect(loggerError).not.toHaveBeenCalled();
   });
 
+  it('passes through an HttpException body that carries a direct SLS { code, message, field } payload', () => {
+    const directPayload = {
+      code: 'UNAUTHENTICATED',
+      message: 'Missing or invalid tenant context',
+      field: 'tenantId',
+    };
+    const { host, status, json } = fakeHost();
+
+    filter.catch(new UnauthorizedException(directPayload), host);
+
+    expect(status).toHaveBeenCalledWith(401);
+    expect(json).toHaveBeenCalledWith(directPayload);
+    expect(loggerError).not.toHaveBeenCalled();
+  });
+
   it.each([
     [new BadRequestException('x'), 400, 'VALIDATION_ERROR'],
     [new UnauthorizedException('x'), 401, 'SESSION_EXPIRED'],

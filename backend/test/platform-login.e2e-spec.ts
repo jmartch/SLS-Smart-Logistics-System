@@ -51,7 +51,7 @@ describe('Platform admin login (e2e)', () => {
   }
 
   function login(body: Record<string, unknown>) {
-    return http().post('/api/platform/login').send(body);
+    return http().post('/api/v1/platform/login').send(body);
   }
 
   function sessionCookie(response: request.Response): string {
@@ -166,10 +166,10 @@ describe('Platform admin login (e2e)', () => {
     expect(response.status).toBe(200);
   });
 
-  it('opens a session that /api/auth/me reports as the platform admin', async () => {
+  it('opens a session that /api/v1/auth/me reports as the platform admin', async () => {
     const cookie = sessionCookie(await login({ email: activeEmail, password }));
 
-    const response = await http().get('/api/auth/me').set('Cookie', cookie);
+    const response = await http().get('/api/v1/auth/me').set('Cookie', cookie);
 
     expect(response.status).toBe(200);
     expect(response.body).toEqual({ platformAdminId, email: activeEmail });
@@ -225,13 +225,13 @@ describe('Platform admin login (e2e)', () => {
     ]);
   });
 
-  it('revokes the session on logout so /api/auth/me answers 401', async () => {
+  it('revokes the session on logout so /api/v1/auth/me answers 401', async () => {
     const cookie = sessionCookie(await login({ email: activeEmail, password }));
 
-    const logout = await http().post('/api/auth/logout').set('Cookie', cookie);
+    const logout = await http().post('/api/v1/auth/logout').set('Cookie', cookie);
     expect(logout.status).toBe(200);
 
-    const me = await http().get('/api/auth/me').set('Cookie', cookie);
+    const me = await http().get('/api/v1/auth/me').set('Cookie', cookie);
     expect(me.status).toBe(401);
     expect(errorOf(me).code).toBe('SESSION_EXPIRED');
   });
@@ -245,7 +245,7 @@ describe('Platform admin login (e2e)', () => {
     created.platformAdminIds.push(demoted.id);
     const cookie = sessionCookie(await login({ email, password }));
     expect(
-      (await http().get('/api/auth/me').set('Cookie', cookie)).status,
+      (await http().get('/api/v1/auth/me').set('Cookie', cookie)).status,
     ).toBe(200);
 
     await admin.platformAdmin.update({
@@ -253,7 +253,7 @@ describe('Platform admin login (e2e)', () => {
       data: { status: 'INACTIVE' },
     });
 
-    const me = await http().get('/api/auth/me').set('Cookie', cookie);
+    const me = await http().get('/api/v1/auth/me').set('Cookie', cookie);
     expect(me.status).toBe(401);
     expect(errorOf(me)).toEqual({
       code: 'SESSION_EXPIRED',
@@ -262,7 +262,7 @@ describe('Platform admin login (e2e)', () => {
     });
     // Platform endpoints are refused before validation: nothing is created.
     const provision = await http()
-      .post('/api/platform/tenants')
+      .post('/api/v1/platform/tenants')
       .set('Cookie', cookie)
       .send({});
     expect(provision.status).toBe(401);

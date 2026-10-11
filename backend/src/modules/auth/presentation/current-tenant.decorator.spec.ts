@@ -1,5 +1,5 @@
 import { UnauthorizedException } from '@nestjs/common';
-import { getCurrentTenant } from './current-tenant.decorator';
+import { getCurrentTenant } from '../../../shared/presentation/request-context.decorator';
 import { NotATenantActorError } from '../../../shared/application/tenant-context';
 import type { ActorContext } from '../../../shared/application/actor-context';
 

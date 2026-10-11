@@ -40,7 +40,7 @@ function sessionCookie(response: request.Response): string {
   return header.split(';')[0];
 }
 
-describe('POST /api/platform/tenants (e2e)', () => {
+describe('POST /api/v1/platform/tenants (e2e)', () => {
   jest.setTimeout(30_000);
 
   let app: INestApplication;
@@ -72,7 +72,7 @@ describe('POST /api/platform/tenants (e2e)', () => {
   }
 
   function provision(body: Record<string, unknown>, cookie?: string) {
-    const req = http().post('/api/platform/tenants');
+    const req = http().post('/api/v1/platform/tenants');
     if (cookie) {
       void req.set('Cookie', cookie);
     }
@@ -87,7 +87,7 @@ describe('POST /api/platform/tenants (e2e)', () => {
   }
 
   async function loginFirstAdmin(): Promise<string> {
-    const response = await http().post('/api/auth/login').send({
+    const response = await http().post('/api/v1/auth/login').send({
       slug: expectedSlug,
       email: firstAdminEmail,
       password: firstAdminPassword,
@@ -116,7 +116,7 @@ describe('POST /api/platform/tenants (e2e)', () => {
     platformAdminId = platformAdmin.id;
 
     const login = await http()
-      .post('/api/platform/login')
+      .post('/api/v1/platform/login')
       .send({ email: platformEmail, password: platformPassword });
     expect(login.status).toBe(200);
     platformCookie = sessionCookie(login);
@@ -213,7 +213,7 @@ describe('POST /api/platform/tenants (e2e)', () => {
     const tenantId = requireProvisioned();
     const cookie = await loginFirstAdmin();
 
-    const me = await http().get('/api/auth/me').set('Cookie', cookie);
+    const me = await http().get('/api/v1/auth/me').set('Cookie', cookie);
 
     expect(me.status).toBe(200);
     const body = me.body as {

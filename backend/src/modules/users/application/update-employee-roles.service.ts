@@ -51,7 +51,17 @@ export class UpdateEmployeeRolesService {
           }
 
           const found = await tx.setRoles(employeeId, roleIds);
-          return found ? { kind: 'OK' } : { kind: 'NOT_FOUND' };
+          if (!found) {
+            return { kind: 'NOT_FOUND' };
+          }
+
+          await tx.recordAudit({
+            actorUserId: context.userId,
+            action: 'EMPLOYEE_ROLES_UPDATED',
+            targetUserId: employeeId,
+            metadata: { roleIds: [...new Set(roleIds)] },
+          });
+          return { kind: 'OK' };
         },
       );
     } catch (error) {

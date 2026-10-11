@@ -132,6 +132,15 @@ describe('UpdateEmployeeStatusService', () => {
     expect(result).toEqual({ kind: 'OK' });
     expect(repository.user(courier).status).toBe('ACTIVE');
     expect(sessions.revokedUsers).toEqual([]);
+    expect(repository.auditEntries).toEqual([
+      {
+        tenantId: TENANT,
+        actorUserId: admin,
+        action: 'EMPLOYEE_STATUS_UPDATED',
+        targetUserId: courier,
+        metadata: { status: 'ACTIVE' },
+      },
+    ]);
   });
 
   it('answers NOT_FOUND for an unknown id without revoking', async () => {

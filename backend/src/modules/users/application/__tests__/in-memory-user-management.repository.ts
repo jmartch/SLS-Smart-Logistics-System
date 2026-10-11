@@ -1,7 +1,9 @@
 import {
   EmployeeEmailAlreadyExistsError,
+  type EmployeeAuditEntry,
   type EmployeeRecord,
   type EmployeeStatus,
+  type RoleRecord,
 } from '../../domain/employee';
 import {
   UserManagementRepository,
@@ -24,7 +26,12 @@ interface FakeUser {
 interface FakeRole {
   id: string;
   tenantId: string;
+  name: string;
   permissions: ReadonlySet<string>;
+}
+
+export interface FakeAuditEntry extends EmployeeAuditEntry {
+  readonly tenantId: string;
 }
 
 function toRecord(user: FakeUser): EmployeeRecord {
@@ -45,14 +52,24 @@ function toRecord(user: FakeUser): EmployeeRecord {
 export class InMemoryUserManagementRepository extends UserManagementRepository {
   readonly users = new Map<string, FakeUser>();
   readonly roles = new Map<string, FakeRole>();
+  readonly auditEntries: FakeAuditEntry[] = [];
   readonly events: string[] = [];
   readonly exclusiveTenantIds: string[] = [];
   private nextId = 1;
   private readonly queues = new Map<string, Promise<unknown>>();
 
-  addRole(tenantId: string, permissions: readonly string[]): string {
+  addRole(
+    tenantId: string,
+    permissions: readonly string[],
+    name?: string,
+  ): string {
     const id = `role-${this.nextId++}`;
-    this.roles.set(id, { id, tenantId, permissions: new Set(permissions) });
+    this.roles.set(id, {
+      id,
+      tenantId,
+      name: name ?? id,
+      permissions: new Set(permissions),
+    });
     return id;
   }
 
@@ -89,6 +106,19 @@ export class InMemoryUserManagementRepository extends UserManagementRepository {
     );
   }
 
+  listRoles(tenantId: string): Promise<readonly RoleRecord[]> {
+    return Promise.resolve(
+      [...this.roles.values()]
+        .filter((role) => role.tenantId === tenantId)
+        .sort((a, b) => a.name.localeCompare(b.name))
+        .map((role) => ({
+          id: role.id,
+          name: role.name,
+          permissions: [...role.permissions].sort(),
+        })),
+    );
+  }
+
   runExclusive<T>(
     tenantId: string,
     work: (tx: UserManagementTx) => Promise<T>,
@@ -102,6 +132,7 @@ export class InMemoryUserManagementRepository extends UserManagementRepository {
           { ...user, roleIds: [...user.roleIds] },
         ]),
       );
+      const auditSnapshot = [...this.auditEntries];
       const scope = { open: true };
       try {
         const result = await work(this.transactionFor(tenantId, scope));
@@ -112,6 +143,8 @@ export class InMemoryUserManagementRepository extends UserManagementRepository {
         for (const [id, user] of snapshot) {
           this.users.set(id, user);
         }
+        this.auditEntries.length = 0;
+        this.auditEntries.push(...auditSnapshot);
         this.events.push('rollback');
         throw error;
       } finally {
@@ -213,6 +246,16 @@ export class InMemoryUserManagementRepository extends UserManagementRepository {
         }
         user.roleIds = [...roleIds];
         return true;
+      },
+      recordAudit: async (entry) => {
+        await step();
+        this.auditEntries.push({
+          tenantId,
+          actorUserId: entry.actorUserId,
+          action: entry.action,
+          targetUserId: entry.targetUserId,
+          metadata: { ...entry.metadata },
+        });
       },
     };
   }

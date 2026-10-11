@@ -9,13 +9,13 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { AuthGuard } from '../../auth/presentation/auth.guard';
-import { CurrentActor } from '../../auth/presentation/current-actor.decorator';
+import { CurrentActor } from '../../../shared/presentation/request-context.decorator';
 import type { ActorContext } from '../../../shared/application/actor-context';
 import { ProvisionTenantService } from '../application/provision-tenant.service';
 import { CreateTenantDto } from './dto/create-tenant.dto';
 import { PlatformAdminGuard } from './platform-admin.guard';
 
-@Controller('api/platform/tenants')
+@Controller('platform/tenants')
 @UseGuards(AuthGuard, PlatformAdminGuard)
 export class PlatformTenantsController {
   constructor(private readonly provisionTenant: ProvisionTenantService) {}

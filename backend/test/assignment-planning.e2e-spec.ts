@@ -94,8 +94,18 @@ describe('Transactional Route Planning and Assignment (ASSIGN-01)', () => {
 
         await admin.tenant.createMany({
             data: [
-                { id: tenantAId, name: `Tenant A ${tenantAId}`, status: 'ACTIVE' },
-                { id: tenantBId, name: `Tenant B ${tenantBId}`, status: 'ACTIVE' },
+                {
+                    id: tenantAId,
+                    name: `Tenant A ${tenantAId}`,
+                    slug: `assign-01-a-${tenantAId}`,
+                    status: 'ACTIVE',
+                },
+                {
+                    id: tenantBId,
+                    name: `Tenant B ${tenantBId}`,
+                    slug: `assign-01-b-${tenantBId}`,
+                    status: 'ACTIVE',
+                },
             ],
         });
 

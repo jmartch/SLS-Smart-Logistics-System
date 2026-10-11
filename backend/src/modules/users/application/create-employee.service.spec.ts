@@ -71,6 +71,18 @@ describe('CreateEmployeeService', () => {
     ]);
     expect(repository.user(result.employee.id).tenantId).toBe(TENANT);
     expect(repository.exclusiveTenantIds).toEqual([TENANT]);
+    expect(repository.auditEntries).toEqual([
+      {
+        tenantId: TENANT,
+        actorUserId: caller,
+        action: 'EMPLOYEE_CREATED',
+        targetUserId: result.employee.id,
+        metadata: {
+          email: 'courier@a.test',
+          roleIds: [roleId],
+        },
+      },
+    ]);
   });
 
   it('trims and lowercases the email before storing it', async () => {

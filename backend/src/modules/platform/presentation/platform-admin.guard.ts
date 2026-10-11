@@ -7,7 +7,7 @@ import {
 import {
   getCurrentActor,
   type RequestWithActor,
-} from '../../auth/presentation/current-actor.decorator';
+} from '../../../shared/presentation/request-context.decorator';
 
 // Runs after AuthGuard. Rejecting tenant users here (instead of inside the
 // handler) keeps authorization ahead of body validation, so a tenant user
