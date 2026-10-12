@@ -1,0 +1,29 @@
+info:
+  name: Register Vehicle
+  type: http
+  seq: 1
+
+http:
+  method: POST
+  url: "{{baseUrl}}/vehicles"
+  auth: inherit
+  headers:
+    - name: Content-Type
+      value: application/json
+    - name: x-tenant-id
+      value: "{{tenantId}}"
+  body:
+    type: json
+    data: |-
+      {
+        "plate": "ABC-123",
+        "maxWeightKg": 1200.5,
+        "maxVolumeM3": 8.25
+      }
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+  forwardAuthorizationHeader: false

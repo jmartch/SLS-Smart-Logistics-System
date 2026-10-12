@@ -1,0 +1,27 @@
+info:
+  name: Register Courier
+  type: http
+  seq: 1
+
+http:
+  method: POST
+  url: "{{baseUrl}}/couriers"
+  auth: inherit
+  headers:
+    - name: Content-Type
+      value: application/json
+    - name: x-tenant-id
+      value: "{{tenantId}}"
+  body:
+    type: json
+    data: |-
+      {
+        "userId": "30000000-0000-4000-8000-0000000000a1"
+      }
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+  forwardAuthorizationHeader: false

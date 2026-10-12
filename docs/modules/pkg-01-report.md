@@ -1,6 +1,6 @@
 # PKG-01 — Registro, consulta, clasificación e historial de paquetes
 
-Estado: `TODO` para el encargo funcional.
+Estado: `EN PROGRESO`. `POST /packages` implementado y verificado; consulta, clasificación y refactor del paso 0 pendientes.
 
 Plan canónico: [PKG-01](../plans/pkg-01.md). Coordinación: [puntos 1 y 2](../plans/mvp-puntos-1-2.md).
 
@@ -47,6 +47,42 @@ No se consultaron ni modificaron datos, roles ni migraciones de la base comparti
 
 Planificación automática, asignación a ruta, entregas, publicación RabbitMQ y rastreo público UI-04. Reutilizar State y geocodificación existentes; no rehacerlos ni exponer cambio libre de estado. Inbox/notificaciones quedan fuera.
 
+## Avance de implementación — `POST /packages` (2026-10-11)
+
+Rama `feature/package-vehicle-management`, creada desde `origin/develop` (HEAD `5930e33`). Commit de
+este avance: pendiente; los cambios siguen sin confirmar en el árbol de trabajo.
+
+- Objetivo: registro de paquetes. No incluye consulta, clasificación ni historial por HTTP.
+- Contrato: `trackingCode`, `address {text, municipalityCode}`, `shipmentTypeId`, `zoneId?`, `sectorId?`,
+  `weightKg`, `lengthCm`, `widthCm`, `heightCm`, `priority?`, `deadline?`, `serviceDurationSeconds?`.
+  Respuesta `201` con estado `REGISTERED`, volumen calculado y `publicTrackingToken`. Errores `400`,
+  `404` (`PACKAGE_SHIPMENT_TYPE_NOT_FOUND`, `PACKAGE_ZONE_NOT_FOUND`, `PACKAGE_SECTOR_NOT_FOUND`) y `409`
+  (`PACKAGE_TRACKING_CODE_CONFLICT`, `PACKAGE_SHIPMENT_TYPE_INACTIVE`, `PACKAGE_SECTOR_ZONE_MISMATCH`).
+- Archivos nuevos en `backend/src/modules/packages/`: dominio (`package-registration.ts`,
+  `package-measures.ts`, `package-reference.policy.ts`, `invalid-package-registration.error.ts`), aplicación
+  (`register-package.service.ts` y dos puertos), infraestructura (`prisma-package-registration.adapter.ts`,
+  `crypto-public-tracking-token.generator.ts`) y presentación (`packages.controller.ts`, DTO y mapeo de
+  errores). Modificado: `packages.module.ts`, solo con líneas añadidas.
+- Atomicidad: dirección, paquete e historial inicial (`fromState` nulo, `toState` `REGISTERED`) se
+  guardan en una transacción con `runWithTenant`.
+- Decisiones: sin evento de outbox, porque `event-catalog.ts` no define uno de registro; actor del
+  historial nulo hasta que exista autenticación; el token público (256 bits) se genera con `node:crypto`
+  porque el repositorio no tenía generador; el volumen se calcula en dominio con enteros para coincidir
+  con la restricción de la base; las coordenadas del formulario se ignoran porque `Package` ya no las guarda.
+- Pruebas unitarias nuevas: 8 suites y 92 pruebas. Regresión completa observada en el entorno local:
+  114 suites y 1025 pruebas pasaron.
+- Integración `registration-01` (`backend/test/registration-endpoints.e2e-spec.ts`, runner
+  `backend/test/integration/registration-01.cjs`): 1 suite y 32 pruebas pasaron en una base desechable.
+  Cubre aislamiento entre tenants, rechazo sin filas parciales y dos peticiones concurrentes con el mismo código.
+- Verificación manual: seis peticiones (válido, código duplicado, tipo de otro tenant, tipo inactivo,
+  sector de otra zona, peso inválido) respondieron como se esperaba y la base quedó con un paquete,
+  una dirección y una fila de historial.
+- Límites: el paso 0 (refactor de `PrismaPackageLifecycleRepository.transitionAtomically`) sigue
+  pendiente y no se tocó. El registro no pasa por `PackageAggregate`, que hoy solo reconstituye. No hay
+  evidencia de ejecución de lint sobre todos los archivos nuevos en este informe.
+- Pendiente: confirmar con Santiago el contrato (dirección y municipio en el formulario), consulta y
+  clasificación, y si el grupo exige un evento de registro.
+
 ## Cierre
 
-Implementación no cerrada. Actualizar una sección por cada paso completado, registrando comandos, resultados, límites y commit; enlazar siempre el plan.
+Implementación parcial; el trabajo restante está en los pendientes de cada avance. Actualizar una sección por cada paso completado, registrando comandos, resultados, límites y commit; enlazar siempre el plan.
