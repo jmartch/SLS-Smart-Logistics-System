@@ -1,13 +1,27 @@
 import { apiFetch } from '../../../shared/api/httpClient';
-import { USE_MOCK_DATA } from '../../../shared/config/environment';
 import type { RegisterPackagePayload, RegisterPackageResult } from '../types';
 
 export function registerPackage(payload: RegisterPackagePayload): Promise<RegisterPackageResult> {
-  if (USE_MOCK_DATA) {
-    return Promise.resolve({ id: `mock-${Date.now()}`, trackingCode: payload.trackingCode, state: 'REGISTERED' });
-  }
   return apiFetch<RegisterPackageResult>('/packages', {
     method: 'POST',
     body: JSON.stringify(payload),
   });
+}
+
+export interface PackageListItemResponse {
+  readonly id: string;
+  readonly trackingCode: string;
+  readonly state: string;
+  readonly priority: string;
+  readonly weightKg: string;
+  readonly volumeM3: string;
+  readonly address: string;
+  readonly zone: string | null;
+  readonly sector: string | null;
+  readonly shipmentType: string;
+  readonly registeredAt: string | null;
+}
+
+export function listPackages(): Promise<PackageListItemResponse[]> {
+  return apiFetch<PackageListItemResponse[]>('/packages');
 }

@@ -53,6 +53,10 @@ import {
   parsePackageQrPayload,
 } from "./features/packages/qrPackageParser"
 import "./features/packages/components/packages.css"
+import {
+  listPackages,
+  type PackageListItemResponse,
+} from "./features/packages/api/packagesApi"
 
 // ──────────────────────────────────────────────────────────
 // Login Page
@@ -323,14 +327,38 @@ export function PackagesListPage() {
   const { user } = useAuth()
   const [query, setQuery] = useState("")
   const [statusFilter, setStatusFilter] = useState<PkgStatus | "">("")
+  const [packages, setPackages] = useState<PackageListItemResponse[]>([])
+  const [loadingPackages, setLoadingPackages] = useState(true)
+  const [packagesError, setPackagesError] = useState<string | null>(null)
 
-  const filtered = PACKAGES.filter((p) => {
+  useEffect(() => {
+    let active = true
+    setLoadingPackages(true)
+    setPackagesError(null)
+    void listPackages()
+      .then((items) => {
+        if (active) setPackages(items)
+      })
+      .catch((error: unknown) => {
+        if (!active) return
+        setPackagesError(
+          error instanceof Error ? error.message : "No fue posible consultar los paquetes.",
+        )
+      })
+      .finally(() => {
+        if (active) setLoadingPackages(false)
+      })
+    return () => {
+      active = false
+    }
+  }, [])
+
+  const filtered = packages.filter((p) => {
     const matchQuery =
       !query ||
       p.trackingCode.toLowerCase().includes(query.toLowerCase()) ||
-      p.recipient.toLowerCase().includes(query.toLowerCase()) ||
-      p.sender.toLowerCase().includes(query.toLowerCase())
-    const matchStatus = !statusFilter || p.status === statusFilter
+      p.address.toLowerCase().includes(query.toLowerCase())
+    const matchStatus = !statusFilter || p.state === statusFilter
     return matchQuery && matchStatus
   })
 
@@ -373,32 +401,33 @@ export function PackagesListPage() {
       </div>
 
       <div className="dashboard-panel recent-panel">
+        {packagesError && (
+          <div className="error-banner" role="alert">
+            <AlertCircle size={17} /> {packagesError}
+          </div>
+        )}
         <div className="company-table">
-          <div className="company-table__head" style={{ gridTemplateColumns: "1.4fr 1.2fr 1fr 0.8fr 0.4fr" }}>
-            <span>Guía / Remitente</span>
-            <span>Destinatario</span>
+          <div className="company-table__head" style={{ gridTemplateColumns: "1.3fr 1.6fr 1fr 0.8fr" }}>
+            <span>Guía / tipo</span>
+            <span>Dirección</span>
             <span>Zona</span>
             <span>Estado</span>
-            <span></span>
           </div>
-          {filtered.length === 0 ? (
+          {loadingPackages ? (
+            <EmptyState icon={<Loader2 size={32} className="spin" />} title="Consultando paquetes" body="Cargando la información persistida del tenant." />
+          ) : filtered.length === 0 ? (
             <EmptyState icon={<Package size={32} />} title="Sin resultados" body="Ajusta los filtros o registra un nuevo paquete." />
           ) : (
             filtered.map((pkg) => (
-              <div key={pkg.id} className="company-table__row" style={{ gridTemplateColumns: "1.4fr 1.2fr 1fr 0.8fr 0.4fr" }}>
+              <div key={pkg.id} className="company-table__row" style={{ gridTemplateColumns: "1.3fr 1.6fr 1fr 0.8fr" }}>
                 <strong style={{ display: "grid", gap: "0.15rem" }}>
                   <span style={{ fontSize: "0.82rem" }}>{pkg.trackingCode}</span>
-                  <span style={{ color: "var(--text-muted)", fontSize: "0.68rem", fontWeight: 400 }}>{pkg.sender}</span>
+                  <span style={{ color: "var(--text-muted)", fontSize: "0.68rem", fontWeight: 400 }}>{pkg.shipmentType}</span>
                 </strong>
-                <span>{pkg.recipient}</span>
-                <span>{pkg.zone} · {pkg.sector}</span>
+                <span>{pkg.address}</span>
+                <span>{pkg.zone ?? "Sin zona"} · {pkg.sector ?? "Sin sector"}</span>
                 <span>
-                  <span className={`status ${STATUS_COLOR[pkg.status]}`}>{STATUS_LABELS[pkg.status]}</span>
-                </span>
-                <span>
-                  <Link to={`/app/paquetes/${pkg.id}`} style={{ display: "grid", width: 32, height: 32, placeItems: "center", color: "var(--blue-dark)", borderRadius: 8 }} aria-label={`Ver detalle ${pkg.trackingCode}`}>
-                    <ChevronRight size={17} />
-                  </Link>
+                  <span className={`status ${STATUS_COLOR[pkg.state as PkgStatus] ?? "status--muted"}`}>{STATUS_LABELS[pkg.state as PkgStatus] ?? pkg.state}</span>
                 </span>
               </div>
             ))
@@ -526,7 +555,6 @@ export function NewPackagePage() {
   const qrFileInputRef = useRef<HTMLInputElement | null>(null)
   const [submitted, setSubmitted] = useState(false)
   const [registeredTrackingCode, setRegisteredTrackingCode] = useState("")
-  const [persistedInBackend, setPersistedInBackend] = useState(false)
   const [loading, setLoading] = useState(false)
   const [scanningCamera, setScanningCamera] = useState(false)
   const [qrNotice, setQrNotice] = useState<string | null>(null)
@@ -631,12 +659,6 @@ export function NewPackagePage() {
     const lengthCm = Number(form.lengthCm) || 30
     const widthCm = Number(form.widthCm) || 20
     const heightCm = Number(form.heightCm) || 15
-    const volumeLiters =
-      Number(form.volume) || Number(((lengthCm * widthCm * heightCm) / 1000).toFixed(1))
-
-    let createdId = `pkg-${Date.now()}`
-    let backendSaved = false
-
     try {
       const res = await apiFetch<{ id?: string; trackingCode?: string }>("/packages", {
         method: "POST",
@@ -662,8 +684,9 @@ export function NewPackagePage() {
           heightCm,
         }),
       })
-      if (res?.id) createdId = res.id
-      backendSaved = true
+      if (!res?.id) {
+        throw new Error("La API no devolvió el identificador del paquete registrado.")
+      }
     } catch (err) {
       if (err instanceof ApiError && err.status === 409) {
         setSubmitError(
@@ -672,43 +695,16 @@ export function NewPackagePage() {
         setLoading(false)
         return
       }
-      // Si el usuario está navegando el demo sin sesión backend activa o falla un campo opcional, continúa en memoria para la demo UI
-    }
-
-    const nowIso = new Date().toISOString()
-    const newPkg: Pkg = {
-      id: createdId,
-      trackingCode: finalCode,
-      sender: form.sender.trim() || "Almacenes del Caribe S.A.S.",
-      recipient: form.recipient.trim(),
-      recipientAddress: form.recipientAddress.trim(),
-      recipientPhone: form.recipientPhone.trim() || "+57 300 000 0000",
-      zone: form.zone || "Zona Norte",
-      sector: form.sector || "Sector A",
-      weight: weightKg,
-      volume: volumeLiters,
-      priority: (form.priority as "normal" | "urgent" | "express") || "normal",
-      shipmentType: form.shipmentType || "Estándar",
-      status: "REGISTERED",
-      createdAt: nowIso,
-      estimatedDelivery: nowIso.slice(0, 10),
-      notes: form.notes.trim() || undefined,
-      history: [
-        {
-          status: "REGISTERED",
-          at: nowIso,
-          by: "Recepción SLS",
-          note: qrNotice ? "Registrado mediante lectura de código QR" : "Registrado en recepción",
-        },
-      ],
-    }
-
-    if (!PACKAGES.some((p) => p.trackingCode === finalCode)) {
-      PACKAGES.unshift(newPkg)
+      setSubmitError(
+        err instanceof Error
+          ? err.message
+          : "No fue posible registrar el paquete en el backend.",
+      )
+      setLoading(false)
+      return
     }
 
     setRegisteredTrackingCode(finalCode)
-    setPersistedInBackend(backendSaved)
     setLoading(false)
     setSubmitted(true)
   }
@@ -739,9 +735,7 @@ export function NewPackagePage() {
           Se registró la guía <strong>{registeredTrackingCode}</strong> para{" "}
           <strong>{form.recipient}</strong>. El paquete quedó en estado{" "}
           <strong>REGISTERED</strong>
-          {persistedInBackend
-            ? " (persistido en PostgreSQL + evento Outbox PackageRegistered)"
-            : " (disponible en la cola operativa)"}{" "}
+          {" (persistido en PostgreSQL + evento Outbox PackageRegistered)"}{" "}
           y está listo para clasificación.
         </p>
         <div style={{ display: "flex", gap: "1rem", flexWrap: "wrap", justifyContent: "center", marginTop: "0.5rem" }}>
@@ -751,10 +745,10 @@ export function NewPackagePage() {
           <button
             type="button"
             className="form-submit"
-            onClick={() => navigate(`/app/paquetes/${encodeURIComponent(PACKAGES[0]?.id ?? "")}`)}
+            onClick={() => navigate("/app/paquetes")}
             style={{ background: "var(--navy)", minWidth: 180 }}
           >
-            <ArrowRight size={17} /> Ver detalle del paquete
+            <ArrowRight size={17} /> Ver paquete en el listado
           </button>
           <Link to="/app/paquetes" className="form-submit" style={{ textDecoration: "none", background: "#334155", minWidth: 180 }}>
             <Package size={17} /> Ver listado

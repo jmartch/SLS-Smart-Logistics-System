@@ -1,6 +1,7 @@
 import {
     Body,
     Controller,
+    Get,
     HttpCode,
     HttpStatus,
     Post,
@@ -18,6 +19,7 @@ import {
     type RequestContext,
 } from '../../../shared/presentation/request-context.decorator';
 import type { RegisterPackageDto } from './dto/register-package.dto';
+import { ListPackagesUseCase } from '../application/list-packages.use-case';
 import {
     handlePackageDomainError,
     handlePackageFailure,
@@ -28,7 +30,16 @@ export const REGISTER_PACKAGES_PERMISSION = 'REGISTER_PACKAGES';
 @Controller('packages')
 @UseGuards(AuthGuard, PermissionsGuard)
 export class PackagesController {
-    constructor(private readonly registerPackage: RegisterPackageService) {}
+    constructor(
+        private readonly registerPackage: RegisterPackageService,
+        private readonly listPackages: ListPackagesUseCase,
+    ) {}
+
+    @Get()
+    @RequirePermission(REGISTER_PACKAGES_PERMISSION)
+    listPackagesEndpoint(@CurrentContext() context: RequestContext) {
+        return this.listPackages.execute(context.tenantId);
+    }
 
     @Post()
     @HttpCode(HttpStatus.CREATED)

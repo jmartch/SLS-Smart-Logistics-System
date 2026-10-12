@@ -9,6 +9,7 @@ import { PermissionsGuard } from '../../auth/presentation/permissions.guard';
 import { REQUIRED_PERMISSION_KEY } from '../../auth/presentation/require-permission.decorator';
 import type { RequestContext } from '../../../shared/presentation/request-context.decorator';
 import { RegisterPackageService } from '../application/register-package.service';
+import { ListPackagesUseCase } from '../application/list-packages.use-case';
 import { InvalidPackageRegistrationError } from '../domain/invalid-package-registration.error';
 import {
     PackagesController,
@@ -27,9 +28,15 @@ const context: RequestContext = {
 
 function createFixture() {
     const execute = jest.fn();
+    const list = jest.fn();
     const service = { execute } as unknown as RegisterPackageService;
+    const listService = { execute: list } as unknown as ListPackagesUseCase;
 
-    return { execute, controller: new PackagesController(service) };
+    return {
+        execute,
+        list,
+        controller: new PackagesController(service, listService),
+    };
 }
 
 const body = {
@@ -43,7 +50,7 @@ const body = {
 };
 
 describe('PackagesController', () => {
-    it('protects POST /packages with AuthGuard, PermissionsGuard and REGISTER_PACKAGES', () => {
+    it('protects package endpoints with AuthGuard and PermissionsGuard', () => {
         const guards = Reflect.getMetadata(
             GUARDS_METADATA,
             PackagesController,
@@ -55,6 +62,23 @@ describe('PackagesController', () => {
 
         expect(guards).toEqual([AuthGuard, PermissionsGuard]);
         expect(permission).toBe(REGISTER_PACKAGES_PERMISSION);
+        expect(
+            Reflect.getMetadata(
+                REQUIRED_PERMISSION_KEY,
+                PackagesController.prototype.listPackagesEndpoint,
+            ),
+        ).toBe(REGISTER_PACKAGES_PERMISSION);
+    });
+
+    it('lists only packages from the authenticated tenant context', async () => {
+        const { controller, list } = createFixture();
+        const packages = [{ id: 'p1', trackingCode: 'PKG-0001' }];
+        list.mockResolvedValue(packages);
+
+        await expect(controller.listPackagesEndpoint(context)).resolves.toEqual(
+            packages,
+        );
+        expect(list).toHaveBeenCalledWith(TENANT_ID);
     });
 
     it('returns the registered package', async () => {
