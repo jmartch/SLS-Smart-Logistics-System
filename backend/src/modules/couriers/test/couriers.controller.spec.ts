@@ -3,12 +3,28 @@ import {
   ConflictException,
   NotFoundException,
 } from '@nestjs/common';
+import { GUARDS_METADATA } from '@nestjs/common/constants';
+import { AuthGuard } from '../../auth/presentation/auth.guard';
+import { PermissionsGuard } from '../../auth/presentation/permissions.guard';
+import { REQUIRED_PERMISSION_KEY } from '../../auth/presentation/require-permission.decorator';
+import type { RequestContext } from '../../../shared/presentation/request-context.decorator';
 import { RegisterCourierService } from '../application/register-courier.service';
 import { InvalidCourierError } from '../domain/invalid-courier.error';
-import { CouriersController } from '../presentation/couriers.controller';
+import {
+  CouriersController,
+  MANAGE_COURIERS_PERMISSION,
+} from '../presentation/couriers.controller';
 
 const TENANT_ID = '10000000-0000-4000-8000-000000000001';
+const ACTOR_USER_ID = '20000000-0000-4000-8000-000000000001';
 const USER_ID = '30000000-0000-4000-8000-000000000001';
+const CORRELATION_ID = '40000000-0000-4000-8000-000000000001';
+
+const context: RequestContext = {
+  tenantId: TENANT_ID,
+  actorUserId: ACTOR_USER_ID,
+  correlationId: CORRELATION_ID,
+};
 
 function createFixture() {
   const execute = jest.fn();
@@ -20,6 +36,20 @@ function createFixture() {
 describe('CouriersController', () => {
   const body = { userId: USER_ID };
 
+  it('protects POST /couriers with AuthGuard, PermissionsGuard and MANAGE_TENANT', () => {
+    const guards = Reflect.getMetadata(
+      GUARDS_METADATA,
+      CouriersController,
+    ) as unknown[];
+    const permission = Reflect.getMetadata(
+      REQUIRED_PERMISSION_KEY,
+      CouriersController.prototype.createCourier,
+    ) as unknown;
+
+    expect(guards).toEqual([AuthGuard, PermissionsGuard]);
+    expect(permission).toBe(MANAGE_COURIERS_PERMISSION);
+  });
+
   it('returns the created courier', async () => {
     const { controller, execute } = createFixture();
     const courier = {
@@ -30,7 +60,7 @@ describe('CouriersController', () => {
     };
     execute.mockResolvedValue({ ok: true, courier });
 
-    await expect(controller.createCourier(TENANT_ID, body)).resolves.toEqual(
+    await expect(controller.createCourier(context, body)).resolves.toEqual(
       courier,
     );
     expect(execute).toHaveBeenCalledWith(TENANT_ID, body);
@@ -43,7 +73,7 @@ describe('CouriersController', () => {
     );
 
     const error = await controller
-      .createCourier(TENANT_ID, body)
+      .createCourier(context, body)
       .catch((e: unknown) => e);
 
     expect(error).toBeInstanceOf(BadRequestException);
@@ -61,7 +91,7 @@ describe('CouriersController', () => {
     });
 
     const error = await controller
-      .createCourier(TENANT_ID, body)
+      .createCourier(context, body)
       .catch((e: unknown) => e);
 
     expect(error).toBeInstanceOf(NotFoundException);
@@ -78,7 +108,7 @@ describe('CouriersController', () => {
     execute.mockResolvedValue({ ok: false, code });
 
     const error = await controller
-      .createCourier(TENANT_ID, body)
+      .createCourier(context, body)
       .catch((e: unknown) => e);
 
     expect(error).toBeInstanceOf(ConflictException);
@@ -90,9 +120,7 @@ describe('CouriersController', () => {
     const failure = new Error('database down');
     execute.mockRejectedValue(failure);
 
-    await expect(controller.createCourier(TENANT_ID, body)).rejects.toBe(
-      failure,
-    );
+    await expect(controller.createCourier(context, body)).rejects.toBe(failure);
   });
 
   it('treats a missing body as invalid input', async () => {
@@ -100,7 +128,7 @@ describe('CouriersController', () => {
     execute.mockRejectedValue(new InvalidCourierError('userId', 'REQUIRED'));
 
     await expect(
-      controller.createCourier(TENANT_ID, undefined as never),
+      controller.createCourier(context, undefined as never),
     ).rejects.toBeInstanceOf(BadRequestException);
     expect(execute).toHaveBeenCalledWith(TENANT_ID, {});
   });

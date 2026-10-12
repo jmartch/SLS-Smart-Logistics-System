@@ -1,11 +1,12 @@
 import { Module } from '@nestjs/common';
 import { PrismaModule } from '../../database/prisma.module';
+import { AuthModule } from '../auth/auth.module';
 import { RegisterCourierService } from './application/register-courier.service';
 import { PrismaCourierAdapter } from './infrastructure/prisma-courier.adapter';
 import { CouriersController } from './presentation/couriers.controller';
 
 @Module({
-  imports: [PrismaModule],
+  imports: [PrismaModule, AuthModule],
   controllers: [CouriersController],
   providers: [
     PrismaCourierAdapter,

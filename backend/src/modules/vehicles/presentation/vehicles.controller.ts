@@ -1,27 +1,44 @@
-import { Body, Controller, HttpCode, HttpStatus, Post } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  HttpCode,
+  HttpStatus,
+  Post,
+  UseGuards,
+} from '@nestjs/common';
+import { AuthGuard } from '../../auth/presentation/auth.guard';
+import { PermissionsGuard } from '../../auth/presentation/permissions.guard';
+import { RequirePermission } from '../../auth/presentation/require-permission.decorator';
 import { RegisterVehicleService } from '../application/register-vehicle.service';
 import type { CreateVehicleResult } from '../application/ports/vehicle-repository.port';
-import { CurrentTenant } from '../../../shared/presentation/request-context.decorator';
+import {
+  CurrentContext,
+  type RequestContext,
+} from '../../../shared/presentation/request-context.decorator';
 import type { CreateVehicleDto } from './dto/create-vehicle.dto';
 import {
   handleVehicleConflict,
   handleVehicleDomainError,
 } from './vehicle-http-errors';
 
+export const MANAGE_VEHICLES_PERMISSION = 'MANAGE_TENANT';
+
 @Controller('vehicles')
+@UseGuards(AuthGuard, PermissionsGuard)
 export class VehiclesController {
   constructor(private readonly registerVehicle: RegisterVehicleService) {}
 
   @Post()
   @HttpCode(HttpStatus.CREATED)
+  @RequirePermission(MANAGE_VEHICLES_PERMISSION)
   async createVehicle(
-    @CurrentTenant() tenantId: string,
+    @CurrentContext() context: RequestContext,
     @Body() body: CreateVehicleDto,
   ) {
     let result: CreateVehicleResult;
 
     try {
-      result = await this.registerVehicle.execute(tenantId, body ?? {});
+      result = await this.registerVehicle.execute(context.tenantId, body ?? {});
     } catch (error) {
       return handleVehicleDomainError(error);
     }
