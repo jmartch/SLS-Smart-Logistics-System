@@ -4,12 +4,12 @@ import {
   Get,
   HttpCode,
   HttpStatus,
-  NotFoundException,
   Param,
   Post,
 } from '@nestjs/common';
 import { SectorCatalogService } from '../application/sector-catalog.service';
 import { ZoneCatalogService } from '../application/zone-catalog.service';
+import { CatalogNotFoundError } from '../domain/catalog-errors';
 import { CurrentTenant } from '../../../shared/presentation/request-context.decorator';
 import {
   handleCatalogConflict,
@@ -55,10 +55,7 @@ export class ZonesController {
   ) {
     const zone = await this.zoneService.findById(tenantId, zoneId);
     if (!zone) {
-      throw new NotFoundException({
-        code: 'CATALOG_RESOURCE_NOT_FOUND',
-        message: 'La zona solicitada no existe.',
-      });
+      return handleCatalogDomainError(new CatalogNotFoundError(zoneId, 'Zone'));
     }
     return zone;
   }
@@ -68,13 +65,9 @@ export class ZonesController {
     @CurrentTenant() tenantId: string,
     @Param('zoneId') zoneId: string,
   ) {
-    // Si la zona no existe para el tenant, devuelve 404
     const zone = await this.zoneService.findById(tenantId, zoneId);
     if (!zone) {
-      throw new NotFoundException({
-        code: 'CATALOG_RESOURCE_NOT_FOUND',
-        message: 'La zona solicitada no existe.',
-      });
+      return handleCatalogDomainError(new CatalogNotFoundError(zoneId, 'Zone'));
     }
     return this.sectorService.listByZone(tenantId, zoneId);
   }
@@ -110,10 +103,9 @@ export class ZonesController {
   ) {
     const sector = await this.sectorService.findById(tenantId, sectorId);
     if (!sector || sector.zoneId !== zoneId) {
-      throw new NotFoundException({
-        code: 'CATALOG_RESOURCE_NOT_FOUND',
-        message: 'El sector solicitado no existe en la zona especificada.',
-      });
+      return handleCatalogDomainError(
+        new CatalogNotFoundError(sectorId, 'Sector'),
+      );
     }
     return sector;
   }

@@ -2,6 +2,7 @@ import {
   InvalidCatalogCodeError,
   normalizeCatalogCode,
 } from '../domain/catalog-code';
+import { CatalogDomainError } from '../domain/catalog-errors';
 import {
   InvalidCatalogNameError,
   normalizeCatalogName,
@@ -49,40 +50,53 @@ describe('Catalog values', () => {
         scenario: 'an empty code',
         value: '',
         reason: 'EMPTY_CODE',
+        message: 'Catalog code cannot be empty',
       },
       {
         scenario: 'a whitespace-only code',
         value: '   ',
         reason: 'EMPTY_CODE',
+        message: 'Catalog code cannot be empty',
       },
       {
         scenario: 'a code longer than 30 characters',
         value: 'A'.repeat(31),
         reason: 'CODE_TOO_LONG',
+        message: 'Catalog code cannot exceed 30 characters',
       },
       {
         scenario: 'a code containing inner whitespace',
         value: 'NORTE SUR',
         reason: 'INVALID_CODE_CHARACTERS',
+        message:
+          'Catalog code must contain only uppercase letters, digits, hyphens, or underscores',
       },
       {
         scenario: 'a code containing accented letters',
         value: 'RÍO',
         reason: 'INVALID_CODE_CHARACTERS',
+        message:
+          'Catalog code must contain only uppercase letters, digits, hyphens, or underscores',
       },
       {
         scenario: 'a code containing unsupported punctuation',
         value: 'NORTE!',
         reason: 'INVALID_CODE_CHARACTERS',
+        message:
+          'Catalog code must contain only uppercase letters, digits, hyphens, or underscores',
       },
-    ])('rejects $scenario', ({ value, reason }) => {
+    ])('rejects $scenario', ({ value, reason, message }) => {
       const normalize = () => normalizeCatalogCode(value);
 
+      expect(new InvalidCatalogCodeError('EMPTY_CODE')).toBeInstanceOf(
+        CatalogDomainError,
+      );
       expect(normalize).toThrow(InvalidCatalogCodeError);
       expect(normalize).toThrow(
         expect.objectContaining({
           code: reason,
           field: 'code',
+          message,
         }),
       );
     });
@@ -129,30 +143,38 @@ describe('Catalog values', () => {
         scenario: 'an empty name',
         value: '',
         reason: 'EMPTY_NAME',
+        message: 'Catalog name cannot be empty',
       },
       {
         scenario: 'a whitespace-only name',
         value: '   ',
         reason: 'EMPTY_NAME',
+        message: 'Catalog name cannot be empty',
       },
       {
         scenario: 'a name longer than 100 ASCII characters',
         value: 'A'.repeat(101),
         reason: 'NAME_TOO_LONG',
+        message: 'Catalog name cannot exceed 100 characters',
       },
       {
         scenario: 'a name longer than 100 Unicode code points',
         value: '🚚'.repeat(101),
         reason: 'NAME_TOO_LONG',
+        message: 'Catalog name cannot exceed 100 characters',
       },
-    ])('rejects $scenario', ({ value, reason }) => {
+    ])('rejects $scenario', ({ value, reason, message }) => {
       const normalize = () => normalizeCatalogName(value);
 
+      expect(new InvalidCatalogNameError('EMPTY_NAME')).toBeInstanceOf(
+        CatalogDomainError,
+      );
       expect(normalize).toThrow(InvalidCatalogNameError);
       expect(normalize).toThrow(
         expect.objectContaining({
           code: reason,
           field: 'name',
+          message,
         }),
       );
     });
