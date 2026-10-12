@@ -188,7 +188,20 @@ docker compose exec backend npm run messaging:ops -- redrive \
 
 ---
 
-## 5. Alternativa si Falla un Componente Externo (Plan de Contingencia)
+## 5. Visualización de Ruta con OpenStreetMap (`RouteMap`)
+
+En el frontend (`http://localhost:5173/app/rutas/30000000-0000-4000-8000-000000000001`), el detalle de ruta integra el componente aislado `RouteMap` (`frontend/src/features/routes/RouteMap.tsx`) junto a la lista existente de paradas:
+
+- **Consumo preferente del backend:** Para rutas con identificador UUID (`30000000-0000-4000-8000-000000000001`), `RouteDetailPage` consulta `GET /api/v1/routes/:id` y proyecta las paradas ordenadas (`stopNumber`, `latitude`, `longitude`, `state`). Si el consumo HTTP no está disponible o se consulta una ruta de demostración local (`rt-001`, `rt-002`, `rt-003`), utiliza el fixture determinista de Barranquilla indicando explícitamente que se trata de datos preparados para demo y no de rastreo GPS en vivo.
+- **Elementos del mapa:**
+  - Tiles de `https://tile.openstreetmap.org/{z}/{x}/{y}.png` con atribución visible `© OpenStreetMap contributors`.
+  - Marcadores `CircleMarker` numerados (`#1`, `#2`, `#3`) según `stopNumber` y coloreados por `state` (`PENDING`, `COMPLETED`, `FAILED`).
+  - `Polyline` conectando las coordenadas en el orden calculado por el backend (con nota explícita de que representa la secuencia de paradas calculada y no navegación vial giro a giro).
+  - Ajuste automático de límites (`fitBounds`) y estado vacío explícito (`Sin coordenadas válidas para mostrar en el mapa`, verificable en `/app/rutas/rt-003`).
+
+---
+
+## 6. Alternativa si Falla un Componente Externo (Plan de Contingencia)
 
 1. **Si los tiles externos de OpenStreetMap (`tile.openstreetmap.org`) no cargan por falta de internet en el salón de sustentación:**
    - La vista de detalle de ruta mantiene siempre visible la **tabla/lista ordenada de paradas** con su secuencia (`stopNumber`), coordenadas (`latitude`, `longitude`), dirección y estado, de modo que la evidencia del ordenamiento de paradas no depende de la carga visual de tiles externos.
@@ -199,3 +212,4 @@ docker compose exec backend npm run messaging:ops -- redrive \
      - `docker compose exec backend npm run test:route-01` y `docker compose exec backend npm run test:route-close-01` (ciclo de vida y cierre de rutas).
 3. **Si la base de datos queda con datos modificados tras una prueba previa:**
    - Ejecutar `docker compose exec backend npm run demo:seed` restaura en menos de 2 segundos el estado determinista inicial del tenant `demo-barranquilla`.
+

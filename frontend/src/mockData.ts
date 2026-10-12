@@ -51,6 +51,8 @@ export interface Stop {
   recipient: string
   address: string
   status: "pending" | "delivered" | "failed" | "skipped"
+  latitude?: number
+  longitude?: number
   note?: string
   evidenceUrl?: string
 }
@@ -201,12 +203,22 @@ export const PACKAGES: Package[] = [
 
 export const ROUTES: Route[] = [
   {
+    id: "30000000-0000-4000-8000-000000000001", date: d(0), shift: "morning", status: "prepared",
+    courier: "Carlos Mendoza", courierId: "70000000-0000-4000-8000-000000000001", vehicle: "Furgón BAQ-101 · Chevrolet NHR",
+    packageCount: 3, delivered: 0, totalWeight: 7.5, zone: "Zona Norte - Alto Prado / Riomar",
+    stops: [
+      { id: "31000000-0000-4000-8000-000000000001", order: 1, packageId: "90000000-0000-4000-8000-000000000001", trackingCode: "SLS-DEMO-BAQ-0001", recipient: "Ferretería del Norte", address: "Cra 54 # 72-80, El Prado, Barranquilla", status: "pending", latitude: 10.9961, longitude: -74.806 },
+      { id: "31000000-0000-4000-8000-000000000002", order: 2, packageId: "90000000-0000-4000-8000-000000000002", trackingCode: "SLS-DEMO-BAQ-0002", recipient: "Clínica Alto Prado", address: "Cra 51B # 80-58, Alto Prado, Barranquilla", status: "pending", latitude: 11.0041, longitude: -74.8152 },
+      { id: "31000000-0000-4000-8000-000000000003", order: 3, packageId: "90000000-0000-4000-8000-000000000003", trackingCode: "SLS-DEMO-BAQ-0003", recipient: "Centro Empresarial Buenavista", address: "Calle 98 # 52B-10, Riomar, Barranquilla", status: "pending", latitude: 11.0112, longitude: -74.8265 },
+    ],
+  },
+  {
     id: "rt-001", date: d(0), shift: "morning", status: "in_progress",
     courier: "Diego Ruiz", courierId: "u4", vehicle: "Furgón VAN-032 · Ford Transit",
     packageCount: 8, delivered: 5, totalWeight: 24.3, zone: "Zona Norte",
     stops: [
-      { id: "s1", order: 1, packageId: "pkg-001", trackingCode: "SLS-2026-00141", recipient: "Carmen Jiménez", address: "Av. Los Fresnos 1402, Dpto 3B, Providencia", status: "delivered" },
-      { id: "s2", order: 2, packageId: "pkg-006", trackingCode: "SLS-2026-00146", recipient: "Pablo Muñoz", address: "Villa Los Aromos 88, Quilicura", status: "pending" },
+      { id: "s1", order: 1, packageId: "pkg-001", trackingCode: "SLS-2026-00141", recipient: "Carmen Jiménez", address: "Cra 54 # 72-80, El Prado, Barranquilla", status: "delivered", latitude: 10.9961, longitude: -74.806 },
+      { id: "s2", order: 2, packageId: "pkg-006", trackingCode: "SLS-2026-00146", recipient: "Pablo Muñoz", address: "Cra 51B # 80-58, Alto Prado, Barranquilla", status: "pending", latitude: 11.0041, longitude: -74.8152 },
     ],
   },
   {
@@ -214,7 +226,7 @@ export const ROUTES: Route[] = [
     courier: "Fernanda Ríos", courierId: "u7", vehicle: "Moto MOT-011 · Honda CB",
     packageCount: 12, delivered: 0, totalWeight: 9.8, zone: "Zona Centro",
     stops: [
-      { id: "s3", order: 1, packageId: "pkg-004", trackingCode: "SLS-2026-00144", recipient: "Jorge Castillo", address: "Av. Irarrázaval 2219, Ñuñoa", status: "pending" },
+      { id: "s3", order: 1, packageId: "pkg-004", trackingCode: "SLS-2026-00144", recipient: "Jorge Castillo", address: "Calle 98 # 52B-10, Riomar, Barranquilla", status: "pending", latitude: 11.0112, longitude: -74.8265 },
     ],
   },
   {

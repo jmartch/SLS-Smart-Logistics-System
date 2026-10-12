@@ -35,6 +35,13 @@ import {
   PkgStatus,
   Stop,
 } from "./mockData"
+import { RouteMap, type RouteMapStop } from "./features/routes/RouteMap"
+import {
+  fetchRouteDetailFromBackend,
+  isUuidRouteId,
+  mapBackendStopsToRouteMapStops,
+  mapFixtureStopsToRouteMapStops,
+} from "./features/routes/routeDetailApi"
 
 // ──────────────────────────────────────────────────────────
 // Login Page
@@ -977,12 +984,12 @@ export function RoutesListPage() {
 
       <div className="dashboard-panel recent-panel">
         <div className="company-table">
-          <div className="company-table__head" style={{ gridTemplateColumns: "0.6fr 0.7fr 1fr 1fr 0.8fr 0.5fr 0.4fr" }}>
+          <div className="company-table__head" style={{ gridTemplateColumns: "0.75fr 0.7fr 1fr 1fr 0.8fr 0.5fr 0.4fr" }}>
             <span>ID</span><span>Fecha</span><span>Mensajero</span><span>Vehículo</span><span>Zona</span><span>Estado</span><span></span>
           </div>
           {ROUTES.map((r) => (
-            <div key={r.id} className="company-table__row" style={{ gridTemplateColumns: "0.6fr 0.7fr 1fr 1fr 0.8fr 0.5fr 0.4fr" }}>
-              <strong>{r.id.toUpperCase()}</strong>
+            <div key={r.id} className="company-table__row" style={{ gridTemplateColumns: "0.75fr 0.7fr 1fr 1fr 0.8fr 0.5fr 0.4fr" }}>
+              <strong>{isUuidRouteId(r.id) ? `RT-DEMO · ${r.id.slice(0, 8).toUpperCase()}` : r.id.toUpperCase()}</strong>
               <span>{new Date(r.date).toLocaleDateString("es-CL", { day: "2-digit", month: "short" })} · {r.shift === "morning" ? "AM" : "PM"}</span>
               <span>{r.courier}</span>
               <span style={{ fontSize: "0.68rem" }}>{r.vehicle}</span>
@@ -1010,7 +1017,55 @@ const STOP_COLOR: Record<Stop["status"], string> = { pending: "status--active", 
 
 export function RouteDetailPage() {
   const { routeId } = useParams()
+  const { user } = useAuth()
   const route = ROUTES.find((r) => r.id === routeId)
+  const [backendStops, setBackendStops] = useState<RouteMapStop[] | null>(null)
+  const [backendState, setBackendState] = useState<string | null>(null)
+  const [dataSourceLabel, setDataSourceLabel] = useState<string>(
+    "Fixture determinista preparado para demo (sin seguimiento GPS)",
+  )
+
+  useEffect(() => {
+    let active = true
+    if (!routeId || !isUuidRouteId(routeId)) {
+      setBackendStops(null)
+      setBackendState(null)
+      setDataSourceLabel(
+        "Fixture determinista preparado para demo (sin seguimiento GPS)",
+      )
+      return () => {
+        active = false
+      }
+    }
+
+    void (async () => {
+      try {
+        const detail = await fetchRouteDetailFromBackend(routeId, {
+          tenantId: user?.tenantId,
+          userId: user?.id,
+        })
+        if (!active) return
+        if (detail) {
+          setBackendStops(
+            mapBackendStopsToRouteMapStops(detail.stops, route?.stops ?? []),
+          )
+          setBackendState(detail.state)
+          setDataSourceLabel("Datos reales GET /api/v1/routes/:id")
+        }
+      } catch {
+        if (!active) return
+        setBackendStops(null)
+        setBackendState(null)
+        setDataSourceLabel(
+          "Fixture determinista preparado para demo (sin seguimiento GPS)",
+        )
+      }
+    })()
+
+    return () => {
+      active = false
+    }
+  }, [routeId, user?.tenantId, user?.id, route])
 
   if (!route) {
     return (
@@ -1022,6 +1077,8 @@ export function RouteDetailPage() {
     )
   }
 
+  const mapStops =
+    backendStops ?? mapFixtureStopsToRouteMapStops(route.stops)
   const progress = route.packageCount > 0 ? Math.round((route.delivered / route.packageCount) * 100) : 0
 
   return (
@@ -1031,11 +1088,11 @@ export function RouteDetailPage() {
           <Link to="/app/rutas" style={{ display: "inline-flex", alignItems: "center", gap: "0.4rem", color: "var(--text-muted)", fontSize: "0.8rem", fontWeight: 700, textDecoration: "none", marginBottom: "0.6rem" }}>
             <ArrowLeft size={15} /> Rutas
           </Link>
-          <h1 style={{ fontSize: "clamp(1.6rem, 3vw, 2.4rem)" }}>{route.id.toUpperCase()}</h1>
+          <h1 style={{ fontSize: "clamp(1.4rem, 2.6vw, 2.1rem)" }}>{route.id.toUpperCase()}</h1>
           <p>{route.courier} · {route.vehicle}</p>
         </div>
         <span className={`status ${ROUTE_STATUS_COLOR[route.status]}`} style={{ fontSize: "0.78rem", padding: "0.5rem 1rem", flexShrink: 0, marginTop: "0.5rem" }}>
-          {ROUTE_STATUS_LABELS[route.status]}
+          {backendState ? `${ROUTE_STATUS_LABELS[route.status]} (${backendState})` : ROUTE_STATUS_LABELS[route.status]}
         </span>
       </div>
 
@@ -1054,6 +1111,19 @@ export function RouteDetailPage() {
 
           <div className="dashboard-panel">
             <div className="panel-heading">
+              <div>
+                <span style={{ color: "var(--text-muted)", fontSize: "0.65rem", fontWeight: 600 }}>Georreferenciación · OpenStreetMap</span>
+                <h2>Secuencia geográfica de paradas</h2>
+              </div>
+              <span style={{ fontSize: "0.68rem", color: "var(--blue-dark)", fontWeight: 700 }}>
+                {dataSourceLabel}
+              </span>
+            </div>
+            <RouteMap stops={mapStops} dataSourceLabel={dataSourceLabel} />
+          </div>
+
+          <div className="dashboard-panel">
+            <div className="panel-heading">
               <div><span style={{ color: "var(--text-muted)", fontSize: "0.65rem", fontWeight: 600 }}>Paradas</span><h2>Orden de entrega</h2></div>
             </div>
             {route.stops.length === 0 ? (
@@ -1066,7 +1136,12 @@ export function RouteDetailPage() {
                     <div>
                       <strong style={{ color: "var(--navy)", fontSize: "0.82rem" }}>{stop.recipient}</strong>
                       <span style={{ display: "block", color: "var(--text-muted)", fontSize: "0.68rem" }}>{stop.address}</span>
-                      <span style={{ display: "block", color: "var(--text-muted)", fontSize: "0.65rem" }}>{stop.trackingCode}</span>
+                      <span style={{ display: "block", color: "var(--text-muted)", fontSize: "0.65rem" }}>
+                        {stop.trackingCode}
+                        {typeof stop.latitude === "number" && typeof stop.longitude === "number"
+                          ? ` · (${stop.latitude.toFixed(4)}, ${stop.longitude.toFixed(4)})`
+                          : ""}
+                      </span>
                     </div>
                     <span className={`status ${STOP_COLOR[stop.status]}`}>{STOP_LABEL[stop.status]}</span>
                   </div>
