@@ -1,13 +1,29 @@
-import { randomUUID } from 'node:crypto';
-import { INestApplication, VersioningType } from '@nestjs/common';
+import { randomBytes, randomUUID } from 'node:crypto';
+import { INestApplication } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import request from 'supertest';
 import { App } from 'supertest/types';
 import { PrismaPg } from '@prisma/adapter-pg';
 import { PrismaClient } from '../generated/prisma/client';
 import { AppModule } from '../src/app.module';
+import { configureApp } from '../src/app.setup';
+import { hashPassword } from '../src/modules/auth/domain/password-hasher';
+
+const COOKIE_NAME = 'sls_session';
+
+function sessionCookie(response: request.Response): string {
+  const value: unknown = response.headers['set-cookie'];
+  const headers = Array.isArray(value) ? (value as string[]) : [];
+  const header = headers.find((h) => h.startsWith(`${COOKIE_NAME}=`));
+  if (!header) {
+    throw new Error('login response did not set the session cookie');
+  }
+  return header.split(';')[0];
+}
 
 describe('Registration endpoints E2E (VEH-01 / PKG-01)', () => {
+  jest.setTimeout(90_000);
+
   let app: INestApplication<App>;
   let server: App;
 
@@ -15,11 +31,16 @@ describe('Registration endpoints E2E (VEH-01 / PKG-01)', () => {
     adapter: new PrismaPg({ connectionString: process.env.DATABASE_URL }),
   });
 
+  const run = randomUUID().slice(0, 8);
   const tenantA = randomUUID();
   const tenantB = randomUUID();
+  const slugA = `reg-e2e-a-${run}`;
+  const slugB = `reg-e2e-b-${run}`;
   const tenantIds = [tenantA, tenantB];
 
   const userActiveA = randomUUID();
+  const userReceptionOnlyA = randomUUID();
+  const userAdminOnlyA = randomUUID();
   const userSuspendedA = randomUUID();
   const userActiveB = randomUUID();
 
@@ -29,43 +50,161 @@ describe('Registration endpoints E2E (VEH-01 / PKG-01)', () => {
   const zoneSouthA = randomUUID();
   const sectorNorthA = randomUUID();
 
-  function post(path: string, tenantId: string, body: object) {
-    return request(server).post(path).set('x-tenant-id', tenantId).send(body);
+  let cookieA: string;
+  let cookieB: string;
+  let cookieReceptionOnlyA: string;
+  let cookieAdminOnlyA: string;
+
+  function post(path: string, cookie: string, body: object) {
+    return request(server).post(path).set('Cookie', cookie).send(body);
+  }
+
+  async function login(
+    slug: string,
+    email: string,
+    password: string,
+  ): Promise<string> {
+    const response = await request(server)
+      .post('/api/v1/auth/login')
+      .send({ slug, email, password });
+
+    expect(response.status).toBe(200);
+    return sessionCookie(response);
   }
 
   beforeAll(async () => {
     await admin.$connect();
 
+    const password = randomBytes(18).toString('base64url');
+    const passwordHash = await hashPassword(password);
+
+    const [manageTenantPerm, registerPackagesPerm] = await Promise.all([
+      admin.permission.findUnique({ where: { code: 'MANAGE_TENANT' } }),
+      admin.permission.findUnique({ where: { code: 'REGISTER_PACKAGES' } }),
+    ]);
+    if (!manageTenantPerm || !registerPackagesPerm) {
+      throw new Error(
+        'Seeded MANAGE_TENANT or REGISTER_PACKAGES permission is missing.',
+      );
+    }
+
     await admin.tenant.createMany({
       data: [
-        { id: tenantA, name: `Registration E2E Tenant A ${tenantA}` },
-        { id: tenantB, name: `Registration E2E Tenant B ${tenantB}` },
+        {
+          id: tenantA,
+          name: `Registration E2E Tenant A ${tenantA}`,
+          slug: slugA,
+        },
+        {
+          id: tenantB,
+          name: `Registration E2E Tenant B ${tenantB}`,
+          slug: slugB,
+        },
       ],
     });
+
+    const emailActiveA = `activo.a.${userActiveA}@e2e.local`;
+    const emailReceptionOnlyA = `recepcion.a.${userReceptionOnlyA}@e2e.local`;
+    const emailAdminOnlyA = `admin.a.${userAdminOnlyA}@e2e.local`;
+    const emailActiveB = `activo.b.${userActiveB}@e2e.local`;
 
     await admin.user.createMany({
       data: [
         {
           id: userActiveA,
           tenantId: tenantA,
-          email: `activo.a.${userActiveA}@e2e.local`,
-          passwordHash: 'no-login',
+          email: emailActiveA,
+          passwordHash,
+          status: 'ACTIVE',
+        },
+        {
+          id: userReceptionOnlyA,
+          tenantId: tenantA,
+          email: emailReceptionOnlyA,
+          passwordHash,
+          status: 'ACTIVE',
+        },
+        {
+          id: userAdminOnlyA,
+          tenantId: tenantA,
+          email: emailAdminOnlyA,
+          passwordHash,
           status: 'ACTIVE',
         },
         {
           id: userSuspendedA,
           tenantId: tenantA,
           email: `suspendido.a.${userSuspendedA}@e2e.local`,
-          passwordHash: 'no-login',
+          passwordHash,
           status: 'SUSPENDED',
         },
         {
           id: userActiveB,
           tenantId: tenantB,
-          email: `activo.b.${userActiveB}@e2e.local`,
-          passwordHash: 'no-login',
+          email: emailActiveB,
+          passwordHash,
           status: 'ACTIVE',
         },
+      ],
+    });
+
+    const [roleFullA, roleReceptionA, roleAdminA, roleFullB] =
+      await Promise.all([
+        admin.role.create({ data: { tenantId: tenantA, name: 'Operador A' } }),
+        admin.role.create({
+          data: { tenantId: tenantA, name: 'Recepcionista A' },
+        }),
+        admin.role.create({
+          data: { tenantId: tenantA, name: 'Admin Tenant A' },
+        }),
+        admin.role.create({ data: { tenantId: tenantB, name: 'Operador B' } }),
+      ]);
+
+    await admin.rolePermission.createMany({
+      data: [
+        {
+          tenantId: tenantA,
+          roleId: roleFullA.id,
+          permissionId: manageTenantPerm.id,
+        },
+        {
+          tenantId: tenantA,
+          roleId: roleFullA.id,
+          permissionId: registerPackagesPerm.id,
+        },
+        {
+          tenantId: tenantA,
+          roleId: roleReceptionA.id,
+          permissionId: registerPackagesPerm.id,
+        },
+        {
+          tenantId: tenantA,
+          roleId: roleAdminA.id,
+          permissionId: manageTenantPerm.id,
+        },
+        {
+          tenantId: tenantB,
+          roleId: roleFullB.id,
+          permissionId: manageTenantPerm.id,
+        },
+        {
+          tenantId: tenantB,
+          roleId: roleFullB.id,
+          permissionId: registerPackagesPerm.id,
+        },
+      ],
+    });
+
+    await admin.userRole.createMany({
+      data: [
+        { tenantId: tenantA, userId: userActiveA, roleId: roleFullA.id },
+        {
+          tenantId: tenantA,
+          userId: userReceptionOnlyA,
+          roleId: roleReceptionA.id,
+        },
+        { tenantId: tenantA, userId: userAdminOnlyA, roleId: roleAdminA.id },
+        { tenantId: tenantB, userId: userActiveB, roleId: roleFullB.id },
       ],
     });
 
@@ -109,25 +248,31 @@ describe('Registration endpoints E2E (VEH-01 / PKG-01)', () => {
     }).compile();
 
     app = moduleFixture.createNestApplication();
-    app.setGlobalPrefix('api');
-    app.enableVersioning({
-      type: VersioningType.URI,
-      defaultVersion: '1',
-    });
+    configureApp(app);
 
     await app.init();
     server = app.getHttpServer();
+
+    cookieA = await login(slugA, emailActiveA, password);
+    cookieB = await login(slugB, emailActiveB, password);
+    cookieReceptionOnlyA = await login(slugA, emailReceptionOnlyA, password);
+    cookieAdminOnlyA = await login(slugA, emailAdminOnlyA, password);
   });
 
   afterAll(async () => {
     try {
       const where = { tenantId: { in: tenantIds } };
 
+      await admin.outboxEvent.deleteMany({ where });
       await admin.packageStatusHistory.deleteMany({ where });
       await admin.package.deleteMany({ where });
       await admin.address.deleteMany({ where });
       await admin.courier.deleteMany({ where });
       await admin.vehicle.deleteMany({ where });
+      await admin.session.deleteMany({ where });
+      await admin.userRole.deleteMany({ where });
+      await admin.rolePermission.deleteMany({ where });
+      await admin.role.deleteMany({ where });
       await admin.user.deleteMany({ where });
       await admin.sector.deleteMany({ where });
       await admin.zone.deleteMany({ where });
@@ -141,16 +286,69 @@ describe('Registration endpoints E2E (VEH-01 / PKG-01)', () => {
     }
   });
 
-  describe('Tenant context', () => {
+  describe('Authentication, authorization and tenant context', () => {
     it.each(['/api/v1/vehicles', '/api/v1/couriers', '/api/v1/packages'])(
-      'rejects %s without a tenant header',
+      'rejects %s with 401 without an authenticated session even when x-tenant-id is sent',
       async (path) => {
-        const response = await request(server).post(path).send({});
+        const response = await request(server)
+          .post(path)
+          .set('x-tenant-id', tenantA)
+          .send({});
 
         expect(response.status).toBe(401);
-        expect(response.body).toMatchObject({ code: 'UNAUTHENTICATED' });
+        expect(response.body).toMatchObject({
+          error: { code: 'SESSION_EXPIRED' },
+        });
       },
     );
+
+    it.each(['/api/v1/vehicles', '/api/v1/couriers'])(
+      'rejects %s with 403 when the session lacks MANAGE_TENANT',
+      async (path) => {
+        const response = await post(path, cookieReceptionOnlyA, {});
+
+        expect(response.status).toBe(403);
+        expect(response.body).toMatchObject({
+          error: { code: 'PERMISSION_DENIED' },
+        });
+      },
+    );
+
+    it('rejects POST /api/v1/packages with 403 when the session lacks REGISTER_PACKAGES', async () => {
+      const response = await post('/api/v1/packages', cookieAdminOnlyA, {});
+
+      expect(response.status).toBe(403);
+      expect(response.body).toMatchObject({
+        error: { code: 'PERMISSION_DENIED' },
+      });
+    });
+
+    it('ignores x-tenant-id header for another tenant and uses the authenticated session tenant', async () => {
+      const response = await request(server)
+        .post('/api/v1/packages')
+        .set('Cookie', cookieA)
+        .set('x-tenant-id', tenantB)
+        .send({
+          trackingCode: 'PKG-IGNORE-HEADER',
+          address: { text: 'Calle 84 # 50-12', municipalityCode: '08001' },
+          shipmentTypeId: shipmentTypeA,
+          weightKg: 1.5,
+          lengthCm: 20,
+          widthCm: 15,
+          heightCm: 10,
+        });
+
+      expect(response.status).toBe(201);
+      expect(response.body).toMatchObject({
+        tenantId: tenantA,
+        trackingCode: 'PKG-IGNORE-HEADER',
+      });
+      expect(
+        await admin.package.count({
+          where: { tenantId: tenantB, trackingCode: 'PKG-IGNORE-HEADER' },
+        }),
+      ).toBe(0);
+    });
   });
 
   describe('POST /vehicles', () => {
@@ -161,7 +359,7 @@ describe('Registration endpoints E2E (VEH-01 / PKG-01)', () => {
     };
 
     it('persists a normalized vehicle for the tenant', async () => {
-      const response = await post('/api/v1/vehicles', tenantA, validVehicle);
+      const response = await post('/api/v1/vehicles', cookieA, validVehicle);
 
       expect(response.status).toBe(201);
       expect(response.body).toMatchObject({
@@ -180,7 +378,7 @@ describe('Registration endpoints E2E (VEH-01 / PKG-01)', () => {
     });
 
     it('rejects the same plate in the same tenant, however it is written', async () => {
-      const response = await post('/api/v1/vehicles', tenantA, {
+      const response = await post('/api/v1/vehicles', cookieA, {
         ...validVehicle,
         plate: 'ABC 123',
       });
@@ -193,7 +391,7 @@ describe('Registration endpoints E2E (VEH-01 / PKG-01)', () => {
     });
 
     it('allows the same plate in a different tenant', async () => {
-      const response = await post('/api/v1/vehicles', tenantB, validVehicle);
+      const response = await post('/api/v1/vehicles', cookieB, validVehicle);
 
       expect(response.status).toBe(201);
       expect(response.body).toMatchObject({
@@ -219,7 +417,7 @@ describe('Registration endpoints E2E (VEH-01 / PKG-01)', () => {
         where: { tenantId: tenantA },
       });
 
-      const response = await post('/api/v1/vehicles', tenantA, body);
+      const response = await post('/api/v1/vehicles', cookieA, body);
 
       expect(response.status).toBe(400);
       expect(response.body).toMatchObject({ code: 'VALIDATION_ERROR' });
@@ -234,7 +432,7 @@ describe('Registration endpoints E2E (VEH-01 / PKG-01)', () => {
 
   describe('POST /couriers', () => {
     it('links an active user of the same tenant', async () => {
-      const response = await post('/api/v1/couriers', tenantA, {
+      const response = await post('/api/v1/couriers', cookieA, {
         userId: userActiveA,
       });
 
@@ -252,7 +450,7 @@ describe('Registration endpoints E2E (VEH-01 / PKG-01)', () => {
     });
 
     it('rejects linking the same user twice', async () => {
-      const response = await post('/api/v1/couriers', tenantA, {
+      const response = await post('/api/v1/couriers', cookieA, {
         userId: userActiveA,
       });
 
@@ -266,7 +464,7 @@ describe('Registration endpoints E2E (VEH-01 / PKG-01)', () => {
     });
 
     it('rejects a suspended user', async () => {
-      const response = await post('/api/v1/couriers', tenantA, {
+      const response = await post('/api/v1/couriers', cookieA, {
         userId: userSuspendedA,
       });
 
@@ -277,7 +475,7 @@ describe('Registration endpoints E2E (VEH-01 / PKG-01)', () => {
     });
 
     it('does not reveal or link a user from another tenant', async () => {
-      const response = await post('/api/v1/couriers', tenantA, {
+      const response = await post('/api/v1/couriers', cookieA, {
         userId: userActiveB,
       });
 
@@ -289,7 +487,7 @@ describe('Registration endpoints E2E (VEH-01 / PKG-01)', () => {
     });
 
     it('rejects a malformed userId', async () => {
-      const response = await post('/api/v1/couriers', tenantA, {
+      const response = await post('/api/v1/couriers', cookieA, {
         userId: 'hola',
       });
 
@@ -298,7 +496,7 @@ describe('Registration endpoints E2E (VEH-01 / PKG-01)', () => {
     });
 
     it('links the tenant B user from tenant B', async () => {
-      const response = await post('/api/v1/couriers', tenantB, {
+      const response = await post('/api/v1/couriers', cookieB, {
         userId: userActiveB,
       });
 
@@ -331,18 +529,18 @@ describe('Registration endpoints E2E (VEH-01 / PKG-01)', () => {
         history: await admin.packageStatusHistory.count({
           where: { tenantId },
         }),
+        outbox: await admin.outboxEvent.count({
+          where: { tenantId, eventType: 'PackageRegistered' },
+        }),
       };
     }
 
-    it('registers package, address and initial history atomically', async () => {
+    it('registers package, address, initial history with changedByUserId and PackageRegistered outbox event atomically', async () => {
       const before = await counts(tenantA);
-      const outboxBefore = await admin.outboxEvent.count({
-        where: { tenantId: tenantA },
-      });
 
       const response = await post(
         '/api/v1/packages',
-        tenantA,
+        cookieA,
         validPackage({
           trackingCode: 'pkg-main-1',
           zoneId: zoneNorthA,
@@ -371,6 +569,7 @@ describe('Registration endpoints E2E (VEH-01 / PKG-01)', () => {
       expect(after.packages).toBe(before.packages + 1);
       expect(after.addresses).toBe(before.addresses + 1);
       expect(after.history).toBe(before.history + 1);
+      expect(after.outbox).toBe(before.outbox + 1);
 
       const history = await admin.packageStatusHistory.findMany({
         where: { tenantId: tenantA, packageId: body.id },
@@ -380,17 +579,35 @@ describe('Registration endpoints E2E (VEH-01 / PKG-01)', () => {
         fromState: null,
         toState: 'REGISTERED',
         reasonCode: 'PACKAGE_REGISTERED',
+        changedByUserId: userActiveA,
       });
 
-      // Decisión documentada: el registro no publica evento de outbox.
-      expect(
-        await admin.outboxEvent.count({ where: { tenantId: tenantA } }),
-      ).toBe(outboxBefore);
+      const outboxEvents = await admin.outboxEvent.findMany({
+        where: { tenantId: tenantA, eventType: 'PackageRegistered' },
+        orderBy: { occurredAt: 'desc' },
+      });
+      const matchingOutbox = outboxEvents.find(
+        (event) =>
+          (event.payload as { packageId?: string }).packageId === body.id,
+      );
+      expect(matchingOutbox).toBeDefined();
+      expect(matchingOutbox).toMatchObject({
+        tenantId: tenantA,
+        eventType: 'PackageRegistered',
+        producer: 'sls-backend.packages',
+        version: 1,
+        publishedAt: null,
+        payload: {
+          packageId: body.id,
+          toState: 'REGISTERED',
+          changedByUserId: userActiveA,
+        },
+      });
     });
 
     it('generates a different public token for every package', async () => {
-      const first = await post('/api/v1/packages', tenantA, validPackage());
-      const second = await post('/api/v1/packages', tenantA, validPackage());
+      const first = await post('/api/v1/packages', cookieA, validPackage());
+      const second = await post('/api/v1/packages', cookieA, validPackage());
 
       expect(first.status).toBe(201);
       expect(second.status).toBe(201);
@@ -410,7 +627,7 @@ describe('Registration endpoints E2E (VEH-01 / PKG-01)', () => {
       async (length, width, height, expected) => {
         const response = await post(
           '/api/v1/packages',
-          tenantA,
+          cookieA,
           validPackage({ lengthCm: length, widthCm: width, heightCm: height }),
         );
 
@@ -422,14 +639,14 @@ describe('Registration endpoints E2E (VEH-01 / PKG-01)', () => {
     it('rolls back everything when the tracking code already exists', async () => {
       await post(
         '/api/v1/packages',
-        tenantA,
+        cookieA,
         validPackage({ trackingCode: 'PKG-DUP-1' }),
       );
       const before = await counts(tenantA);
 
       const response = await post(
         '/api/v1/packages',
-        tenantA,
+        cookieA,
         validPackage({ trackingCode: 'pkg-dup-1' }),
       );
 
@@ -445,8 +662,8 @@ describe('Registration endpoints E2E (VEH-01 / PKG-01)', () => {
       const body = validPackage({ trackingCode: 'PKG-RACE-1' });
 
       const [first, second] = await Promise.all([
-        post('/api/v1/packages', tenantA, body),
-        post('/api/v1/packages', tenantA, body),
+        post('/api/v1/packages', cookieA, body),
+        post('/api/v1/packages', cookieA, body),
       ]);
 
       expect([first.status, second.status].sort((a, b) => a - b)).toEqual([
@@ -457,12 +674,13 @@ describe('Registration endpoints E2E (VEH-01 / PKG-01)', () => {
       expect(after.packages).toBe(before.packages + 1);
       expect(after.addresses).toBe(before.addresses + 1);
       expect(after.history).toBe(before.history + 1);
+      expect(after.outbox).toBe(before.outbox + 1);
     });
 
     it('does not use a shipment type from another tenant', async () => {
       const before = await counts(tenantB);
 
-      const response = await post('/api/v1/packages', tenantB, validPackage());
+      const response = await post('/api/v1/packages', cookieB, validPackage());
 
       expect(response.status).toBe(404);
       expect(response.body).toMatchObject({
@@ -495,7 +713,7 @@ describe('Registration endpoints E2E (VEH-01 / PKG-01)', () => {
 
         const response = await post(
           '/api/v1/packages',
-          tenantA,
+          cookieA,
           validPackage(overrides),
         );
 
@@ -517,7 +735,7 @@ describe('Registration endpoints E2E (VEH-01 / PKG-01)', () => {
 
         const response = await post(
           '/api/v1/packages',
-          tenantA,
+          cookieA,
           validPackage(overrides),
         );
 
@@ -540,7 +758,7 @@ describe('Registration endpoints E2E (VEH-01 / PKG-01)', () => {
 
       const response = await post(
         '/api/v1/packages',
-        tenantB,
+        cookieB,
         validPackage({ trackingCode: 'PKG-DUP-1', shipmentTypeId: typeB.id }),
       );
 
