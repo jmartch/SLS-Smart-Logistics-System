@@ -142,26 +142,27 @@ docker compose -f docker-compose.yml -f docker-compose.integration.yml --profile
 Pruebas disponibles: las de `INTEGRATION_TESTS` en el `Makefile` y `registration-01`, que cubre los tres
 endpoints de registro (aislamiento entre tenants, rechazo sin datos parciales y concurrencia).
 
-## Endpoints de registro (PKG-01 y VEH-01)
+## Endpoints de registro (PKG-01 y VEH-01 — solo registro implementado)
 
-Prefijo `/api/v1`. Todos requieren el header `x-tenant-id` con un UUID de tenant existente; sin él
-responden `401 UNAUTHENTICATED`. Los errores usan la forma `{ code, message, fields? }`.
+`PKG-01` y `VEH-01` se encuentran en estado `EN PROGRESO` (`IN_PROGRESS`): únicamente están terminados los
+endpoints de registro (`POST /packages`, `POST /vehicles` y `POST /couriers`). Listados, detalle,
+clasificación, edición de capacidad, cambios de estado y turnos siguen pendientes.
 
-| Endpoint | Cuerpo | Respuestas |
-|---|---|---|
-| `POST /vehicles` | `plate`, `maxWeightKg`, `maxVolumeM3` | `201`; `400 VALIDATION_ERROR`; `409 VEHICLE_PLATE_CONFLICT` |
-| `POST /couriers` | `userId` (usuario activo del mismo tenant) | `201`; `400`; `404 COURIER_USER_NOT_FOUND`; `409 COURIER_USER_NOT_ELIGIBLE`, `COURIER_USER_ALREADY_LINKED` |
-| `POST /packages` | `trackingCode`, `address {text, municipalityCode}`, `shipmentTypeId`, `zoneId?`, `sectorId?`, `weightKg`, `lengthCm`, `widthCm`, `heightCm`, `priority?`, `deadline?`, `serviceDurationSeconds?` | `201` (estado `REGISTERED`, volumen calculado y token público); `400`; `404 PACKAGE_*_NOT_FOUND`; `409 PACKAGE_TRACKING_CODE_CONFLICT`, `PACKAGE_SHIPMENT_TYPE_INACTIVE`, `PACKAGE_SECTOR_ZONE_MISMATCH` |
+Prefijo `/api/v1`. Todos requieren sesión autenticada mediante la cookie `sls_session` (`AuthGuard` +
+`PermissionsGuard`); el header `x-tenant-id` no se usa como mecanismo de autorización y se ignora cuando
+existe sesión autenticada. Sin sesión responden `401` (`SESSION_EXPIRED`) y sin el permiso requerido
+responden `403` (`PERMISSION_DENIED`). Los errores de dominio usan `{ code, message, fields? }`.
 
-Para probarlos hace falta un tenant en la base local (no hay seed ni endpoint de tenants):
+| Endpoint | Permiso requerido | Cuerpo | Respuestas |
+|---|---|---|---|
+| `POST /vehicles` | `MANAGE_TENANT` | `plate`, `maxWeightKg`, `maxVolumeM3` | `201`; `400 VALIDATION_ERROR`; `401`; `403`; `409 VEHICLE_PLATE_CONFLICT` |
+| `POST /couriers` | `MANAGE_TENANT` | `userId` (usuario activo del mismo tenant) | `201`; `400`; `401`; `403`; `404 COURIER_USER_NOT_FOUND`; `409 COURIER_USER_NOT_ELIGIBLE`, `COURIER_USER_ALREADY_LINKED` |
+| `POST /packages` | `REGISTER_PACKAGES` | `trackingCode`, `address {text, municipalityCode}`, `shipmentTypeId`, `zoneId?`, `sectorId?`, `weightKg`, `lengthCm`, `widthCm`, `heightCm`, `priority?`, `deadline?`, `serviceDurationSeconds?` | `201` (estado `REGISTERED`, volumen calculado y token público); `400`; `401`; `403`; `404 PACKAGE_*_NOT_FOUND`; `409 PACKAGE_TRACKING_CODE_CONFLICT`, `PACKAGE_SHIPMENT_TYPE_INACTIVE`, `PACKAGE_SECTOR_ZONE_MISMATCH` |
 
-```sql
-INSERT INTO "Tenant" ("id","name") VALUES ('10000000-0000-4000-8000-0000000000a1','Empresa A (prueba local)');
-```
-
-La colección `bruno/SLS API` incluye las carpetas `Vehicles`, `Couriers` y `Packages`. Ajusta
-`tenantId` en `environments/local.yml`. Un repartidor necesita un `User` activo del mismo tenant,
-y un paquete necesita un tipo de envío, que se crean con `POST /shipment-types`, `POST /zones` y
+La colección `bruno/SLS API` incluye las carpetas `Vehicles`, `Couriers` y `Packages`. Para ejecutarlas,
+inicia sesión previamente contra `POST /api/v1/auth/login` con un usuario del tenant que posea el permiso
+correspondiente (`MANAGE_TENANT` o `REGISTER_PACKAGES`). Un repartidor necesita un `User` activo del mismo
+tenant, y un paquete necesita un tipo de envío, que se crean con `POST /shipment-types`, `POST /zones` y
 `POST /zones/:zoneId/sectors`.
 
 ## Arquitectura de los módulos de registro
@@ -173,7 +174,7 @@ Cada módulo (`packages`, `vehicles`, `couriers`) separa cuatro capas bajo `back
 | `domain/` | Reglas y validación (placa, medidas, volumen, políticas) | Nada de NestJS ni Prisma |
 | `application/` | Casos de uso y puertos (`ports/`) | Dominio |
 | `infrastructure/` | Adaptadores Prisma, generador de token | Aplicación y dominio |
-| `presentation/` | Controlador, DTO y traducción de errores a HTTP | Aplicación y dominio |
+| `presentation/` | Controlador, guardas (`AuthGuard`, `PermissionsGuard`), DTO y traducción de errores a HTTP | Aplicación, dominio y presentación de `auth`/`shared` |
 
 La regla se comprueba automáticamente en `*-architecture.spec.ts` de cada módulo: falla si el
 dominio o la aplicación importan NestJS, Prisma o capas externas. Los módulos se cablean con
@@ -193,8 +194,10 @@ Decisiones de los módulos de registro:
 
 - Las medidas se validan con la escala exacta de las columnas y el volumen se calcula en el dominio
   con enteros; coincide con la restricción `volumeM3 = round(l·a·h / 1e6, 6)` de la base.
-- El registro de paquete guarda dirección, paquete e historial inicial en una sola transacción y no
-  publica evento de outbox, porque el catálogo de eventos no define uno de registro.
+- El registro de paquete guarda dirección, paquete, historial inicial (con `changedByUserId` del usuario
+  autenticado en la sesión) y el evento `PackageRegistered` en `OutboxEvent` (definido en
+  `event-catalog.ts`, productor `sls-backend.packages`, con `correlationId` de la solicitud) dentro de una
+  sola transacción.
 - Un usuario de otro tenant devuelve `404` en `POST /couriers`, igual que uno inexistente.
 - Las reglas numéricas se duplican entre módulos a propósito, para no acoplarlos entre sí.
 
@@ -217,11 +220,13 @@ docs: update readme
 ## Estado
 
 Infraestructura (Docker Compose, PostgreSQL con PostGIS, RabbitMQ), modelo de datos con aislamiento
-multi-tenant por Row-Level Security y el backend NestJS con sus módulos de dominio están operativos.
-El proceso worker (`backend/src/worker.ts`) publica los eventos del outbox y ejecuta los consumidores
-de RabbitMQ. Los módulos de PKG-01 y VEH-01 exponen hoy `POST /packages`, `POST /vehicles` y
-`POST /couriers` (ver la sección siguiente).
+multi-tenant por Row-Level Security, autenticación y autorización por sesión (`AUTH-01` con cookie
+`sls_session`, `AuthGuard` y `PermissionsGuard`) y el backend NestJS con sus módulos de dominio están
+operativos. El proceso worker (`backend/src/worker.ts`) publica los eventos del outbox y ejecuta los
+consumidores de RabbitMQ.
 
-Pendiente o provisional: la autenticación real (el contexto de tenant llega por el header
-`x-tenant-id`, que no es un control de seguridad), y el consumo de estos endpoints desde el frontend,
-que por defecto usa datos simulados (`VITE_USE_MOCK_DATA=true` en `docker-compose.yml`).
+`PKG-01` y `VEH-01` permanecen en estado `EN PROGRESO` (`IN_PROGRESS`): únicamente están terminados los
+endpoints de registro (`POST /packages`, `POST /vehicles` y `POST /couriers`). Quedan pendientes los
+endpoints de consulta, clasificación, edición de capacidad, estados y turnos, así como el consumo de estos
+endpoints desde el frontend, que por defecto usa datos simulados (`VITE_USE_MOCK_DATA=true` en
+`docker-compose.yml`).

@@ -41,37 +41,40 @@ Crear cuentas/roles de usuario (AUTH-01), clustering, creación de rutas, modifi
 
 ## Avance de implementación — `POST /vehicles` y `POST /couriers` (2026-10-11)
 
-Rama `feature/package-vehicle-management`, creada desde `origin/develop` (HEAD `5930e33`). Commit de
-este avance: pendiente; los cambios siguen sin confirmar en el árbol de trabajo.
+Rama `feature/package-vehicle-management` (creada desde `origin/develop` con commits `649f34d..6994cb0` y merge `0e95e61`).
+El módulo permanece en estado `EN PROGRESO` (`IN_PROGRESS`): únicamente están terminados los endpoints de
+registro (`POST /vehicles` y `POST /couriers`); listados, edición de capacidad, estados y turnos siguen
+pendientes.
 
 - Alcance: solo registro. No incluye listado, edición de capacidad, estados ni turnos.
+- Autenticación y autorización (`AUTH-01`): ambos endpoints están protegidos con `AuthGuard` y
+  `PermissionsGuard` (`@RequirePermission('MANAGE_TENANT')`). `VehiclesModule` y `CouriersModule` importan
+  `AuthModule`. El `tenantId` se obtiene de la sesión autenticada (`@CurrentContext()`); se eliminó el uso
+  de `x-tenant-id` como mecanismo de autorización.
 - `POST /vehicles`: `plate` (se normaliza sin espacios ni guiones, en mayúsculas, 5 a 8 caracteres
   alfanuméricos), `maxWeightKg` (hasta 3 decimales) y `maxVolumeM3` (hasta 6 decimales), mayores que cero
-  y dentro de la precisión de las columnas. Nace `ACTIVE`. `409 VEHICLE_PLATE_CONFLICT` si la placa ya
-  existe en el tenant.
-- `POST /couriers`: `userId` de un `User` activo del mismo tenant; no se crea ninguna cuenta. `404
-  COURIER_USER_NOT_FOUND` (inexistente o de otro tenant), `409 COURIER_USER_NOT_ELIGIBLE` (usuario
-  inactivo o suspendido) y `409 COURIER_USER_ALREADY_LINKED`.
+  y dentro de la precisión de las columnas. Nace `ACTIVE`. Responde `401` (`SESSION_EXPIRED`) sin sesión,
+  `403` (`PERMISSION_DENIED`) sin `MANAGE_TENANT` y `409 VEHICLE_PLATE_CONFLICT` si la placa ya existe en
+  el tenant.
+- `POST /couriers`: `userId` de un `User` activo del mismo tenant; no se crea ninguna cuenta. Responde
+  `401` sin sesión, `403` sin `MANAGE_TENANT`, `404 COURIER_USER_NOT_FOUND` (inexistente o de otro tenant),
+  `409 COURIER_USER_NOT_ELIGIBLE` (usuario inactivo o suspendido) y `409 COURIER_USER_ALREADY_LINKED`.
 - Archivos nuevos: `backend/src/modules/vehicles/` y `backend/src/modules/couriers/`, cada uno con
   `domain/`, `application/` (puerto incluido), `infrastructure/`, `presentation/` y `test/`. Modificado:
   `backend/src/app.module.ts` (import y registro de los dos módulos).
 - Decisiones: la elegibilidad del usuario vive en el dominio; el adaptador solo lee `id` y `status` del
-  usuario, nunca `passwordHash` ni correo; como no existe un servicio público de usuarios, la lectura se
-  hace con un adaptador propio dentro de la transacción con RLS, y debería sustituirse cuando AUTH
-  publique su contrato.
-- Pruebas unitarias nuevas: vehículos 6 suites y 62 pruebas; repartidores 5 suites y 35 pruebas. Regresión
-  completa observada en el entorno local: 114 suites y 1025 pruebas pasaron.
-- Integración `registration-01`: 1 suite y 32 pruebas pasaron en una base desechable (misma prueba que
-  PKG-01). Cubre la misma placa en dos tenants, usuario de otro tenant, usuario suspendido y doble vinculación.
-- Verificación manual: placa válida, duplicada, repetida en otro tenant y peso inválido en vehículos;
-  usuario activo, repetido, suspendido, de otro tenant, `userId` inválido y usuario propio del tenant B en
-  repartidores. Todos respondieron como se esperaba y no dejaron filas parciales.
+  usuario dentro de la transacción con RLS, nunca `passwordHash` ni correo.
+- Pruebas unitarias: suites de vehículos y repartidores actualizadas para verificar guardas y permisos
+  (`AuthGuard`, `PermissionsGuard`, `MANAGE_TENANT`). Regresión unitaria completa verificada mediante
+  Docker Compose (`142 suites / 1234 pruebas` en verde).
+- Integración `registration-01`: `1 suite y 36 pruebas` pasaron en una base desechable; usa
+  `configureApp(app)`, tenants con `slug` y sesiones autenticadas por cookie `sls_session`. Cubre `401` sin
+  sesión, `403` sin `MANAGE_TENANT`, misma placa en dos tenants, usuario de otro tenant, usuario suspendido
+  y doble vinculación.
 - Límites: no se leen ni modifican la reserva de asignaciones, la Chain ni los turnos. La política de
-  placa (5 a 8 caracteres alfanuméricos) es una propuesta sin aprobar por el grupo. Los roles que pueden
-  crear vehículos no se aplican porque AUTH-01 no está implementado.
-- Pendiente: acordar con Santiago los campos y si necesita listados, acordar con AUTH el contrato de
-  usuarios, y los pasos de capacidad, estado y turnos del plan.
+  placa (5 a 8 caracteres alfanuméricos) es una propuesta del módulo.
+- Pendiente: listados, capacidad, estado, turnos e integración con las pantallas del frontend.
 
 ## Cierre
 
-Implementación parcial; el trabajo restante está en los pendientes de cada avance. Actualizar una sección por cada paso completado, registrando comandos, resultados, límites y commit; enlazar siempre el plan.
+Implementación parcial (`EN PROGRESO`, solo endpoints de registro `POST /vehicles` y `POST /couriers` terminados); el trabajo restante está en los pendientes de cada avance. Actualizar una sección por cada paso completado, registrando comandos, resultados, límites y commit; enlazar siempre el plan.

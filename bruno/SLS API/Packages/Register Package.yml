@@ -10,8 +10,6 @@ http:
   headers:
     - name: Content-Type
       value: application/json
-    - name: x-tenant-id
-      value: "{{tenantId}}"
   body:
     type: json
     data: |-
