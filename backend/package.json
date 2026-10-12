@@ -33,6 +33,7 @@
     "test:delivery-01": "npm run build && node test/integration/delivery-01.cjs",
     "test:route-close-01": "npm run build && node test/integration/route-close-01.cjs",
     "test:rmq-01": "npm run build && node test/integration/rmq-01.cjs",
+    "test:registration-01": "npm run build && node test/integration/registration-01.cjs",
     "test:auth-tenant-01": "npm run build && node test/integration/auth-tenant-01.cjs"
   },
   "dependencies": {

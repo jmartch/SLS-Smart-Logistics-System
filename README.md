@@ -98,6 +98,111 @@ El rol `sls_app` y sus políticas se crean como parte de la migración `init_sch
 `docker-entrypoint-initdb.d`, porque las tablas todavía no existen en el primer arranque
 del contenedor de Postgres.
 
+## Primer arranque (comprobado en Docker Desktop)
+
+Después de `docker compose up --build`, la carpeta `backend/generated/` no existe porque el cliente
+de Prisma no se versiona, y el backend no compila (error `TS2307` sobre `generated/prisma/client`).
+Genera el cliente y aplica las migraciones una vez:
+
+```bash
+docker compose exec backend npx prisma generate --config prisma7.config.ts
+docker compose exec backend npx prisma migrate deploy --config prisma7.config.ts
+```
+
+`migrate deploy` solo aplica las migraciones ya versionadas; no crea ni modifica nada nuevo.
+Verifica con `docker compose ps` y `curl http://localhost:3000/api/v1`, que responde `Hello World!`.
+
+Problema observado en Docker Desktop para Windows: si `sls-rabbitmq` termina con `Exited (1)` y el
+registro dice `.erlang.cookie: eacces`, la cookie del volumen quedó con dueño `root`. Se corrige solo
+en ese archivo, con el servicio detenido:
+
+```bash
+docker run --rm --entrypoint chown -v sls-smart-logistics-system_rabbitmq_data:/var/lib/rabbitmq \
+  rabbitmq:4-management rabbitmq:rabbitmq /var/lib/rabbitmq/.erlang.cookie
+docker compose up -d rabbitmq
+```
+
+## Pruebas
+
+Pruebas unitarias (no necesitan base de datos ni RabbitMQ):
+
+```bash
+docker compose exec backend npm test -- --runInBand
+```
+
+Pruebas de integración contra una base PostgreSQL desechable (vive en memoria y se descarta). Con
+`make`: `make integration-test TEST=<nombre>`. Sin `make`, los pasos equivalentes son:
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.integration.yml --profile integration up -d --wait integration-postgres
+docker compose exec -e "GDB_TEST_ADMIN_URL=postgresql://integration_admin:integration_test_password@integration-postgres:5432/postgres" backend npm run test:<nombre>
+docker compose -f docker-compose.yml -f docker-compose.integration.yml --profile integration rm -sf integration-postgres
+```
+
+Pruebas disponibles: las de `INTEGRATION_TESTS` en el `Makefile` y `registration-01`, que cubre los tres
+endpoints de registro (aislamiento entre tenants, rechazo sin datos parciales y concurrencia).
+
+## Endpoints de registro (PKG-01 y VEH-01 — solo registro implementado)
+
+`PKG-01` y `VEH-01` se encuentran en estado `EN PROGRESO` (`IN_PROGRESS`): únicamente están terminados los
+endpoints de registro (`POST /packages`, `POST /vehicles` y `POST /couriers`). Listados, detalle,
+clasificación, edición de capacidad, cambios de estado y turnos siguen pendientes.
+
+Prefijo `/api/v1`. Todos requieren sesión autenticada mediante la cookie `sls_session` (`AuthGuard` +
+`PermissionsGuard`); el header `x-tenant-id` no se usa como mecanismo de autorización y se ignora cuando
+existe sesión autenticada. Sin sesión responden `401` (`SESSION_EXPIRED`) y sin el permiso requerido
+responden `403` (`PERMISSION_DENIED`). Los errores de dominio usan `{ code, message, fields? }`.
+
+| Endpoint | Permiso requerido | Cuerpo | Respuestas |
+|---|---|---|---|
+| `POST /vehicles` | `MANAGE_TENANT` | `plate`, `maxWeightKg`, `maxVolumeM3` | `201`; `400 VALIDATION_ERROR`; `401`; `403`; `409 VEHICLE_PLATE_CONFLICT` |
+| `POST /couriers` | `MANAGE_TENANT` | `userId` (usuario activo del mismo tenant) | `201`; `400`; `401`; `403`; `404 COURIER_USER_NOT_FOUND`; `409 COURIER_USER_NOT_ELIGIBLE`, `COURIER_USER_ALREADY_LINKED` |
+| `POST /packages` | `REGISTER_PACKAGES` | `trackingCode`, `address {text, municipalityCode}`, `shipmentTypeId`, `zoneId?`, `sectorId?`, `weightKg`, `lengthCm`, `widthCm`, `heightCm`, `priority?`, `deadline?`, `serviceDurationSeconds?` | `201` (estado `REGISTERED`, volumen calculado y token público); `400`; `401`; `403`; `404 PACKAGE_*_NOT_FOUND`; `409 PACKAGE_TRACKING_CODE_CONFLICT`, `PACKAGE_SHIPMENT_TYPE_INACTIVE`, `PACKAGE_SECTOR_ZONE_MISMATCH` |
+
+La colección `bruno/SLS API` incluye las carpetas `Vehicles`, `Couriers` y `Packages`. Para ejecutarlas,
+inicia sesión previamente contra `POST /api/v1/auth/login` con un usuario del tenant que posea el permiso
+correspondiente (`MANAGE_TENANT` o `REGISTER_PACKAGES`). Un repartidor necesita un `User` activo del mismo
+tenant, y un paquete necesita un tipo de envío, que se crean con `POST /shipment-types`, `POST /zones` y
+`POST /zones/:zoneId/sectors`.
+
+## Arquitectura de los módulos de registro
+
+Cada módulo (`packages`, `vehicles`, `couriers`) separa cuatro capas bajo `backend/src/modules/<modulo>/`:
+
+| Capa | Contenido | Puede importar |
+|---|---|---|
+| `domain/` | Reglas y validación (placa, medidas, volumen, políticas) | Nada de NestJS ni Prisma |
+| `application/` | Casos de uso y puertos (`ports/`) | Dominio |
+| `infrastructure/` | Adaptadores Prisma, generador de token | Aplicación y dominio |
+| `presentation/` | Controlador, guardas (`AuthGuard`, `PermissionsGuard`), DTO y traducción de errores a HTTP | Aplicación, dominio y presentación de `auth`/`shared` |
+
+La regla se comprueba automáticamente en `*-architecture.spec.ts` de cada módulo: falla si el
+dominio o la aplicación importan NestJS, Prisma o capas externas. Los módulos se cablean con
+`useFactory`, de modo que el caso de uso recibe el puerto y no el adaptador concreto.
+
+Patrones con evidencia en el código inspeccionado:
+
+- **State** (`packages/domain/package-states.ts`): un estado por clase con sus transiciones permitidas.
+  El registro nace en `REGISTERED` y las transiciones siguen pasando por el servicio existente.
+- **Chain of Responsibility** (`assignments/domain/handlers/`): validaciones de capacidad y disponibilidad.
+- **Repository / Ports and Adapters** (los tres módulos de registro): el puerto vive en `application/ports/`
+  y el adaptador Prisma lo implementa.
+- **Unit of Work por transacción** (`runWithTenant`): cada escritura fija el tenant en la sesión
+  (`SET LOCAL`), por lo que PostgreSQL aplica RLS, y agrupa las escrituras relacionadas en una transacción.
+
+Decisiones de los módulos de registro:
+
+- Las medidas se validan con la escala exacta de las columnas y el volumen se calcula en el dominio
+  con enteros; coincide con la restricción `volumeM3 = round(l·a·h / 1e6, 6)` de la base.
+- El registro de paquete guarda dirección, paquete, historial inicial (con `changedByUserId` del usuario
+  autenticado en la sesión) y el evento `PackageRegistered` en `OutboxEvent` (definido en
+  `event-catalog.ts`, productor `sls-backend.packages`, con `correlationId` de la solicitud) dentro de una
+  sola transacción.
+- Un usuario de otro tenant devuelve `404` en `POST /couriers`, igual que uno inexistente.
+- Las reglas numéricas se duplican entre módulos a propósito, para no acoplarlos entre sí.
+
+Diagramas C4 de contexto, contenedores y componentes: `docs/architecture/c4-registration.md`.
+
 ## Desarrollo
 
 Los directorios `frontend` y `backend` se montan en los contenedores, por lo que Vite y NestJS recargan los cambios automáticamente. Si cambian dependencias o los Dockerfiles, vuelve a iniciar con `docker compose up --build`.
@@ -114,9 +219,14 @@ docs: update readme
 
 ## Estado
 
-La infraestructura Docker, los proyectos base de frontend/backend, PostgreSQL, RabbitMQ y Prisma
-están configurados. El modelo de datos completo (27 entidades) está implementado con aislamiento
-multi-tenant por Row-Level Security — ver la sección "Aislamiento multi-tenant" arriba. RabbitMQ
-está disponible como infraestructura, pero aún falta implementar los publicadores, consumidores y
-el proceso worker de NestJS. Aún están pendientes la API, autenticación, interfaz y módulos
-logísticos.
+Infraestructura (Docker Compose, PostgreSQL con PostGIS, RabbitMQ), modelo de datos con aislamiento
+multi-tenant por Row-Level Security, autenticación y autorización por sesión (`AUTH-01` con cookie
+`sls_session`, `AuthGuard` y `PermissionsGuard`) y el backend NestJS con sus módulos de dominio están
+operativos. El proceso worker (`backend/src/worker.ts`) publica los eventos del outbox y ejecuta los
+consumidores de RabbitMQ.
+
+`PKG-01` y `VEH-01` permanecen en estado `EN PROGRESO` (`IN_PROGRESS`): únicamente están terminados los
+endpoints de registro (`POST /packages`, `POST /vehicles` y `POST /couriers`). Quedan pendientes los
+endpoints de consulta, clasificación, edición de capacidad, estados y turnos, así como el consumo de estos
+endpoints desde el frontend, que por defecto usa datos simulados (`VITE_USE_MOCK_DATA=true` en
+`docker-compose.yml`).
