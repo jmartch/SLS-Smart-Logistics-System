@@ -4,6 +4,7 @@ import {
     type PackageReferenceFailure,
 } from '../domain/package-reference.policy';
 import type {
+    PackageRegistrationContext,
     PackageRegistrationPort,
     RegisterPackageOutcome,
 } from './ports/package-registration.port';
@@ -20,16 +21,19 @@ export class RegisterPackageService {
     ) {}
 
     async execute(
-        tenantId: string,
+        context: PackageRegistrationContext,
         input: unknown,
     ): Promise<RegisterPackageResult> {
         const data = parsePackageRegistration(input);
 
-        const references = await this.registration.loadReferences(tenantId, {
-            shipmentTypeId: data.shipmentTypeId,
-            zoneId: data.zoneId,
-            sectorId: data.sectorId,
-        });
+        const references = await this.registration.loadReferences(
+            context.tenantId,
+            {
+                shipmentTypeId: data.shipmentTypeId,
+                zoneId: data.zoneId,
+                sectorId: data.sectorId,
+            },
+        );
 
         const failure = evaluatePackageReferences(
             { zoneId: data.zoneId, sectorId: data.sectorId },
@@ -41,7 +45,7 @@ export class RegisterPackageService {
         }
 
         return this.registration.registerByTenant(
-            tenantId,
+            context,
             data,
             this.tokens.generate(),
         );

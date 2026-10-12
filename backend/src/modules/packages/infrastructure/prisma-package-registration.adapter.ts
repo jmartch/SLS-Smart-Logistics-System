@@ -1,12 +1,18 @@
+import { randomUUID } from 'node:crypto';
 import { Injectable } from '@nestjs/common';
 import { Prisma } from '../../../../generated/prisma/client';
 import { PrismaService } from '../../../database/prisma.service';
-import { runWithTenant } from '../../../database/run-with-tenant';
+import {
+    isValidTenantId,
+    runWithTenant,
+} from '../../../database/run-with-tenant';
 import type {
     PackageReferenceQuery,
+    PackageRegistrationContext,
     PackageRegistrationPort,
     RegisterPackageOutcome,
 } from '../application/ports/package-registration.port';
+import { PackageEventType } from '../domain/events/package-state-changed.event';
 import type { PackageRegistrationData } from '../domain/package-registration';
 import type { PackageReferenceSnapshot } from '../domain/package-reference.policy';
 
@@ -45,10 +51,18 @@ export class PrismaPackageRegistrationAdapter implements PackageRegistrationPort
     }
 
     async registerByTenant(
-        tenantId: string,
+        context: PackageRegistrationContext,
         data: PackageRegistrationData,
         publicTrackingToken: string,
     ): Promise<RegisterPackageOutcome> {
+        const { tenantId, actorUserId } = context;
+        const eventId = randomUUID();
+        const correlationId =
+            context.correlationId && isValidTenantId(context.correlationId)
+                ? context.correlationId
+                : eventId;
+        const occurredAt = new Date();
+
         try {
             const created = await runWithTenant(
                 this.prisma,
@@ -103,7 +117,7 @@ export class PrismaPackageRegistrationAdapter implements PackageRegistrationPort
                         },
                     });
 
-                    // Historial inicial en la misma transacción que el paquete.
+                    // Historial inicial y evento Outbox en la misma transacción que el paquete.
                     await tx.packageStatusHistory.create({
                         data: {
                             tenantId,
@@ -111,7 +125,27 @@ export class PrismaPackageRegistrationAdapter implements PackageRegistrationPort
                             fromState: null,
                             toState: data.initialState,
                             reasonCode: 'PACKAGE_REGISTERED',
-                            changedByUserId: null,
+                            changedByUserId: actorUserId,
+                        },
+                    });
+
+                    await tx.outboxEvent.create({
+                        data: {
+                            tenantId,
+                            eventId,
+                            correlationId,
+                            eventType: PackageEventType.REGISTERED,
+                            version: 1,
+                            occurredAt,
+                            producer: 'sls-backend.packages',
+                            payload: {
+                                producer: 'sls-backend.packages',
+                                packageId: registered.id,
+                                fromState: null,
+                                toState: data.initialState,
+                                changedByUserId: actorUserId,
+                                reasonCode: 'PACKAGE_REGISTERED',
+                            },
                         },
                     });
 

@@ -30,6 +30,12 @@ export interface RegisteredPackage {
     readonly serviceDurationSeconds: number | null;
 }
 
+export interface PackageRegistrationContext {
+    readonly tenantId: string;
+    readonly actorUserId: string;
+    readonly correlationId: string;
+}
+
 export type RegisterPackageOutcome =
     | { readonly ok: true; readonly package: RegisteredPackage }
     | { readonly ok: false; readonly code: 'PACKAGE_TRACKING_CODE_CONFLICT' };
@@ -41,11 +47,11 @@ export interface PackageRegistrationPort {
     ): Promise<PackageReferenceSnapshot>;
 
     /**
-     * Persiste de forma atómica: dirección, paquete (estado REGISTERED) e
-     * historial inicial. Todo o nada.
+     * Persiste de forma atómica: dirección, paquete (estado REGISTERED),
+     * historial inicial y evento PackageRegistered en outbox. Todo o nada.
      */
     registerByTenant(
-        tenantId: string,
+        context: PackageRegistrationContext,
         data: PackageRegistrationData,
         publicTrackingToken: string,
     ): Promise<RegisterPackageOutcome>;

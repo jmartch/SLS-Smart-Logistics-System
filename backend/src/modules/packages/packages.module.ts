@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { PrismaModule } from '../../database/prisma.module';
+import { AuthModule } from '../auth/auth.module';
 import { RegisterPackageService } from './application/register-package.service';
 import { TransitionPackageStateService } from './application/transition-package-state.service';
 import { PackageLifecycleRepository } from './domain/package-lifecycle.repository';
@@ -9,7 +10,7 @@ import { PrismaPackageRegistrationAdapter } from './infrastructure/prisma-packag
 import { PackagesController } from './presentation/packages.controller';
 
 @Module({
-    imports: [PrismaModule],
+    imports: [PrismaModule, AuthModule],
     controllers: [PackagesController],
     providers: [
         PrismaPackageLifecycleRepository,

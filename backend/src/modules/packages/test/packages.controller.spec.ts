@@ -3,11 +3,27 @@ import {
     ConflictException,
     NotFoundException,
 } from '@nestjs/common';
+import { GUARDS_METADATA } from '@nestjs/common/constants';
+import { AuthGuard } from '../../auth/presentation/auth.guard';
+import { PermissionsGuard } from '../../auth/presentation/permissions.guard';
+import { REQUIRED_PERMISSION_KEY } from '../../auth/presentation/require-permission.decorator';
+import type { RequestContext } from '../../../shared/presentation/request-context.decorator';
 import { RegisterPackageService } from '../application/register-package.service';
 import { InvalidPackageRegistrationError } from '../domain/invalid-package-registration.error';
-import { PackagesController } from '../presentation/packages.controller';
+import {
+    PackagesController,
+    REGISTER_PACKAGES_PERMISSION,
+} from '../presentation/packages.controller';
 
 const TENANT_ID = '10000000-0000-4000-8000-000000000001';
+const USER_ID = '20000000-0000-4000-8000-000000000001';
+const CORRELATION_ID = '30000000-0000-4000-8000-000000000001';
+
+const context: RequestContext = {
+    tenantId: TENANT_ID,
+    actorUserId: USER_ID,
+    correlationId: CORRELATION_ID,
+};
 
 function createFixture() {
     const execute = jest.fn();
@@ -27,6 +43,20 @@ const body = {
 };
 
 describe('PackagesController', () => {
+    it('protects POST /packages with AuthGuard, PermissionsGuard and REGISTER_PACKAGES', () => {
+        const guards = Reflect.getMetadata(
+            GUARDS_METADATA,
+            PackagesController,
+        ) as unknown[];
+        const permission = Reflect.getMetadata(
+            REQUIRED_PERMISSION_KEY,
+            PackagesController.prototype.registerPackageEndpoint,
+        ) as unknown;
+
+        expect(guards).toEqual([AuthGuard, PermissionsGuard]);
+        expect(permission).toBe(REGISTER_PACKAGES_PERMISSION);
+    });
+
     it('returns the registered package', async () => {
         const { controller, execute } = createFixture();
         const registered = {
@@ -40,9 +70,16 @@ describe('PackagesController', () => {
         });
 
         await expect(
-            controller.registerPackageEndpoint(TENANT_ID, body),
+            controller.registerPackageEndpoint(context, body),
         ).resolves.toEqual(registered);
-        expect(execute).toHaveBeenCalledWith(TENANT_ID, body);
+        expect(execute).toHaveBeenCalledWith(
+            {
+                tenantId: TENANT_ID,
+                actorUserId: USER_ID,
+                correlationId: CORRELATION_ID,
+            },
+            body,
+        );
     });
 
     it('maps validation errors to 400 VALIDATION_ERROR with field details', async () => {
@@ -52,7 +89,7 @@ describe('PackagesController', () => {
         );
 
         const error = await controller
-            .registerPackageEndpoint(TENANT_ID, body)
+            .registerPackageEndpoint(context, body)
             .catch((e: unknown) => e);
 
         expect(error).toBeInstanceOf(BadRequestException);
@@ -71,7 +108,7 @@ describe('PackagesController', () => {
         execute.mockResolvedValue({ ok: false, code });
 
         const error = await controller
-            .registerPackageEndpoint(TENANT_ID, body)
+            .registerPackageEndpoint(context, body)
             .catch((e: unknown) => e);
 
         expect(error).toBeInstanceOf(NotFoundException);
@@ -89,7 +126,7 @@ describe('PackagesController', () => {
         execute.mockResolvedValue({ ok: false, code });
 
         const error = await controller
-            .registerPackageEndpoint(TENANT_ID, body)
+            .registerPackageEndpoint(context, body)
             .catch((e: unknown) => e);
 
         expect(error).toBeInstanceOf(ConflictException);
@@ -104,7 +141,7 @@ describe('PackagesController', () => {
         execute.mockRejectedValue(failure);
 
         await expect(
-            controller.registerPackageEndpoint(TENANT_ID, body),
+            controller.registerPackageEndpoint(context, body),
         ).rejects.toBe(failure);
     });
 
@@ -115,8 +152,15 @@ describe('PackagesController', () => {
         );
 
         await expect(
-            controller.registerPackageEndpoint(TENANT_ID, undefined as never),
+            controller.registerPackageEndpoint(context, undefined as never),
         ).rejects.toBeInstanceOf(BadRequestException);
-        expect(execute).toHaveBeenCalledWith(TENANT_ID, {});
+        expect(execute).toHaveBeenCalledWith(
+            {
+                tenantId: TENANT_ID,
+                actorUserId: USER_ID,
+                correlationId: CORRELATION_ID,
+            },
+            {},
+        );
     });
 });

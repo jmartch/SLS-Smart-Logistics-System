@@ -1,14 +1,23 @@
 import { Prisma } from '../../../../generated/prisma/client';
 import { PrismaService } from '../../../database/prisma.service';
+import type { PackageRegistrationContext } from '../application/ports/package-registration.port';
 import { parsePackageRegistration } from '../domain/package-registration';
 import { PrismaPackageRegistrationAdapter } from '../infrastructure/prisma-package-registration.adapter';
 
 const TENANT_ID = '10000000-0000-4000-8000-000000000001';
+const USER_ID = '20000000-0000-4000-8000-000000000001';
+const CORRELATION_ID = '30000000-0000-4000-8000-000000000001';
 const SHIPMENT_TYPE_ID = '50000000-0000-4000-8000-000000000001';
 const ZONE_ID = '60000000-0000-4000-8000-000000000001';
 const SECTOR_ID = '70000000-0000-4000-8000-000000000001';
 const ADDRESS_ID = '80000000-0000-4000-8000-000000000001';
 const PACKAGE_ID = '90000000-0000-4000-8000-000000000001';
+
+const context: PackageRegistrationContext = {
+    tenantId: TENANT_ID,
+    actorUserId: USER_ID,
+    correlationId: CORRELATION_ID,
+};
 
 function createFixture() {
     const mocks = {
@@ -20,6 +29,7 @@ function createFixture() {
         packageCreate: jest.fn(),
         packageFindFirst: jest.fn(),
         historyCreate: jest.fn(),
+        outboxCreate: jest.fn(),
     };
     const transaction = {
         $executeRawUnsafe: mocks.executeRawUnsafe,
@@ -32,6 +42,7 @@ function createFixture() {
             findFirst: mocks.packageFindFirst,
         },
         packageStatusHistory: { create: mocks.historyCreate },
+        outboxEvent: { create: mocks.outboxCreate },
     };
     const prisma = {
         $transaction: jest.fn(
@@ -135,14 +146,15 @@ describe('PrismaPackageRegistrationAdapter', () => {
     });
 
     describe('registerByTenant', () => {
-        it('creates address, package in REGISTERED and initial history in one transaction', async () => {
+        it('creates address, package, history with changedByUserId and PackageRegistered outbox event in one transaction', async () => {
             const f = createFixture();
             f.addressCreate.mockResolvedValue({ id: ADDRESS_ID });
             f.packageCreate.mockResolvedValue(createdRow);
             f.historyCreate.mockResolvedValue({});
+            f.outboxCreate.mockResolvedValue({});
 
             const result = await f.adapter.registerByTenant(
-                TENANT_ID,
+                context,
                 data,
                 'token-publico',
             );
@@ -176,14 +188,36 @@ describe('PrismaPackageRegistrationAdapter', () => {
                     fromState: null,
                     toState: 'REGISTERED',
                     reasonCode: 'PACKAGE_REGISTERED',
-                    changedByUserId: null,
+                    changedByUserId: USER_ID,
                 },
+            });
+            expect(f.outboxCreate).toHaveBeenCalledWith({
+                data: expect.objectContaining({
+                    eventId: expect.any(String) as unknown,
+                    tenantId: TENANT_ID,
+                    correlationId: CORRELATION_ID,
+                    eventType: 'PackageRegistered',
+                    occurredAt: expect.any(Date) as unknown,
+                    producer: 'sls-backend.packages',
+                    version: 1,
+                    payload: {
+                        producer: 'sls-backend.packages',
+                        packageId: PACKAGE_ID,
+                        fromState: null,
+                        toState: 'REGISTERED',
+                        changedByUserId: USER_ID,
+                        reasonCode: 'PACKAGE_REGISTERED',
+                    },
+                }) as unknown,
             });
             expect(f.addressCreate.mock.invocationCallOrder[0]).toBeLessThan(
                 f.packageCreate.mock.invocationCallOrder[0],
             );
             expect(f.packageCreate.mock.invocationCallOrder[0]).toBeLessThan(
                 f.historyCreate.mock.invocationCallOrder[0],
+            );
+            expect(f.historyCreate.mock.invocationCallOrder[0]).toBeLessThan(
+                f.outboxCreate.mock.invocationCallOrder[0],
             );
             expect(result).toMatchObject({
                 ok: true,
@@ -205,8 +239,9 @@ describe('PrismaPackageRegistrationAdapter', () => {
             f.historyCreate.mockRejectedValue(failure);
 
             await expect(
-                f.adapter.registerByTenant(TENANT_ID, data, 'token-publico'),
+                f.adapter.registerByTenant(context, data, 'token-publico'),
             ).rejects.toBe(failure);
+            expect(f.outboxCreate).not.toHaveBeenCalled();
         });
 
         it('translates P2002 into a tracking code conflict when the code already exists', async () => {
@@ -224,7 +259,7 @@ describe('PrismaPackageRegistrationAdapter', () => {
             f.packageFindFirst.mockResolvedValue({ id: PACKAGE_ID });
 
             await expect(
-                f.adapter.registerByTenant(TENANT_ID, data, 'token-publico'),
+                f.adapter.registerByTenant(context, data, 'token-publico'),
             ).resolves.toEqual({
                 ok: false,
                 code: 'PACKAGE_TRACKING_CODE_CONFLICT',
@@ -249,7 +284,7 @@ describe('PrismaPackageRegistrationAdapter', () => {
             f.packageFindFirst.mockResolvedValue(null);
 
             await expect(
-                f.adapter.registerByTenant(TENANT_ID, data, 'token-publico'),
+                f.adapter.registerByTenant(context, data, 'token-publico'),
             ).rejects.toBe(conflict);
         });
 
@@ -259,7 +294,7 @@ describe('PrismaPackageRegistrationAdapter', () => {
             f.addressCreate.mockRejectedValue(failure);
 
             await expect(
-                f.adapter.registerByTenant(TENANT_ID, data, 'token-publico'),
+                f.adapter.registerByTenant(context, data, 'token-publico'),
             ).rejects.toBe(failure);
         });
     });

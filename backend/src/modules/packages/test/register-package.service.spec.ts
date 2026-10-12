@@ -1,11 +1,22 @@
-import type { PackageRegistrationPort } from '../application/ports/package-registration.port';
+import type {
+    PackageRegistrationContext,
+    PackageRegistrationPort,
+} from '../application/ports/package-registration.port';
 import type { PublicTrackingTokenGenerator } from '../application/ports/public-tracking-token.port';
 import { RegisterPackageService } from '../application/register-package.service';
 import { InvalidPackageRegistrationError } from '../domain/invalid-package-registration.error';
 
 const TENANT_ID = '10000000-0000-4000-8000-000000000001';
+const USER_ID = '20000000-0000-4000-8000-000000000001';
+const CORRELATION_ID = '30000000-0000-4000-8000-000000000001';
 const SHIPMENT_TYPE_ID = '50000000-0000-4000-8000-000000000001';
 const ZONE_ID = '60000000-0000-4000-8000-000000000001';
+
+const context: PackageRegistrationContext = {
+    tenantId: TENANT_ID,
+    actorUserId: USER_ID,
+    correlationId: CORRELATION_ID,
+};
 
 function input(overrides: Record<string, unknown> = {}) {
     return {
@@ -51,7 +62,7 @@ describe('RegisterPackageService', () => {
         registerByTenant.mockResolvedValue(outcome);
 
         const result = await service.execute(
-            TENANT_ID,
+            context,
             input({ zoneId: ZONE_ID }),
         );
 
@@ -62,7 +73,7 @@ describe('RegisterPackageService', () => {
         });
         expect(generate).toHaveBeenCalledTimes(1);
         expect(registerByTenant).toHaveBeenCalledWith(
-            TENANT_ID,
+            context,
             expect.objectContaining({
                 trackingCode: 'PKG-0001',
                 volumeM3: '0.006',
@@ -82,7 +93,7 @@ describe('RegisterPackageService', () => {
             sector: null,
         });
 
-        const result = await service.execute(TENANT_ID, input());
+        const result = await service.execute(context, input());
 
         expect(result).toEqual({
             ok: false,
@@ -104,7 +115,7 @@ describe('RegisterPackageService', () => {
             code: 'PACKAGE_TRACKING_CODE_CONFLICT',
         });
 
-        await expect(service.execute(TENANT_ID, input())).resolves.toEqual({
+        await expect(service.execute(context, input())).resolves.toEqual({
             ok: false,
             code: 'PACKAGE_TRACKING_CODE_CONFLICT',
         });
@@ -115,7 +126,7 @@ describe('RegisterPackageService', () => {
             createFixture();
 
         await expect(
-            service.execute(TENANT_ID, input({ weightKg: 0 })),
+            service.execute(context, input({ weightKg: 0 })),
         ).rejects.toBeInstanceOf(InvalidPackageRegistrationError);
         expect(loadReferences).not.toHaveBeenCalled();
         expect(registerByTenant).not.toHaveBeenCalled();

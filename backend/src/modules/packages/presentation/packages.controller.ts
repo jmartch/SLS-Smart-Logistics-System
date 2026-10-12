@@ -1,29 +1,53 @@
-import { Body, Controller, HttpCode, HttpStatus, Post } from '@nestjs/common';
+import {
+    Body,
+    Controller,
+    HttpCode,
+    HttpStatus,
+    Post,
+    UseGuards,
+} from '@nestjs/common';
+import { AuthGuard } from '../../auth/presentation/auth.guard';
+import { PermissionsGuard } from '../../auth/presentation/permissions.guard';
+import { RequirePermission } from '../../auth/presentation/require-permission.decorator';
 import {
     RegisterPackageService,
     type RegisterPackageResult,
 } from '../application/register-package.service';
-import { CurrentTenant } from '../../../shared/presentation/request-context.decorator';
+import {
+    CurrentContext,
+    type RequestContext,
+} from '../../../shared/presentation/request-context.decorator';
 import type { RegisterPackageDto } from './dto/register-package.dto';
 import {
     handlePackageDomainError,
     handlePackageFailure,
 } from './package-http-errors';
 
+export const REGISTER_PACKAGES_PERMISSION = 'REGISTER_PACKAGES';
+
 @Controller('packages')
+@UseGuards(AuthGuard, PermissionsGuard)
 export class PackagesController {
     constructor(private readonly registerPackage: RegisterPackageService) {}
 
     @Post()
     @HttpCode(HttpStatus.CREATED)
+    @RequirePermission(REGISTER_PACKAGES_PERMISSION)
     async registerPackageEndpoint(
-        @CurrentTenant() tenantId: string,
+        @CurrentContext() context: RequestContext,
         @Body() body: RegisterPackageDto,
     ) {
         let result: RegisterPackageResult;
 
         try {
-            result = await this.registerPackage.execute(tenantId, body ?? {});
+            result = await this.registerPackage.execute(
+                {
+                    tenantId: context.tenantId,
+                    actorUserId: context.actorUserId,
+                    correlationId: context.correlationId,
+                },
+                body ?? {},
+            );
         } catch (error) {
             return handlePackageDomainError(error);
         }
