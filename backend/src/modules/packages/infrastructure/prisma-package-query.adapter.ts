@@ -3,6 +3,7 @@ import { PrismaService } from '../../../database/prisma.service';
 import { runWithTenant } from '../../../database/run-with-tenant';
 import {
     PackageQueryPort,
+    type PackageDetail,
     type PackageListItem,
 } from '../application/ports/package-query.port';
 
@@ -50,5 +51,68 @@ export class PrismaPackageQueryAdapter extends PackageQueryPort {
             shipmentType: pkg.shipmentType.name,
             registeredAt: pkg.statusHistory[0]?.createdAt ?? null,
         }));
+    }
+
+    async findByTenantAndId(
+        tenantId: string,
+        packageId: string,
+    ): Promise<PackageDetail | null> {
+        const pkg = await runWithTenant(this.prisma, tenantId, (tx) =>
+            tx.package.findFirst({
+                where: { tenantId, id: packageId },
+                select: {
+                    id: true,
+                    trackingCode: true,
+                    state: true,
+                    priority: true,
+                    weightKg: true,
+                    volumeM3: true,
+                    lengthCm: true,
+                    widthCm: true,
+                    heightCm: true,
+                    deadline: true,
+                    address: { select: { originalText: true } },
+                    zone: { select: { name: true } },
+                    sector: { select: { name: true } },
+                    shipmentType: { select: { name: true } },
+                    statusHistory: {
+                        orderBy: { createdAt: 'asc' },
+                        select: {
+                            fromState: true,
+                            toState: true,
+                            reasonCode: true,
+                            createdAt: true,
+                            changedByUser: { select: { email: true } },
+                        },
+                    },
+                },
+            }),
+        );
+        if (!pkg) return null;
+
+        return {
+            id: pkg.id,
+            trackingCode: pkg.trackingCode,
+            state: pkg.state,
+            priority: pkg.priority,
+            weightKg: String(pkg.weightKg),
+            volumeM3: String(pkg.volumeM3),
+            lengthCm: String(pkg.lengthCm),
+            widthCm: String(pkg.widthCm),
+            heightCm: String(pkg.heightCm),
+            deadline: pkg.deadline,
+            address: pkg.address.originalText,
+            zone: pkg.zone?.name ?? null,
+            sector: pkg.sector?.name ?? null,
+            shipmentType: pkg.shipmentType.name,
+            registeredAt: pkg.statusHistory[0]?.createdAt ?? null,
+            history: pkg.statusHistory.map((item) => ({
+                fromState: item.fromState,
+                toState: item.toState,
+                reasonCode: item.reasonCode,
+                changedBy: item.changedByUser?.email ?? null,
+                createdAt: item.createdAt,
+            })),
+        };
     }
 }

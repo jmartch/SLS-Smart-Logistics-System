@@ -4,6 +4,7 @@ import {
     Get,
     HttpCode,
     HttpStatus,
+    Param,
     Post,
     UseGuards,
 } from '@nestjs/common';
@@ -20,6 +21,7 @@ import {
 } from '../../../shared/presentation/request-context.decorator';
 import type { RegisterPackageDto } from './dto/register-package.dto';
 import { ListPackagesUseCase } from '../application/list-packages.use-case';
+import { GetPackageDetailUseCase } from '../application/get-package-detail.use-case';
 import {
     handlePackageDomainError,
     handlePackageFailure,
@@ -33,12 +35,29 @@ export class PackagesController {
     constructor(
         private readonly registerPackage: RegisterPackageService,
         private readonly listPackages: ListPackagesUseCase,
+        private readonly getPackageDetail: GetPackageDetailUseCase,
     ) {}
 
     @Get()
     @RequirePermission(REGISTER_PACKAGES_PERMISSION)
     listPackagesEndpoint(@CurrentContext() context: RequestContext) {
         return this.listPackages.execute(context.tenantId);
+    }
+
+    @Get(':packageId')
+    @RequirePermission(REGISTER_PACKAGES_PERMISSION)
+    async getPackageDetailEndpoint(
+        @CurrentContext() context: RequestContext,
+        @Param('packageId') packageId: string,
+    ) {
+        try {
+            return await this.getPackageDetail.execute(
+                context.tenantId,
+                packageId,
+            );
+        } catch (error) {
+            return handlePackageDomainError(error);
+        }
     }
 
     @Post()

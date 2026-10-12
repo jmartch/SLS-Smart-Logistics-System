@@ -3,6 +3,7 @@ import { PrismaModule } from '../../database/prisma.module';
 import { AuthModule } from '../auth/auth.module';
 import { RegisterPackageService } from './application/register-package.service';
 import { ListPackagesUseCase } from './application/list-packages.use-case';
+import { GetPackageDetailUseCase } from './application/get-package-detail.use-case';
 import { PackageQueryPort } from './application/ports/package-query.port';
 import { TransitionPackageStateService } from './application/transition-package-state.service';
 import { PackageLifecycleRepository } from './domain/package-lifecycle.repository';
@@ -32,6 +33,12 @@ import { PackagesController } from './presentation/packages.controller';
             provide: ListPackagesUseCase,
             useFactory: (packages: PackageQueryPort) =>
                 new ListPackagesUseCase(packages),
+            inject: [PackageQueryPort],
+        },
+        {
+            provide: GetPackageDetailUseCase,
+            useFactory: (packages: PackageQueryPort) =>
+                new GetPackageDetailUseCase(packages),
             inject: [PackageQueryPort],
         },
         {

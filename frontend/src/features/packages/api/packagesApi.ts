@@ -22,6 +22,24 @@ export interface PackageListItemResponse {
   readonly registeredAt: string | null;
 }
 
+export interface PackageDetailResponse extends PackageListItemResponse {
+  readonly lengthCm: string;
+  readonly widthCm: string;
+  readonly heightCm: string;
+  readonly deadline: string | null;
+  readonly history: readonly {
+    readonly fromState: string | null;
+    readonly toState: string;
+    readonly reasonCode: string | null;
+    readonly changedBy: string | null;
+    readonly createdAt: string;
+  }[];
+}
+
 export function listPackages(): Promise<PackageListItemResponse[]> {
   return apiFetch<PackageListItemResponse[]>('/packages');
+}
+
+export function getPackageDetail(packageId: string): Promise<PackageDetailResponse> {
+  return apiFetch<PackageDetailResponse>(`/packages/${encodeURIComponent(packageId)}`);
 }

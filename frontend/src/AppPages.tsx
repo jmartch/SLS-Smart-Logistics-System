@@ -55,6 +55,7 @@ import {
 import "./features/packages/components/packages.css"
 import {
   listPackages,
+  getPackageDetail,
   type PackageListItemResponse,
 } from "./features/packages/api/packagesApi"
 
@@ -323,6 +324,10 @@ const STATUS_FILTER_OPTIONS: { value: PkgStatus | ""; label: string }[] = [
   { value: "FAILED", label: "Fallido" },
 ]
 
+function isUuid(value: string): boolean {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value)
+}
+
 export function PackagesListPage() {
   const { user } = useAuth()
   const [query, setQuery] = useState("")
@@ -407,11 +412,12 @@ export function PackagesListPage() {
           </div>
         )}
         <div className="company-table">
-          <div className="company-table__head" style={{ gridTemplateColumns: "1.3fr 1.6fr 1fr 0.8fr" }}>
+          <div className="company-table__head" style={{ gridTemplateColumns: "1.3fr 1.6fr 1fr 0.8fr 0.4fr" }}>
             <span>Guía / tipo</span>
             <span>Dirección</span>
             <span>Zona</span>
             <span>Estado</span>
+            <span></span>
           </div>
           {loadingPackages ? (
             <EmptyState icon={<Loader2 size={32} className="spin" />} title="Consultando paquetes" body="Cargando la información persistida del tenant." />
@@ -419,7 +425,7 @@ export function PackagesListPage() {
             <EmptyState icon={<Package size={32} />} title="Sin resultados" body="Ajusta los filtros o registra un nuevo paquete." />
           ) : (
             filtered.map((pkg) => (
-              <div key={pkg.id} className="company-table__row" style={{ gridTemplateColumns: "1.3fr 1.6fr 1fr 0.8fr" }}>
+              <div key={pkg.id} className="company-table__row" style={{ gridTemplateColumns: "1.3fr 1.6fr 1fr 0.8fr 0.4fr" }}>
                 <strong style={{ display: "grid", gap: "0.15rem" }}>
                   <span style={{ fontSize: "0.82rem" }}>{pkg.trackingCode}</span>
                   <span style={{ color: "var(--text-muted)", fontSize: "0.68rem", fontWeight: 400 }}>{pkg.shipmentType}</span>
@@ -428,6 +434,11 @@ export function PackagesListPage() {
                 <span>{pkg.zone ?? "Sin zona"} · {pkg.sector ?? "Sin sector"}</span>
                 <span>
                   <span className={`status ${STATUS_COLOR[pkg.state as PkgStatus] ?? "status--muted"}`}>{STATUS_LABELS[pkg.state as PkgStatus] ?? pkg.state}</span>
+                </span>
+                <span>
+                  <Link to={`/app/paquetes/${pkg.id}`} style={{ display: "grid", width: 32, height: 32, placeItems: "center", color: "var(--blue-dark)", borderRadius: 8 }} aria-label={`Ver detalle ${pkg.trackingCode}`}>
+                    <ChevronRight size={17} />
+                  </Link>
                 </span>
               </div>
             ))
@@ -444,14 +455,71 @@ export function PackagesListPage() {
 
 export function PackageDetailPage() {
   const { packageId } = useParams()
-  const pkg = PACKAGES.find((p) => p.id === packageId)
+  const fixturePackage = PACKAGES.find((p) => p.id === packageId) ?? null
+  const [pkg, setPkg] = useState<Pkg | null>(fixturePackage)
+  const [loadingDetail, setLoadingDetail] = useState(Boolean(packageId && isUuid(packageId)))
+  const [detailError, setDetailError] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (!packageId || !isUuid(packageId)) return
+    let active = true
+    setLoadingDetail(true)
+    setDetailError(null)
+    void getPackageDetail(packageId)
+      .then((detail) => {
+        if (!active) return
+        setPkg({
+          id: detail.id,
+          trackingCode: detail.trackingCode,
+          sender: "No registrado en el MVP",
+          recipient: "No registrado en el MVP",
+          recipientAddress: detail.address,
+          recipientPhone: "No registrado en el MVP",
+          zone: detail.zone ?? "Sin zona",
+          sector: detail.sector ?? "Sin sector",
+          weight: Number(detail.weightKg),
+          volume: Number(detail.volumeM3),
+          priority:
+            detail.priority === "URGENT"
+              ? "express"
+              : detail.priority === "HIGH"
+                ? "urgent"
+                : "normal",
+          shipmentType: detail.shipmentType,
+          status: detail.state as PkgStatus,
+          createdAt: detail.registeredAt ?? new Date(0).toISOString(),
+          estimatedDelivery: detail.deadline ?? detail.registeredAt ?? new Date(0).toISOString(),
+          history: detail.history.map((item) => ({
+            status: item.toState as PkgStatus,
+            at: item.createdAt,
+            by: item.changedBy ?? "Sistema SLS",
+            note: item.reasonCode ?? undefined,
+          })),
+        })
+      })
+      .catch((error: unknown) => {
+        if (!active) return
+        setDetailError(error instanceof Error ? error.message : "No fue posible consultar el paquete.")
+        setPkg(null)
+      })
+      .finally(() => {
+        if (active) setLoadingDetail(false)
+      })
+    return () => {
+      active = false
+    }
+  }, [packageId])
+
+  if (loadingDetail) {
+    return <EmptyState icon={<Loader2 size={32} className="spin" />} title="Consultando paquete" body="Cargando la información persistida del tenant." />
+  }
 
   if (!pkg) {
     return (
       <div className="not-found" style={{ minHeight: "60vh" }}>
         <span>404</span>
         <h1>Paquete no encontrado</h1>
-        <p>El identificador no corresponde a ningún paquete registrado.</p>
+        <p>{detailError ?? "El identificador no corresponde a ningún paquete registrado."}</p>
         <Link to="/app/paquetes" className="form-submit" style={{ textDecoration: "none" }}>
           <ArrowLeft size={17} /> Volver a paquetes
         </Link>
@@ -470,7 +538,7 @@ export function PackageDetailPage() {
           <p style={{ marginTop: "0.4rem" }}>{pkg.sender} → {pkg.recipient}</p>
         </div>
         <span className={`status ${STATUS_COLOR[pkg.status]}`} style={{ fontSize: "0.78rem", padding: "0.5rem 1rem", flexShrink: 0, marginTop: "0.5rem" }}>
-          {STATUS_LABELS[pkg.status]}
+          {STATUS_LABELS[pkg.status] ?? pkg.status}
         </span>
       </div>
 
@@ -531,7 +599,7 @@ export function PackageDetailPage() {
                   {i === 0 && <span style={{ width: 8, height: 8, background: "white", borderRadius: "50%" }} />}
                 </span>
                 <div>
-                  <strong style={{ display: "block", color: "var(--navy)", fontSize: "0.78rem" }}>{STATUS_LABELS[h.status]}</strong>
+                  <strong style={{ display: "block", color: "var(--navy)", fontSize: "0.78rem" }}>{STATUS_LABELS[h.status] ?? h.status}</strong>
                   <span style={{ color: "var(--text-muted)", fontSize: "0.67rem" }}>
                     {new Date(h.at).toLocaleString("es-CL", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" })} · {h.by}
                   </span>

@@ -10,6 +10,7 @@ import { REQUIRED_PERMISSION_KEY } from '../../auth/presentation/require-permiss
 import type { RequestContext } from '../../../shared/presentation/request-context.decorator';
 import { RegisterPackageService } from '../application/register-package.service';
 import { ListPackagesUseCase } from '../application/list-packages.use-case';
+import { GetPackageDetailUseCase } from '../application/get-package-detail.use-case';
 import { InvalidPackageRegistrationError } from '../domain/invalid-package-registration.error';
 import {
     PackagesController,
@@ -29,13 +30,22 @@ const context: RequestContext = {
 function createFixture() {
     const execute = jest.fn();
     const list = jest.fn();
+    const getDetail = jest.fn();
     const service = { execute } as unknown as RegisterPackageService;
     const listService = { execute: list } as unknown as ListPackagesUseCase;
+    const detailService = {
+        execute: getDetail,
+    } as unknown as GetPackageDetailUseCase;
 
     return {
         execute,
         list,
-        controller: new PackagesController(service, listService),
+        getDetail,
+        controller: new PackagesController(
+            service,
+            listService,
+            detailService,
+        ),
     };
 }
 
@@ -79,6 +89,17 @@ describe('PackagesController', () => {
             packages,
         );
         expect(list).toHaveBeenCalledWith(TENANT_ID);
+    });
+
+    it('gets package detail using the authenticated tenant context', async () => {
+        const { controller, getDetail } = createFixture();
+        const detail = { id: 'p1', trackingCode: 'PKG-0001' };
+        getDetail.mockResolvedValue(detail);
+
+        await expect(
+            controller.getPackageDetailEndpoint(context, 'p1'),
+        ).resolves.toEqual(detail);
+        expect(getDetail).toHaveBeenCalledWith(TENANT_ID, 'p1');
     });
 
     it('returns the registered package', async () => {
