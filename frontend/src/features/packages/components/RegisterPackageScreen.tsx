@@ -4,6 +4,7 @@ import PackageForm from './PackageForm';
 import { validateRegisterPackageForm } from '../validation';
 import { registerPackage } from '../api/packagesApi';
 import { fetchSectors, fetchShipmentTypes, fetchZones } from '../api/catalogApi';
+import { parsePackageQrPayload } from '../qrPackageParser';
 import { ApiError } from '../../../shared/api/httpClient';
 import { USE_MOCK_DATA } from '../../../shared/config/environment';
 import { EMPTY_REGISTER_PACKAGE_FORM } from '../types';
@@ -87,11 +88,36 @@ export default function RegisterPackageScreen({ onBack }: { onBack: () => void }
     };
   }, [values.zoneId]);
 
-  function handleDetected(rawText: string) {
-    // El código solo identifica la guía: se trata como texto plano, nunca
-    // como enlace a abrir.
+  function applyRawQrToValues(rawText: string) {
+    try {
+      const parsed = parsePackageQrPayload(rawText);
+      if (parsed.isStructuredJson) {
+        setValues((v) => ({
+          ...v,
+          trackingCode: parsed.trackingCode || v.trackingCode,
+          zoneId: parsed.zoneId || v.zoneId,
+          sectorId: parsed.sectorId || v.sectorId,
+          shipmentTypeId: parsed.shipmentTypeId || v.shipmentTypeId,
+          weightKg: String(parsed.weightKg),
+          lengthCm: String(parsed.lengthCm),
+          widthCm: String(parsed.widthCm),
+          heightCm: String(parsed.heightCm),
+          priority: parsed.backendPriority,
+          latitude: parsed.latitude !== undefined ? String(parsed.latitude) : v.latitude,
+          longitude: parsed.longitude !== undefined ? String(parsed.longitude) : v.longitude,
+        }));
+        setErrors({});
+        return;
+      }
+    } catch {
+      // Fallback a texto plano
+    }
     setValues((v) => ({ ...v, trackingCode: rawText.trim() }));
     setErrors((e) => ({ ...e, trackingCode: undefined }));
+  }
+
+  function handleDetected(rawText: string) {
+    applyRawQrToValues(rawText);
     setScanning(false);
   }
 
@@ -116,8 +142,7 @@ export default function RegisterPackageScreen({ onBack }: { onBack: () => void }
   }
 
   function handleImageDetected(rawText: string) {
-    setValues((v) => ({ ...v, trackingCode: rawText.trim() }));
-    setErrors((e) => ({ ...e, trackingCode: undefined }));
+    applyRawQrToValues(rawText);
     setImageScanning(false);
   }
 

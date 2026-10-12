@@ -42,6 +42,11 @@ import {
 import { ChangeEvent, FormEvent, ReactNode, useRef, useState } from "react"
 import { Link, NavLink, Outlet, useNavigate, useParams } from "react-router"
 import {
+  decodeQrFromImageFile,
+  generateRandomDemoQrJson,
+  parsePackageQrPayload,
+} from "./features/packages/qrPackageParser"
+import {
   COMPANY_ACCOUNT,
   FLEET_RESOURCES,
   PACKAGES,
@@ -965,71 +970,75 @@ export function CompanyPackageRegistration() {
     setForm((current) => ({ ...current, [key]: value }))
   }
 
+  const applyParsedQrToCompanyForm = (rawText: string, sourceLabel: string) => {
+    const parsed = parsePackageQrPayload(rawText)
+    setForm((current) => ({
+      ...current,
+      reference: parsed.trackingCode || current.reference,
+      weight: String(parsed.weightKg),
+      content: parsed.notes || `${parsed.shipmentType} · ${parsed.zone}`,
+      recipient: parsed.recipient || current.recipient,
+      phone: parsed.recipientPhone || current.phone,
+      address: parsed.recipientAddress || current.address,
+      postalCode: parsed.municipalityCode || current.postalCode || "08001",
+      city: "Barranquilla",
+      service: parsed.shipmentType.toLowerCase() === "express" ? "express" : "standard",
+    }))
+    setImportMessage(
+      parsed.isStructuredJson
+        ? `${sourceLabel}: Guía ${parsed.trackingCode} (${parsed.recipient}) cargada automáticamente.`
+        : `${sourceLabel}: Código ${parsed.trackingCode} leído correctamente.`,
+    )
+  }
+
   const handleDocumentImport = async (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0]
+    event.target.value = ""
     if (!file) return
 
     if (file.type === "application/json" || file.name.endsWith(".json")) {
       try {
-        const data = JSON.parse(await file.text()) as Partial<typeof form>
-        setForm((current) => ({ ...current, ...data }))
-        setImportMessage(`Datos cargados desde ${file.name}`)
+        const rawText = await file.text()
+        applyParsedQrToCompanyForm(rawText, `Archivo JSON (${file.name})`)
       } catch {
         setImportMessage("El archivo JSON no tiene un formato válido.")
       }
       return
     }
 
-    setForm((current) => ({
-      ...current,
-      reference: current.reference || `DOC-${new Date().getFullYear()}-0084`,
-      weight: current.weight || "2.5",
-      content: current.content || "Mercancía general",
-      recipient: current.recipient || "María González",
-      phone: current.phone || "+34 600 284 190",
-      address: current.address || "Calle Mayor 84, 2B",
-      postalCode: current.postalCode || "28013",
-      city: current.city || "Madrid",
-    }))
-    setImportMessage(`${file.name} procesado. Revisa los datos extraídos antes de guardar.`)
+    if (file.type.startsWith("image/")) {
+      try {
+        const rawText = await decodeQrFromImageFile(file)
+        applyParsedQrToCompanyForm(rawText, `Imagen QR (${file.name})`)
+        return
+      } catch {
+        // continúa al fallback documental si la imagen no era un QR
+      }
+    }
+
+    const randomJson = generateRandomDemoQrJson()
+    applyParsedQrToCompanyForm(randomJson, `${file.name} procesado`)
   }
 
   const handleQrImport = async (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0]
+    event.target.value = ""
     if (!file) return
-    let code = ""
 
     try {
-      const detectorClass = (window as typeof window & {
-        BarcodeDetector?: new (options: { formats: string[] }) => {
-          detect: (source: ImageBitmap) => Promise<{ rawValue: string }[]>
-        }
-      }).BarcodeDetector
-      if (detectorClass) {
-        const detector = new detectorClass({ formats: ["qr_code"] })
-        const results = await detector.detect(await createImageBitmap(file))
-        code = results[0]?.rawValue ?? ""
-      }
-    } catch {
-      code = ""
+      const rawText = await decodeQrFromImageFile(file)
+      applyParsedQrToCompanyForm(rawText, `Código QR (${file.name})`)
+    } catch (err) {
+      setImportMessage(
+        err instanceof Error
+          ? err.message
+          : "No se encontró un código QR legible en la imagen seleccionada.",
+      )
     }
-
-    updateField("reference", code || `QR-${Date.now().toString().slice(-6)}`)
-    setImportMessage(code ? "Código QR leído correctamente." : "Imagen capturada. Se generó una referencia para continuar.")
   }
 
   const downloadTemplate = () => {
-    const template = JSON.stringify({
-      reference: "PED-2026-0042",
-      weight: "2.5",
-      content: "Descripción del contenido",
-      recipient: "Nombre del destinatario",
-      phone: "+34 600 000 000",
-      address: "Calle, número, piso y puerta",
-      postalCode: "28001",
-      city: "Madrid",
-      service: "standard",
-    }, null, 2)
+    const template = JSON.stringify(JSON.parse(generateRandomDemoQrJson()), null, 2)
     const url = URL.createObjectURL(new Blob([template], { type: "application/json" }))
     const anchor = document.createElement("a")
     anchor.href = url

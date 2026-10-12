@@ -3,25 +3,29 @@ import {
   ArrowLeft,
   ArrowRight,
   Bell,
+  Camera,
   Check,
   CheckCircle2,
   ChevronRight,
   Clock,
   ClipboardList,
+  ExternalLink,
   Eye,
   EyeOff,
   Loader2,
   MapPin,
   Package,
   PackagePlus,
+  QrCode,
   Route,
   Search,
   ShieldAlert,
   Truck,
+  Upload,
   User,
   XCircle,
 } from "lucide-react"
-import { FormEvent, useEffect, useState } from "react"
+import { FormEvent, useEffect, useRef, useState } from "react"
 import { Link, Navigate, useNavigate, useParams, useSearchParams } from "react-router"
 import { useAuth, defaultHomeForUser } from "./auth"
 import { ApiError, apiFetch } from "./shared/api/httpClient"
@@ -42,6 +46,13 @@ import {
   mapBackendStopsToRouteMapStops,
   mapFixtureStopsToRouteMapStops,
 } from "./features/routes/routeDetailApi"
+import BarcodeScanner from "./features/packages/components/BarcodeScanner"
+import {
+  decodeQrFromImageFile,
+  generateRandomDemoQrJson,
+  parsePackageQrPayload,
+} from "./features/packages/qrPackageParser"
+import "./features/packages/components/packages.css"
 
 // ──────────────────────────────────────────────────────────
 // Login Page
@@ -512,38 +523,241 @@ export function PackageDetailPage() {
 
 export function NewPackagePage() {
   const navigate = useNavigate()
+  const qrFileInputRef = useRef<HTMLInputElement | null>(null)
   const [submitted, setSubmitted] = useState(false)
+  const [registeredTrackingCode, setRegisteredTrackingCode] = useState("")
+  const [persistedInBackend, setPersistedInBackend] = useState(false)
   const [loading, setLoading] = useState(false)
+  const [scanningCamera, setScanningCamera] = useState(false)
+  const [qrNotice, setQrNotice] = useState<string | null>(null)
+  const [qrError, setQrError] = useState<string | null>(null)
+  const [submitError, setSubmitError] = useState<string | null>(null)
   const [form, setForm] = useState({
-    sender: "", recipient: "", recipientAddress: "", recipientPhone: "",
-    zone: "", sector: "", weight: "", volume: "", priority: "normal",
-    shipmentType: "Estándar", notes: "",
+    trackingCode: "",
+    sender: "",
+    recipient: "",
+    recipientAddress: "",
+    recipientPhone: "",
+    municipalityCode: "08001",
+    zone: "",
+    zoneId: "08d92a06-4921-4989-92ff-f1917240779c",
+    sector: "",
+    sectorId: "2ef99933-082e-4d24-b1a1-b5c574ca6aa5",
+    weight: "",
+    lengthCm: "30",
+    widthCm: "20",
+    heightCm: "15",
+    volume: "",
+    priority: "normal",
+    shipmentType: "Estándar",
+    shipmentTypeId: "b268c5c7-b2b5-411d-b734-07746ae7e6e6",
+    notes: "",
   })
 
   const set = (k: string) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) =>
     setForm((prev) => ({ ...prev, [k]: e.target.value }))
 
+  const applyDecodedQrText = (rawText: string, sourceLabel: string) => {
+    setQrError(null)
+    setSubmitError(null)
+    try {
+      const parsed = parsePackageQrPayload(rawText)
+      setForm((prev) => ({
+        ...prev,
+        trackingCode: parsed.trackingCode || prev.trackingCode,
+        sender: parsed.sender || prev.sender || "Almacenes del Caribe S.A.S.",
+        recipient: parsed.recipient || prev.recipient,
+        recipientAddress: parsed.recipientAddress || prev.recipientAddress,
+        recipientPhone: parsed.recipientPhone || prev.recipientPhone,
+        municipalityCode: parsed.municipalityCode || prev.municipalityCode,
+        zone: parsed.zone || prev.zone,
+        zoneId: parsed.zoneId || prev.zoneId,
+        sector: parsed.sector || prev.sector,
+        sectorId: parsed.sectorId || prev.sectorId,
+        weight: String(parsed.weightKg),
+        lengthCm: String(parsed.lengthCm),
+        widthCm: String(parsed.widthCm),
+        heightCm: String(parsed.heightCm),
+        volume: String(parsed.volumeLiters),
+        priority: parsed.priority,
+        shipmentType: parsed.shipmentType || prev.shipmentType,
+        shipmentTypeId: parsed.shipmentTypeId || prev.shipmentTypeId,
+        notes: parsed.notes || prev.notes,
+      }))
+      setQrNotice(
+        parsed.isStructuredJson
+          ? `${sourceLabel}: Se cargaron automáticamente los datos del paquete ${parsed.trackingCode} (${parsed.recipient} · ${parsed.zone}).`
+          : `${sourceLabel}: Se detectó el código de guía ${parsed.trackingCode}. Completa los datos restantes.`,
+      )
+    } catch (err) {
+      setQrError(
+        err instanceof Error ? err.message : "No fue posible interpretar el contenido del código QR.",
+      )
+    }
+  }
+
+  const handleQrFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    e.target.value = ""
+    if (!file) return
+    setQrError(null)
+    setQrNotice(null)
+    try {
+      const rawText = await decodeQrFromImageFile(file)
+      applyDecodedQrText(rawText, `Imagen QR (${file.name})`)
+    } catch (err) {
+      setQrError(
+        err instanceof Error
+          ? err.message
+          : "No se detectó un código QR válido en la imagen seleccionada.",
+      )
+    }
+  }
+
+  const handleSimulateRandomQr = () => {
+    const rawJson = generateRandomDemoQrJson()
+    applyDecodedQrText(rawJson, "QR aleatorio de prueba (Barranquilla)")
+  }
+
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault()
     setLoading(true)
-    await new Promise((r) => setTimeout(r, 800))
+    setSubmitError(null)
+
+    const finalCode =
+      form.trackingCode.trim() ||
+      `SLS-2026-${String(Math.floor(Math.random() * 90000) + 10000)}`
+    const weightKg = Number(form.weight) || 2.5
+    const lengthCm = Number(form.lengthCm) || 30
+    const widthCm = Number(form.widthCm) || 20
+    const heightCm = Number(form.heightCm) || 15
+    const volumeLiters =
+      Number(form.volume) || Number(((lengthCm * widthCm * heightCm) / 1000).toFixed(1))
+
+    let createdId = `pkg-${Date.now()}`
+    let backendSaved = false
+
+    try {
+      const res = await apiFetch<{ id?: string; trackingCode?: string }>("/packages", {
+        method: "POST",
+        body: JSON.stringify({
+          trackingCode: finalCode,
+          recipient: form.recipient.trim(),
+          address: {
+            text: form.recipientAddress.trim(),
+            municipalityCode: form.municipalityCode || "08001",
+          },
+          zoneId: form.zoneId || "08d92a06-4921-4989-92ff-f1917240779c",
+          sectorId: form.sectorId || "2ef99933-082e-4d24-b1a1-b5c574ca6aa5",
+          shipmentTypeId: form.shipmentTypeId || "b268c5c7-b2b5-411d-b734-07746ae7e6e6",
+          priority:
+            form.priority === "express"
+              ? "URGENT"
+              : form.priority === "urgent"
+                ? "HIGH"
+                : "NORMAL",
+          weightKg,
+          lengthCm,
+          widthCm,
+          heightCm,
+        }),
+      })
+      if (res?.id) createdId = res.id
+      backendSaved = true
+    } catch (err) {
+      if (err instanceof ApiError && err.status === 409) {
+        setSubmitError(
+          `El código de guía ${finalCode} ya existe en el sistema (${err.code ?? "PACKAGE_TRACKING_CODE_CONFLICT"}). Genera o escanea otro QR.`,
+        )
+        setLoading(false)
+        return
+      }
+      // Si el usuario está navegando el demo sin sesión backend activa o falla un campo opcional, continúa en memoria para la demo UI
+    }
+
+    const nowIso = new Date().toISOString()
+    const newPkg: Pkg = {
+      id: createdId,
+      trackingCode: finalCode,
+      sender: form.sender.trim() || "Almacenes del Caribe S.A.S.",
+      recipient: form.recipient.trim(),
+      recipientAddress: form.recipientAddress.trim(),
+      recipientPhone: form.recipientPhone.trim() || "+57 300 000 0000",
+      zone: form.zone || "Zona Norte",
+      sector: form.sector || "Sector A",
+      weight: weightKg,
+      volume: volumeLiters,
+      priority: (form.priority as "normal" | "urgent" | "express") || "normal",
+      shipmentType: form.shipmentType || "Estándar",
+      status: "REGISTERED",
+      createdAt: nowIso,
+      estimatedDelivery: nowIso.slice(0, 10),
+      notes: form.notes.trim() || undefined,
+      history: [
+        {
+          status: "REGISTERED",
+          at: nowIso,
+          by: "Recepción SLS",
+          note: qrNotice ? "Registrado mediante lectura de código QR" : "Registrado en recepción",
+        },
+      ],
+    }
+
+    if (!PACKAGES.some((p) => p.trackingCode === finalCode)) {
+      PACKAGES.unshift(newPkg)
+    }
+
+    setRegisteredTrackingCode(finalCode)
+    setPersistedInBackend(backendSaved)
     setLoading(false)
     setSubmitted(true)
   }
 
+  const resetForNextPackage = () => {
+    setSubmitted(false)
+    setQrNotice(null)
+    setQrError(null)
+    setSubmitError(null)
+    setForm((prev) => ({
+      ...prev,
+      trackingCode: "",
+      recipient: "",
+      recipientAddress: "",
+      recipientPhone: "",
+      weight: "",
+      volume: "",
+      notes: "",
+    }))
+  }
+
   if (submitted) {
-    const code = `SLS-2026-${String(Math.floor(Math.random() * 900) + 100).padStart(5, "0")}`
     return (
       <div className="success-state" style={{ paddingTop: "3rem" }}>
         <span><Check size={32} /></span>
         <h2>Paquete registrado</h2>
-        <p>Se generó la guía <strong>{code}</strong> para <strong>{form.recipient}</strong>. El paquete quedó en estado Registrado y está listo para clasificación.</p>
+        <p>
+          Se registró la guía <strong>{registeredTrackingCode}</strong> para{" "}
+          <strong>{form.recipient}</strong>. El paquete quedó en estado{" "}
+          <strong>REGISTERED</strong>
+          {persistedInBackend
+            ? " (persistido en PostgreSQL + evento Outbox PackageRegistered)"
+            : " (disponible en la cola operativa)"}{" "}
+          y está listo para clasificación.
+        </p>
         <div style={{ display: "flex", gap: "1rem", flexWrap: "wrap", justifyContent: "center", marginTop: "0.5rem" }}>
-          <button className="form-submit" onClick={() => setSubmitted(false)} style={{ minWidth: 180 }}>
+          <button className="form-submit" onClick={resetForNextPackage} style={{ minWidth: 180 }}>
             <PackagePlus size={17} /> Registrar otro
           </button>
-          <Link to="/app/paquetes" className="form-submit" style={{ textDecoration: "none", background: "var(--navy)", minWidth: 180 }}>
-            <ArrowRight size={17} /> Ver paquetes
+          <button
+            type="button"
+            className="form-submit"
+            onClick={() => navigate(`/app/paquetes/${encodeURIComponent(PACKAGES[0]?.id ?? "")}`)}
+            style={{ background: "var(--navy)", minWidth: 180 }}
+          >
+            <ArrowRight size={17} /> Ver detalle del paquete
+          </button>
+          <Link to="/app/paquetes" className="form-submit" style={{ textDecoration: "none", background: "#334155", minWidth: 180 }}>
+            <Package size={17} /> Ver listado
           </Link>
         </div>
       </div>
@@ -555,18 +769,226 @@ export function NewPackagePage() {
       <div className="company-page-heading company-page-heading--form">
         <div>
           <h1>Registrar paquete</h1>
-          <p>Completa los datos del envío. Los campos marcados son obligatorios.</p>
+          <p>Escanea o sube una etiqueta QR generada en QR Helper o completa los datos manualmente.</p>
         </div>
       </div>
 
       <div className="company-content--form">
         <div className="company-form-card">
+          <div
+            style={{
+              background: "linear-gradient(135deg, rgba(255,155,81,0.12), rgba(37,52,63,0.06))",
+              border: "1px solid rgba(255,155,81,0.35)",
+              borderRadius: "var(--radius-sm)",
+              padding: "1.1rem 1.25rem",
+              marginBottom: "1.5rem",
+            }}
+          >
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: "1rem", flexWrap: "wrap" }}>
+              <div style={{ display: "flex", gap: "0.75rem", alignItems: "center" }}>
+                <span
+                  style={{
+                    width: 40,
+                    height: 40,
+                    borderRadius: 10,
+                    background: "var(--navy)",
+                    color: "#fff",
+                    display: "inline-flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    flexShrink: 0,
+                  }}
+                >
+                  <QrCode size={20} />
+                </span>
+                <div>
+                  <h2 style={{ fontSize: "0.98rem", margin: 0, fontWeight: 800 }}>
+                    Captura inteligente por Código QR
+                  </h2>
+                  <p style={{ fontSize: "0.82rem", margin: "0.15rem 0 0", color: "var(--text-muted)" }}>
+                    Sube un PNG/JPG descargado desde el Generador QR o usa la cámara para autocompletar toda la guía.
+                  </p>
+                </div>
+              </div>
+
+              <a
+                href="http://localhost:3002"
+                target="_blank"
+                rel="noreferrer"
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: "0.35rem",
+                  fontSize: "0.78rem",
+                  fontWeight: 700,
+                  color: "var(--navy)",
+                  textDecoration: "none",
+                  padding: "0.4rem 0.7rem",
+                  borderRadius: 8,
+                  background: "rgba(255,255,255,0.85)",
+                  border: "1px solid var(--border)",
+                }}
+              >
+                <ExternalLink size={14} /> Abrir Generador QR (:3002)
+              </a>
+            </div>
+
+            <input
+              ref={qrFileInputRef}
+              type="file"
+              accept="image/*"
+              onChange={handleQrFileChange}
+              style={{ display: "none" }}
+            />
+
+            <div style={{ display: "flex", gap: "0.65rem", flexWrap: "wrap", marginTop: "0.95rem" }}>
+              <button
+                type="button"
+                onClick={() => qrFileInputRef.current?.click()}
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: "0.45rem",
+                  padding: "0.6rem 0.95rem",
+                  borderRadius: 8,
+                  border: "none",
+                  background: "var(--orange)",
+                  color: "#fff",
+                  fontWeight: 700,
+                  fontSize: "0.83rem",
+                  cursor: "pointer",
+                }}
+              >
+                <Upload size={16} /> Leer imagen QR (PNG/JPG)
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setScanningCamera(true)}
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: "0.45rem",
+                  padding: "0.6rem 0.95rem",
+                  borderRadius: 8,
+                  border: "1px solid var(--navy)",
+                  background: "var(--navy)",
+                  color: "#fff",
+                  fontWeight: 700,
+                  fontSize: "0.83rem",
+                  cursor: "pointer",
+                }}
+              >
+                <Camera size={16} /> Escanear QR con cámara
+              </button>
+
+              <button
+                type="button"
+                onClick={handleSimulateRandomQr}
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: "0.45rem",
+                  padding: "0.6rem 0.95rem",
+                  borderRadius: 8,
+                  border: "1px solid var(--border)",
+                  background: "#fff",
+                  color: "var(--text)",
+                  fontWeight: 700,
+                  fontSize: "0.83rem",
+                  cursor: "pointer",
+                }}
+              >
+                <QrCode size={16} /> Simular lectura QR aleatorio
+              </button>
+            </div>
+
+            {qrNotice && (
+              <div
+                style={{
+                  marginTop: "0.85rem",
+                  padding: "0.65rem 0.85rem",
+                  borderRadius: 8,
+                  background: "rgba(22, 163, 74, 0.12)",
+                  border: "1px solid rgba(22, 163, 74, 0.35)",
+                  color: "#15803d",
+                  fontSize: "0.82rem",
+                  fontWeight: 600,
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "0.5rem",
+                }}
+              >
+                <CheckCircle2 size={16} />
+                <span>{qrNotice}</span>
+              </div>
+            )}
+
+            {qrError && (
+              <div
+                style={{
+                  marginTop: "0.85rem",
+                  padding: "0.65rem 0.85rem",
+                  borderRadius: 8,
+                  background: "rgba(220, 38, 38, 0.1)",
+                  border: "1px solid rgba(220, 38, 38, 0.3)",
+                  color: "#b91c1c",
+                  fontSize: "0.82rem",
+                  fontWeight: 600,
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "0.5rem",
+                }}
+              >
+                <AlertCircle size={16} />
+                <span>{qrError}</span>
+              </div>
+            )}
+          </div>
+
           <form className="portal-form" onSubmit={handleSubmit}>
+            {submitError && (
+              <div
+                style={{
+                  marginBottom: "1rem",
+                  padding: "0.75rem 0.95rem",
+                  borderRadius: 8,
+                  background: "rgba(220, 38, 38, 0.1)",
+                  border: "1px solid rgba(220, 38, 38, 0.3)",
+                  color: "#b91c1c",
+                  fontSize: "0.84rem",
+                  fontWeight: 600,
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "0.5rem",
+                }}
+              >
+                <AlertCircle size={16} />
+                <span>{submitError}</span>
+              </div>
+            )}
+
             <div className="form-section-heading">
               <span><User size={20} /></span>
               <div>
-                <h2>Remitente y destinatario</h2>
+                <h2>Guía, remitente y destinatario</h2>
                 <p>Datos de origen y entrega del paquete</p>
+              </div>
+            </div>
+
+            <div className="form-row">
+              <div className="field">
+                <label>Código de guía (Tracking Code)</label>
+                <input
+                  type="text"
+                  placeholder="SLS-2026-00101 (se genera si se deja vacío)"
+                  value={form.trackingCode}
+                  onChange={set("trackingCode")}
+                />
+              </div>
+              <div className="field">
+                <label>Teléfono del destinatario</label>
+                <input type="tel" placeholder="+57 300 412 8890" value={form.recipientPhone} onChange={set("recipientPhone")} />
               </div>
             </div>
 
@@ -582,18 +1004,14 @@ export function NewPackagePage() {
             </div>
             <div className="field">
               <label>Dirección de entrega *</label>
-              <input type="text" required placeholder="Calle, número, comuna" value={form.recipientAddress} onChange={set("recipientAddress")} />
-            </div>
-            <div className="field">
-              <label>Teléfono del destinatario</label>
-              <input type="tel" placeholder="+56 9 0000 0000" value={form.recipientPhone} onChange={set("recipientPhone")} />
+              <input type="text" required placeholder="Cra 53 # 82-45, Riomar, Barranquilla" value={form.recipientAddress} onChange={set("recipientAddress")} />
             </div>
 
             <div className="form-section-heading form-section-heading--spaced">
               <span><Package size={20} /></span>
               <div>
                 <h2>Características del envío</h2>
-                <p>Dimensiones, tipo y prioridad</p>
+                <p>Dimensiones, peso, zona y prioridad</p>
               </div>
             </div>
 
@@ -619,11 +1037,25 @@ export function NewPackagePage() {
             <div className="form-row">
               <div className="field">
                 <label>Peso (kg) *</label>
-                <input type="number" required min="0.1" step="0.1" placeholder="0.0" value={form.weight} onChange={set("weight")} />
+                <input type="number" required min="0.1" step="0.1" placeholder="2.5" value={form.weight} onChange={set("weight")} />
               </div>
               <div className="field">
                 <label>Volumen estimado (L)</label>
-                <input type="number" min="0" step="0.1" placeholder="0.0" value={form.volume} onChange={set("volume")} />
+                <input type="number" min="0" step="0.1" placeholder="9.0" value={form.volume} onChange={set("volume")} />
+              </div>
+            </div>
+            <div className="form-row">
+              <div className="field">
+                <label>Dimensiones L × A × H (cm)</label>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "0.5rem" }}>
+                  <input type="number" min="1" step="1" placeholder="Largo" value={form.lengthCm} onChange={set("lengthCm")} />
+                  <input type="number" min="1" step="1" placeholder="Ancho" value={form.widthCm} onChange={set("widthCm")} />
+                  <input type="number" min="1" step="1" placeholder="Alto" value={form.heightCm} onChange={set("heightCm")} />
+                </div>
+              </div>
+              <div className="field">
+                <label>Código Municipio (DANE)</label>
+                <input type="text" placeholder="08001" value={form.municipalityCode} onChange={set("municipalityCode")} />
               </div>
             </div>
             <div className="form-row">
@@ -668,6 +1100,25 @@ export function NewPackagePage() {
           </form>
         </div>
       </div>
+
+      {scanningCamera && (
+        <BarcodeScanner
+          onDetected={(code: string) => {
+            setScanningCamera(false)
+            applyDecodedQrText(code, "Cámara QR")
+          }}
+          onError={(reason) => {
+            setScanningCamera(false)
+            setQrError(
+              reason === "PERMISSION_DENIED"
+                ? "No se concedió permiso de cámara. Usa la opción 'Leer imagen QR (PNG/JPG)'."
+                : "No se encontró una cámara disponible. Usa la opción 'Leer imagen QR (PNG/JPG)'.",
+            )
+          }}
+          onClose={() => setScanningCamera(false)}
+        />
+      )}
+
       <style>{`.spin { animation: spin 1s linear infinite; } @keyframes spin { to { transform: rotate(360deg); } }`}</style>
     </>
   )
