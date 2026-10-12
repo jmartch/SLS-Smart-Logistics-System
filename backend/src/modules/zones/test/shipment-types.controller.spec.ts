@@ -94,12 +94,20 @@ describe('ShipmentTypesController', () => {
         code: 'CATALOG_CODE_CONFLICT',
       });
 
-      await expect(
+      const create = () =>
         controller.createShipmentType(TENANT_ID, {
           code: 'EXPRESS',
           name: 'Envío Express',
-        }),
-      ).rejects.toThrow(ConflictException);
+        });
+
+      await expect(create()).rejects.toThrow(ConflictException);
+      await expect(create()).rejects.toMatchObject({
+        response: {
+          code: 'CATALOG_CODE_CONFLICT',
+          message: 'Catalog resource code is already in use',
+          field: 'code',
+        },
+      });
     });
 
     it('throws BadRequestException when domain validation fails', async () => {
@@ -108,12 +116,20 @@ describe('ShipmentTypesController', () => {
         new InvalidCatalogCodeError('EMPTY_CODE'),
       );
 
-      await expect(
+      const create = () =>
         controller.createShipmentType(TENANT_ID, {
           code: '',
           name: 'Envío Express',
-        }),
-      ).rejects.toThrow(BadRequestException);
+        });
+
+      await expect(create()).rejects.toThrow(BadRequestException);
+      await expect(create()).rejects.toMatchObject({
+        response: {
+          code: 'VALIDATION_ERROR',
+          message: 'Catalog code cannot be empty',
+          field: 'code',
+        },
+      });
     });
   });
 
@@ -148,6 +164,14 @@ describe('ShipmentTypesController', () => {
       await expect(
         controller.getShipmentType(TENANT_ID, SHIPMENT_TYPE_ID),
       ).rejects.toThrow(NotFoundException);
+      await expect(
+        controller.getShipmentType(TENANT_ID, SHIPMENT_TYPE_ID),
+      ).rejects.toMatchObject({
+        response: {
+          code: 'CATALOG_RESOURCE_NOT_FOUND',
+          message: `Shipment type with id '${SHIPMENT_TYPE_ID}' was not found`,
+        },
+      });
     });
   });
 });
