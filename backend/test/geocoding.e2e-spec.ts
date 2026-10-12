@@ -72,11 +72,13 @@ describe('GEOCODE-01 integration', () => {
                 {
                     id: tenantId,
                     name: `GEOCODE-01 tenant A ${tenantId}`,
+                    slug: `geocode-01-a-${tenantId}`,
                     status: 'ACTIVE',
                 },
                 {
                     id: tenantBId,
                     name: `GEOCODE-01 tenant B ${tenantBId}`,
+                    slug: `geocode-01-b-${tenantBId}`,
                     status: 'ACTIVE',
                 },
             ],

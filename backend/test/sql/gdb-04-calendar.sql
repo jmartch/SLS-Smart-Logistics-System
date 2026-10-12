@@ -16,8 +16,9 @@ DECLARE
   shipment_type_id uuid := gen_random_uuid();
   route_id uuid := gen_random_uuid();
 BEGIN
-  INSERT INTO "Tenant" ("id", "name") VALUES
-    (tenant_id, 'GDB-04'), (other_tenant_id, 'GDB-04 otro tenant');
+  INSERT INTO "Tenant" ("id", "name", "slug") VALUES
+    (tenant_id, 'GDB-04', 'gdb-04-' || tenant_id),
+    (other_tenant_id, 'GDB-04 otro tenant', 'gdb-04-other-' || other_tenant_id);
   INSERT INTO "User" ("id", "tenantId", "email", "passwordHash")
     VALUES (user_id, tenant_id, 'gdb04@example.test', 'fixture');
   INSERT INTO "Vehicle" ("id", "tenantId", "plate", "maxWeightKg", "maxVolumeM3")

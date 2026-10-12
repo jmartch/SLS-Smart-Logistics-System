@@ -56,8 +56,18 @@ export async function seedRouteCloseEnvironment(
   // 1. Tenants
   await admin.tenant.createMany({
     data: [
-      { id: tenantAId, name: `Tenant A ${tenantAId.slice(0, 8)}`, status: 'ACTIVE' },
-      { id: tenantBId, name: `Tenant B ${tenantBId.slice(0, 8)}`, status: 'ACTIVE' },
+      {
+        id: tenantAId,
+        name: `Tenant A ${tenantAId.slice(0, 8)}`,
+        slug: `route-close-01-a-${tenantAId}`,
+        status: 'ACTIVE',
+      },
+      {
+        id: tenantBId,
+        name: `Tenant B ${tenantBId.slice(0, 8)}`,
+        slug: `route-close-01-b-${tenantBId}`,
+        status: 'ACTIVE',
+      },
     ],
   });
 

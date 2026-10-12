@@ -1,0 +1,36 @@
+enum SessionActorType {
+  TENANT_USER
+  PLATFORM_ADMIN
+}
+
+model PlatformAdmin {
+  id           String     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  email        String     @unique
+  passwordHash String
+  status       UserStatus @default(ACTIVE)
+  createdAt    DateTime   @default(now())
+
+  sessions  Session[]
+  auditLogs AuditLog[]
+}
+
+model Session {
+  id              String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tokenHash       String           @unique
+  actorType       SessionActorType
+  tenantId        String?          @db.Uuid
+  userId          String?          @db.Uuid
+  platformAdminId String?          @db.Uuid
+  createdAt       DateTime         @default(now())
+  expiresAt       DateTime
+  lastUsedAt      DateTime         @default(now())
+  revokedAt       DateTime?
+
+  tenant        Tenant?        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  user          User?          @relation(fields: [tenantId, userId], references: [tenantId, id], onDelete: Cascade)
+  platformAdmin PlatformAdmin? @relation(fields: [platformAdminId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([platformAdminId])
+  @@index([expiresAt])
+}

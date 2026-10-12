@@ -7,11 +7,16 @@ export function isValidTenantId(value: string): boolean {
 	return UUID_PATTERN.test(value);
 }
 
+// Interactive-transaction bounds, in milliseconds: maxWait to obtain a
+// connection, timeout for the whole transaction, plus optional isolationLevel.
+// Omitted, Prisma's defaults apply (the behavior of every existing caller).
 export interface RunWithTenantOptions {
 	readonly isolationLevel?: Prisma.TransactionIsolationLevel;
 	readonly maxWait?: number;
 	readonly timeout?: number;
 }
+
+export type TenantTransactionOptions = RunWithTenantOptions;
 
 export async function runWithTenant<T>(
 	prisma: PrismaClient,
@@ -33,17 +38,18 @@ export async function runWithTenant<T>(
 
 	const hasOptions = txOptions && Object.keys(txOptions).length > 0;
 
-	return prisma.$transaction(
-		async (tx) => {
-			if (typeof tx.$executeRaw === 'function') {
-				await tx.$executeRaw`SELECT set_config('app.tenant_id', ${tenantId}, true)`;
-			} else if (typeof (tx as any).$executeRawUnsafe === 'function') {
-				await (tx as any).$executeRawUnsafe(
-					`SET LOCAL app.tenant_id = '${tenantId}'`,
-				);
-			}
-			return fn(tx);
-		},
-		hasOptions ? (txOptions as any) : undefined,
-	);
+	const work = async (tx: Prisma.TransactionClient) => {
+		if (typeof tx.$executeRaw === 'function') {
+			await tx.$executeRaw`SELECT set_config('app.tenant_id', ${tenantId}, true)`;
+		} else if (typeof (tx as any).$executeRawUnsafe === 'function') {
+			await (tx as any).$executeRawUnsafe(
+				`SET LOCAL app.tenant_id = '${tenantId}'`,
+			);
+		}
+		return fn(tx);
+	};
+
+	return hasOptions
+		? prisma.$transaction(work, txOptions as any)
+		: prisma.$transaction(work);
 }

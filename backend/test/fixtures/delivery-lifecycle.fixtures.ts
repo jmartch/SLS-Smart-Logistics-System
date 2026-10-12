@@ -56,8 +56,18 @@ export async function seedDeliveryLifecycleEnvironment(
   // 1. Tenants
   await admin.tenant.createMany({
     data: [
-      { id: tenantAId, name: `Tenant A ${tenantAId}`, status: 'ACTIVE' },
-      { id: tenantBId, name: `Tenant B ${tenantBId}`, status: 'ACTIVE' },
+      {
+        id: tenantAId,
+        name: `Tenant A ${tenantAId}`,
+        slug: `delivery-01-a-${tenantAId}`,
+        status: 'ACTIVE',
+      },
+      {
+        id: tenantBId,
+        name: `Tenant B ${tenantBId}`,
+        slug: `delivery-01-b-${tenantBId}`,
+        status: 'ACTIVE',
+      },
     ],
   });
 

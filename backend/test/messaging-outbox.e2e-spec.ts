@@ -24,6 +24,7 @@ describe('Messaging Outbox, Leases & Concurrency E2E (RMQ-01 / EVT-01)', () => {
       data: {
         id: tenantId,
         name: `Tenant RMQ Outbox E2E ${tenantId.slice(0, 8)}`,
+        slug: `rmq-outbox-${tenantId}`,
       },
     });
 

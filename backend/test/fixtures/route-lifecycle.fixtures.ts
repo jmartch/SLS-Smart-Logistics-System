@@ -56,8 +56,18 @@ export async function seedRouteLifecycleEnvironment(
   // 1. Tenants
   await admin.tenant.createMany({
     data: [
-      { id: tenantAId, name: `Tenant A ${tenantAId}`, status: 'ACTIVE' },
-      { id: tenantBId, name: `Tenant B ${tenantBId}`, status: 'ACTIVE' },
+      {
+        id: tenantAId,
+        name: `Tenant A ${tenantAId}`,
+        slug: `route-01-a-${tenantAId}`,
+        status: 'ACTIVE',
+      },
+      {
+        id: tenantBId,
+        name: `Tenant B ${tenantBId}`,
+        slug: `route-01-b-${tenantBId}`,
+        status: 'ACTIVE',
+      },
     ],
   });
 

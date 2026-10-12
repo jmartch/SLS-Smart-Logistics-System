@@ -15,8 +15,8 @@ DECLARE
   candidate_b uuid := gen_random_uuid();
   reviewer_id uuid := gen_random_uuid();
 BEGIN
-  INSERT INTO "Tenant" ("id", "name")
-  VALUES (tenant_id, 'Prueba de candidatos');
+  INSERT INTO "Tenant" ("id", "name", "slug")
+  VALUES (tenant_id, 'Prueba de candidatos', 'gdb-02-candidates-' || tenant_id);
 
   INSERT INTO "GeoDataset" (
     "id", "name", "sourceType", "sourceReference",

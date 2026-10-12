@@ -1,0 +1,250 @@
+import {
+  BadRequestException,
+  Body,
+  ConflictException,
+  Controller,
+  ForbiddenException,
+  Get,
+  NotFoundException,
+  Param,
+  ParseUUIDPipe,
+  Patch,
+  Post,
+  ServiceUnavailableException,
+  UseGuards,
+} from '@nestjs/common';
+import { AuthGuard } from '../../auth/presentation/auth.guard';
+import { CurrentTenantContext } from '../../../shared/presentation/request-context.decorator';
+import { PermissionsGuard } from '../../auth/presentation/permissions.guard';
+import { RequirePermission } from '../../auth/presentation/require-permission.decorator';
+import type { TenantContext } from '../../../shared/application/tenant-context';
+import { CreateEmployeeService } from '../application/create-employee.service';
+import { ListEmployeesService } from '../application/list-employees.service';
+import { ListRolesService } from '../application/list-roles.service';
+import { UpdateEmployeeStatusService } from '../application/update-employee-status.service';
+import { UpdateEmployeeRolesService } from '../application/update-employee-roles.service';
+import {
+  MANAGE_EMPLOYEES,
+  type EmployeeRecord,
+  type RoleRecord,
+} from '../domain/employee';
+import { CreateEmployeeDto } from './dto/create-employee.dto';
+import { UpdateEmployeeStatusDto } from './dto/update-employee-status.dto';
+import { UpdateEmployeeRolesDto } from './dto/update-employee-roles.dto';
+
+const employeeIdPipe = new ParseUUIDPipe({
+  exceptionFactory: () =>
+    new BadRequestException({
+      error: {
+        code: 'VALIDATION_ERROR',
+        message: 'Los datos enviados no son validos.',
+        fields: [{ field: 'id', reason: 'id must be a UUID' }],
+      },
+    }),
+});
+
+// Same code and message whether the resource is missing or belongs to another
+// tenant, so the response never confirms it exists elsewhere.
+function roleNotFound(): NotFoundException {
+  return new NotFoundException({
+    error: {
+      code: 'RESOURCE_NOT_FOUND',
+      message: 'Uno de los roles no existe.',
+      fields: null,
+    },
+  });
+}
+
+function employeeNotFound(): NotFoundException {
+  return new NotFoundException({
+    error: {
+      code: 'RESOURCE_NOT_FOUND',
+      message: 'El empleado no existe.',
+      fields: null,
+    },
+  });
+}
+
+function lastAdmin(): ConflictException {
+  return new ConflictException({
+    error: {
+      code: 'LAST_ADMIN_CANNOT_BE_REMOVED',
+      message:
+        'No se puede dejar la empresa sin ningun usuario activo con permiso para administrar empleados.',
+      fields: null,
+    },
+  });
+}
+
+// Same envelope as PermissionsGuard: the caller lost MANAGE_EMPLOYEES while
+// its request waited for the tenant's administration lock.
+function callerNotAllowed(): ForbiddenException {
+  return new ForbiddenException({
+    error: {
+      code: 'PERMISSION_DENIED',
+      message: 'No tienes permiso para realizar esta operacion.',
+      fields: null,
+    },
+  });
+}
+
+// The tenant's employee administration stayed locked longer than the bounded
+// wait. Nothing was changed; the request can be retried.
+function serviceBusy(): ServiceUnavailableException {
+  return new ServiceUnavailableException({
+    error: {
+      code: 'SERVICE_BUSY',
+      message: 'Intenta de nuevo en unos segundos.',
+      fields: null,
+    },
+  });
+}
+
+// Explicit field list: nothing beyond these ever reaches the client.
+function toResponse(employee: EmployeeRecord) {
+  return {
+    id: employee.id,
+    email: employee.email,
+    status: employee.status,
+    roleIds: [...employee.roleIds],
+  };
+}
+
+function toRoleResponse(role: RoleRecord) {
+  return {
+    id: role.id,
+    name: role.name,
+    permissions: [...role.permissions],
+  };
+}
+
+// Class-level requirement: every handler, including any added later, needs
+// MANAGE_EMPLOYEES. The guards run before the ValidationPipe, so callers
+// without it get 403 before any 400.
+@Controller('users')
+@UseGuards(AuthGuard, PermissionsGuard)
+@RequirePermission(MANAGE_EMPLOYEES)
+export class UsersController {
+  constructor(
+    private readonly createEmployee: CreateEmployeeService,
+    private readonly listEmployees: ListEmployeesService,
+    private readonly listRolesService: ListRolesService,
+    private readonly updateEmployeeStatus: UpdateEmployeeStatusService,
+    private readonly updateEmployeeRoles: UpdateEmployeeRolesService,
+  ) {}
+
+  @Post()
+  async create(
+    @Body() dto: CreateEmployeeDto,
+    @CurrentTenantContext() tenant: TenantContext,
+  ) {
+    const result = await this.createEmployee.create(tenant, {
+      email: dto.email,
+      password: dto.password,
+      roleIds: dto.roleIds,
+    });
+
+    if (result.kind === 'CALLER_NOT_ALLOWED') {
+      throw callerNotAllowed();
+    }
+
+    if (result.kind === 'BUSY') {
+      throw serviceBusy();
+    }
+
+    if (result.kind === 'ROLE_NOT_IN_TENANT') {
+      throw roleNotFound();
+    }
+
+    if (result.kind === 'EMAIL_ALREADY_EXISTS') {
+      throw new ConflictException({
+        error: {
+          code: 'EMAIL_ALREADY_EXISTS',
+          message: 'Ya existe un empleado con ese correo en la empresa.',
+          fields: null,
+        },
+      });
+    }
+
+    return toResponse(result.employee);
+  }
+
+  // Not paginated yet: tenants have tens of employees in the MVP.
+  @Get()
+  async list(@CurrentTenantContext() tenant: TenantContext) {
+    const employees = await this.listEmployees.list(tenant);
+    return employees.map(toResponse);
+  }
+
+  @Get('roles')
+  async listRoles(@CurrentTenantContext() tenant: TenantContext) {
+    const roles = await this.listRolesService.listRoles(tenant);
+    return roles.map(toRoleResponse);
+  }
+
+  @Patch(':id/status')
+  async patchStatus(
+    @Param('id', employeeIdPipe) id: string,
+    @Body() dto: UpdateEmployeeStatusDto,
+    @CurrentTenantContext() tenant: TenantContext,
+  ) {
+    const result = await this.updateEmployeeStatus.updateStatus(
+      tenant,
+      id,
+      dto.status,
+    );
+
+    if (result.kind === 'CALLER_NOT_ALLOWED') {
+      throw callerNotAllowed();
+    }
+
+    if (result.kind === 'BUSY') {
+      throw serviceBusy();
+    }
+
+    if (result.kind === 'NOT_FOUND') {
+      throw employeeNotFound();
+    }
+
+    if (result.kind === 'LAST_ADMIN') {
+      throw lastAdmin();
+    }
+
+    return { ok: true };
+  }
+
+  @Patch(':id/roles')
+  async patchRoles(
+    @Param('id', employeeIdPipe) id: string,
+    @Body() dto: UpdateEmployeeRolesDto,
+    @CurrentTenantContext() tenant: TenantContext,
+  ) {
+    const result = await this.updateEmployeeRoles.updateRoles(
+      tenant,
+      id,
+      dto.roleIds,
+    );
+
+    if (result.kind === 'CALLER_NOT_ALLOWED') {
+      throw callerNotAllowed();
+    }
+
+    if (result.kind === 'BUSY') {
+      throw serviceBusy();
+    }
+
+    if (result.kind === 'ROLE_NOT_IN_TENANT') {
+      throw roleNotFound();
+    }
+
+    if (result.kind === 'NOT_FOUND') {
+      throw employeeNotFound();
+    }
+
+    if (result.kind === 'LAST_ADMIN') {
+      throw lastAdmin();
+    }
+
+    return { ok: true };
+  }
+}

@@ -19,9 +19,10 @@ make integration-test TEST=geocode-01
 make integration-db-down
 ```
 
-Los valores admitidos actualmente son `gdb-01`, `gdb-05`, `gdb-06` y
-`geocode-01`. Deben ejecutarse secuencialmente porque comparten el servidor y
-las migraciones administran el rol `sls_app` a nivel de instancia. Los comandos
+Los valores admitidos actualmente son `gdb-01`, `gdb-05`, `gdb-06`,
+`geocode-01`, `assign-01`, `route-01`, `delivery-01`, `route-close-01`,
+`rmq-01` y `auth-tenant-01`. Deben ejecutarse secuencialmente porque comparten el servidor y
+las migraciones administran los roles `sls_app` y `sls_provisioning` a nivel de instancia. Los comandos
 directos documentados abajo siguen disponibles cuando se proporciona un
 servidor de pruebas externo.
 
@@ -206,4 +207,20 @@ La ejecución cubre:
 3. Consumo idempotente con registro transaccional en `ProcessedEvent`, deduplicación estricta y aislamiento por tenant.
 4. Políticas de reintento progresivo (5s, 10s, 20s), desvío inmediato a Dead Letter Queue para errores no recuperables y aislamiento de mensajes en cuarentena para inquilinos no autorizados.
 5. Redrive de Dead Letters con auditoría atómica en `DeadLetterRedrive`, validación de permisos de operador y prevención de duplicados.
+
+## AUTH-TENANT-01 — Autenticación, aprovisionamiento de empresas, empleados y aislamiento RLS
+
+Desde la raíz del repositorio:
+
+```bash
+make integration-test TEST=auth-tenant-01
+make integration-db-down
+```
+
+El runner compila el backend, crea una base desechable `sls_authtenant01_<uuid>`, aplica todas las migraciones mediante `prisma migrate deploy`, habilita una credencial efímera aleatoria para el rol `sls_provisioning` (creado con `NOLOGIN` en la migración), verifica que `prisma migrate status` quede sin pendientes y ejecuta en banda:
+- Las 5 suites de repositorio (`prisma-platform-admin-lookup`, `prisma-session`, `prisma-tenant-user-lookup`, `prisma-tenant-provisioning`, `prisma-user-management`).
+- Las 6 suites E2E bajo `/api/v1` (`auth-login`, `platform-login`, `platform-provision-tenant`, `users-employees`, `auth-tenant-isolation`, `tenant-isolation`).
+
+La base se elimina en `finally`, incluso si una prueba falla (`KEEP_AUTHTENANT01_TEST_DB=1` la conserva para diagnóstico deliberado).
+
 

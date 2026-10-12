@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import { PrismaClient } from '../generated/prisma/client';
 import { PrismaPg } from '@prisma/adapter-pg';
 import { PrismaService } from '../src/database/prisma.service';
@@ -17,10 +18,10 @@ describe('Tenant isolation (RLS)', () => {
     await app.onModuleInit();
 
     const tenantA = await admin.tenant.create({
-      data: { name: 'Tenant A' },
+      data: { name: 'Tenant A', slug: `tenant-a-${randomUUID()}` },
     });
     const tenantB = await admin.tenant.create({
-      data: { name: 'Tenant B' },
+      data: { name: 'Tenant B', slug: `tenant-b-${randomUUID()}` },
     });
     tenantAId = tenantA.id;
     tenantBId = tenantB.id;
