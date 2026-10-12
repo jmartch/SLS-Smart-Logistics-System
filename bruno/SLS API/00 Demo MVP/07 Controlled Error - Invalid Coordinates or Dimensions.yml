@@ -1,0 +1,27 @@
+info:
+  name: 07 Controlled Error - Invalid Coordinates or Dimensions
+  type: http
+  seq: 7
+
+http:
+  method: POST
+  url: "{{baseUrl}}/vehicles"
+  auth: inherit
+  headers:
+    - name: Content-Type
+      value: application/json
+  body:
+    type: json
+    data: |-
+      {
+        "plate": "INVALID_PLATE_FORMAT",
+        "maxWeightKg": -50,
+        "maxVolumeM3": 0
+      }
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+  forwardAuthorizationHeader: false

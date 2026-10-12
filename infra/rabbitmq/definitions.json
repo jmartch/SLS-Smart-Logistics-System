@@ -8,7 +8,7 @@
   "users": [
     {
       "name": "sls",
-      "password_hash": "2H3v9m1m5WjZkL0v7B6NqA==",
+      "password_hash": "6MJxwk0qRvyCx34D/TDnpsyXHP/5W9ulpDcpvsGWG7gE+qfN",
       "hashing_algorithm": "rabbit_password_hashing_sha256",
       "tags": ["administrator"]
     }

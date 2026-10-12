@@ -6,12 +6,32 @@ services:
       - "3000:3000"
     env_file:
       - ./backend/.env.docker
+    environment:
+      MESSAGING_TENANT_IDS: "10000000-0000-4000-8000-000000000001"
     volumes:
       - ./backend:/app
       - /app/node_modules
     depends_on:
       postgres:
         condition: service_started
+      rabbitmq:
+        condition: service_healthy
+  worker:
+    build: ./backend
+    container_name: sls-worker
+    command: npm run start:worker:dev
+    env_file:
+      - ./backend/.env.docker
+    environment:
+      MESSAGING_TENANT_IDS: "10000000-0000-4000-8000-000000000001"
+    volumes:
+      - ./backend:/app
+      - /app/node_modules
+    depends_on:
+      postgres:
+        condition: service_started
+      rabbitmq:
+        condition: service_healthy
   frontend:
     build: ./frontend
     container_name: sls-frontend
@@ -37,7 +57,9 @@ services:
       - postgres_data:/var/lib/postgresql/data
 
   rabbitmq:
-    image: rabbitmq:4-management
+    build:
+      context: ./infra/rabbitmq
+    image: sls-rabbitmq:4-management
     container_name: sls-rabbitmq
     hostname: rabbitmq
     environment:
@@ -49,16 +71,13 @@ services:
       - "15672:15672"
     volumes:
       - rabbitmq_data:/var/lib/rabbitmq
-      - ./infra/rabbitmq/rabbitmq.conf:/etc/rabbitmq/rabbitmq.conf:ro
-      - ./infra/rabbitmq/definitions.json:/etc/rabbitmq/definitions.json:ro
     healthcheck:
       test: [ "CMD", "rabbitmq-diagnostics", "-q", "ping" ]
       interval: 10s
       timeout: 5s
-      retries: 5
-      start_period: 20s
+      retries: 10
   qr-helper:
-    profiles: ["tools"]
+    profiles: [ "tools" ]
     build: ./qr-helper
     container_name: sls-qrhelper
     command: npm run dev

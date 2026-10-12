@@ -10,6 +10,8 @@ http:
   headers:
     - name: x-tenant-id
       value: "{{tenantId}}"
+    - name: x-user-id
+      value: "{{userId}}"
 
 settings:
   encodeUrl: true

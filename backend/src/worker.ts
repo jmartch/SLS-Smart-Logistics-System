@@ -9,6 +9,9 @@ async function bootstrap(): Promise<void> {
 
   const runtime = app.get(WorkerRuntime);
   await runtime.start();
+  process.stdout.write(
+    'SLS worker started (RabbitMQ topology ready, consumer active, outbox polling active).\n',
+  );
 
   const shutdown = async (signal: string) => {
     process.stdout.write(`Received ${signal}, shutting down worker...\n`);

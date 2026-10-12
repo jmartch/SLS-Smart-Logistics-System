@@ -1,4 +1,8 @@
-import { Injectable, type OnApplicationShutdown } from '@nestjs/common';
+import {
+  Injectable,
+  Optional,
+  type OnApplicationShutdown,
+} from '@nestjs/common';
 import * as amqp from 'amqplib';
 import type { Channel, ChannelModel, ConfirmChannel } from 'amqplib';
 import { type MessagingConfig, loadMessagingConfig } from './messaging.config';
@@ -9,7 +13,7 @@ export class RabbitmqConnectionManager implements OnApplicationShutdown {
   private connection: ChannelModel | null = null;
   private readonly config: MessagingConfig;
 
-  constructor(config?: MessagingConfig) {
+  constructor(@Optional() config?: MessagingConfig) {
     this.config = config ?? loadMessagingConfig();
   }
 
