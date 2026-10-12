@@ -38,8 +38,8 @@ services:
     ports:
       - "5173:5173"
     environment:
-      # Los endpoints de catálogos y registro aún no existen en el backend.
-      # Mantiene funcional el prototipo hasta completar ZONE-01 y PKG-01.
+      # Mantiene datos simulados para las pantallas operativas aún no integradas con la API;
+      # el login/sesión y el detalle de ruta con UUID (GET /api/v1/routes/:id) consultan el backend real.
       VITE_USE_MOCK_DATA: "true"
     volumes:
       - ./frontend:/app

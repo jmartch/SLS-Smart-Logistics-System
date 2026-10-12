@@ -88,7 +88,7 @@ Abrir la colección `bruno/SLS API` en Bruno y seleccionar el entorno **`local`*
 
 ### Paso 06 y 07 — Errores Controlados (`409 Conflict` y `400 Bad Request`)
 - **`06 Controlled Error - Duplicate Tracking Code` (`POST /api/v1/packages`):** Intenta registrar `PKG-BAQ-0001` (ya existente en el tenant). Devuelve `409 Conflict` con código estable `PACKAGE_TRACKING_CODE_CONFLICT` sin dejar registros huérfanos en `Address`, `PackageStatusHistory` ni `OutboxEvent`.
-- **`07 Controlled Error - Invalid Coordinates or Dimensions` (`POST /api/v1/vehicles`):** Envía placa inválida y capacidad negativa. Devuelve `400 Bad Request` con código de validación de dominio.
+- **`07 Controlled Error - Invalid Vehicle Data` (`POST /api/v1/vehicles`):** Envía placa inválida y capacidades no positivas (`maxWeightKg: -50`, `maxVolumeM3: 0`). Devuelve `400 Bad Request` con código de validación de dominio.
 - **Control de acceso (`401` / `403`):** Si se invoca `POST /api/v1/vehicles` sin cookie (`401 SESSION_EXPIRED`) o autenticado con `recepcion@demo-baq.co` (`403 INSUFFICIENT_PERMISSIONS`), el backend rechaza la operación.
 
 ### Paso 08 — `08 Evidence - Worker and RabbitMQ Queue Status`
@@ -208,8 +208,7 @@ En el frontend (`http://localhost:5173/app/rutas/30000000-0000-4000-8000-0000000
 2. **Si el cliente GUI de Bruno presenta algún inconveniente local:**
    - Todos los pasos del flujo numerado pueden ejecutarse directamente por terminal con `curl` contra `http://localhost:3000/api/v1` o mediante la suite automatizada de integración:
      - `docker compose exec backend npm run test:registration-01` (flujo E2E autenticado de vehículos, mensajeros, paquetes y `OutboxEvent` `PackageRegistered`).
-     - `docker compose exec backend npm run test:rmq-01` (flujo completo de RabbitMQ, Outbox, Idempotent Consumer, Retry 5s/30s/120s, DLQ y Redrive).
+     - `docker compose exec backend npm run test:rmq-01` (flujo completo de RabbitMQ, Outbox, Idempotent Consumer, Retry 5s/10s/20s, DLQ y Redrive).
      - `docker compose exec backend npm run test:route-01` y `docker compose exec backend npm run test:route-close-01` (ciclo de vida y cierre de rutas).
 3. **Si la base de datos queda con datos modificados tras una prueba previa:**
    - Ejecutar `docker compose exec backend npm run demo:seed` restaura en menos de 2 segundos el estado determinista inicial del tenant `demo-barranquilla`.
-
