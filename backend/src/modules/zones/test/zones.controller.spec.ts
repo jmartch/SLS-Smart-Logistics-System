@@ -84,9 +84,17 @@ describe('ZonesController', () => {
         code: 'CATALOG_CODE_CONFLICT',
       });
 
-      await expect(
-        controller.createZone(TENANT_ID, { code: 'NORTH', name: 'Zona Norte' }),
-      ).rejects.toThrow(ConflictException);
+      const create = () =>
+        controller.createZone(TENANT_ID, { code: 'NORTH', name: 'Zona Norte' });
+
+      await expect(create()).rejects.toThrow(ConflictException);
+      await expect(create()).rejects.toMatchObject({
+        response: {
+          code: 'CATALOG_CODE_CONFLICT',
+          message: 'Catalog resource code is already in use',
+          field: 'code',
+        },
+      });
     });
 
     it('throws BadRequestException when domain validation fails', async () => {
@@ -95,9 +103,17 @@ describe('ZonesController', () => {
         new InvalidCatalogCodeError('EMPTY_CODE'),
       );
 
-      await expect(
-        controller.createZone(TENANT_ID, { code: '', name: 'Zona Norte' }),
-      ).rejects.toThrow(BadRequestException);
+      const create = () =>
+        controller.createZone(TENANT_ID, { code: '', name: 'Zona Norte' });
+
+      await expect(create()).rejects.toThrow(BadRequestException);
+      await expect(create()).rejects.toMatchObject({
+        response: {
+          code: 'VALIDATION_ERROR',
+          message: 'Catalog code cannot be empty',
+          field: 'code',
+        },
+      });
     });
   });
 
@@ -125,6 +141,14 @@ describe('ZonesController', () => {
       await expect(controller.getZone(TENANT_ID, ZONE_ID)).rejects.toThrow(
         NotFoundException,
       );
+      await expect(
+        controller.getZone(TENANT_ID, ZONE_ID),
+      ).rejects.toMatchObject({
+        response: {
+          code: 'CATALOG_RESOURCE_NOT_FOUND',
+          message: `Zone with id '${ZONE_ID}' was not found`,
+        },
+      });
     });
   });
 
@@ -163,6 +187,14 @@ describe('ZonesController', () => {
       await expect(controller.listSectors(TENANT_ID, ZONE_ID)).rejects.toThrow(
         NotFoundException,
       );
+      await expect(
+        controller.listSectors(TENANT_ID, ZONE_ID),
+      ).rejects.toMatchObject({
+        response: {
+          code: 'CATALOG_RESOURCE_NOT_FOUND',
+          message: `Zone with id '${ZONE_ID}' was not found`,
+        },
+      });
     });
   });
 
@@ -201,12 +233,19 @@ describe('ZonesController', () => {
         code: 'ZONE_NOT_FOUND',
       });
 
-      await expect(
+      const create = () =>
         controller.createSector(TENANT_ID, ZONE_ID, {
           code: 'SEC-A',
           name: 'Sector A',
-        }),
-      ).rejects.toThrow(NotFoundException);
+        });
+
+      await expect(create()).rejects.toThrow(NotFoundException);
+      await expect(create()).rejects.toMatchObject({
+        response: {
+          code: 'CATALOG_RESOURCE_NOT_FOUND',
+          message: 'Zone was not found',
+        },
+      });
     });
 
     it('throws ConflictException when sector code conflict is reported', async () => {
@@ -216,12 +255,20 @@ describe('ZonesController', () => {
         code: 'CATALOG_CODE_CONFLICT',
       });
 
-      await expect(
+      const create = () =>
         controller.createSector(TENANT_ID, ZONE_ID, {
           code: 'SEC-A',
           name: 'Sector A',
-        }),
-      ).rejects.toThrow(ConflictException);
+        });
+
+      await expect(create()).rejects.toThrow(ConflictException);
+      await expect(create()).rejects.toMatchObject({
+        response: {
+          code: 'CATALOG_CODE_CONFLICT',
+          message: 'Catalog resource code is already in use',
+          field: 'code',
+        },
+      });
     });
 
     it('throws BadRequestException when domain validation fails', async () => {
@@ -230,12 +277,20 @@ describe('ZonesController', () => {
         new InvalidCatalogNameError('EMPTY_NAME'),
       );
 
-      await expect(
+      const create = () =>
         controller.createSector(TENANT_ID, ZONE_ID, {
           code: 'SEC-A',
           name: '',
-        }),
-      ).rejects.toThrow(BadRequestException);
+        });
+
+      await expect(create()).rejects.toThrow(BadRequestException);
+      await expect(create()).rejects.toMatchObject({
+        response: {
+          code: 'VALIDATION_ERROR',
+          message: 'Catalog name cannot be empty',
+          field: 'name',
+        },
+      });
     });
   });
 
@@ -264,6 +319,14 @@ describe('ZonesController', () => {
       await expect(
         controller.getSector(TENANT_ID, ZONE_ID, SECTOR_ID),
       ).rejects.toThrow(NotFoundException);
+      await expect(
+        controller.getSector(TENANT_ID, ZONE_ID, SECTOR_ID),
+      ).rejects.toMatchObject({
+        response: {
+          code: 'CATALOG_RESOURCE_NOT_FOUND',
+          message: `Sector with id '${SECTOR_ID}' was not found`,
+        },
+      });
     });
 
     it('throws NotFoundException when sector belongs to another zone', async () => {
@@ -280,6 +343,14 @@ describe('ZonesController', () => {
       await expect(
         controller.getSector(TENANT_ID, ZONE_ID, SECTOR_ID),
       ).rejects.toThrow(NotFoundException);
+      await expect(
+        controller.getSector(TENANT_ID, ZONE_ID, SECTOR_ID),
+      ).rejects.toMatchObject({
+        response: {
+          code: 'CATALOG_RESOURCE_NOT_FOUND',
+          message: `Sector with id '${SECTOR_ID}' was not found`,
+        },
+      });
     });
   });
 });

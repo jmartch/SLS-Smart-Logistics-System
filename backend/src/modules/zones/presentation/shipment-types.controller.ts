@@ -4,12 +4,12 @@ import {
   Get,
   HttpCode,
   HttpStatus,
-  NotFoundException,
   Param,
   Post,
   Query,
 } from '@nestjs/common';
 import { ShipmentTypeCatalogService } from '../application/shipment-type-catalog.service';
+import { CatalogNotFoundError } from '../domain/catalog-errors';
 import { CurrentTenant } from '../../../shared/presentation/request-context.decorator';
 import {
   handleCatalogConflict,
@@ -59,10 +59,9 @@ export class ShipmentTypesController {
   ) {
     const shipmentType = await this.shipmentTypeService.findById(tenantId, id);
     if (!shipmentType) {
-      throw new NotFoundException({
-        code: 'CATALOG_RESOURCE_NOT_FOUND',
-        message: 'El tipo de envío solicitado no existe.',
-      });
+      return handleCatalogDomainError(
+        new CatalogNotFoundError(id, 'Shipment type'),
+      );
     }
     return shipmentType;
   }

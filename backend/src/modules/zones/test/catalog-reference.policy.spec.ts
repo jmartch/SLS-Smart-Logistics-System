@@ -1,3 +1,4 @@
+import { CatalogDomainError } from '../domain/catalog-errors';
 import {
   assertCatalogReferences,
   type SectorReference,
@@ -63,11 +64,15 @@ describe('Catalog reference policy', () => {
 
       const validate = () => assertCatalogReferences(TENANT_A_ID, zone);
 
+      expect(
+        new InvalidCatalogReferenceError('ZONE_TENANT_MISMATCH', 'zoneId'),
+      ).toBeInstanceOf(CatalogDomainError);
       expect(validate).toThrow(InvalidCatalogReferenceError);
       expect(validate).toThrow(
         expect.objectContaining({
           code: 'ZONE_TENANT_MISMATCH',
           field: 'zoneId',
+          message: 'Zone was not found',
         }),
       );
     });
@@ -86,6 +91,7 @@ describe('Catalog reference policy', () => {
         expect.objectContaining({
           code: 'SECTOR_TENANT_MISMATCH',
           field: 'sectorId',
+          message: 'Sector was not found',
         }),
       );
     });
@@ -101,6 +107,7 @@ describe('Catalog reference policy', () => {
         expect.objectContaining({
           code: 'SECTOR_ZONE_MISMATCH',
           field: 'sectorId',
+          message: 'Sector does not belong to the specified zone',
         }),
       );
     });
