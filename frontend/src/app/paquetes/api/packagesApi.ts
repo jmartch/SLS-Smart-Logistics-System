@@ -1,5 +1,9 @@
 import { apiFetch } from '../../../shared/api/httpClient';
-import type { RegisterPackagePayload, RegisterPackageResult } from '../types';
+import type {
+  PackageState,
+  RegisterPackagePayload,
+  RegisterPackageResult,
+} from '../types';
 
 export function registerPackage(payload: RegisterPackagePayload): Promise<RegisterPackageResult> {
   return apiFetch<RegisterPackageResult>('/packages', {
@@ -36,10 +40,42 @@ export interface PackageDetailResponse extends PackageListItemResponse {
   }[];
 }
 
-export function listPackages(): Promise<PackageListItemResponse[]> {
-  return apiFetch<PackageListItemResponse[]>('/packages');
+export interface ClassifyPackagePayload {
+  readonly zoneId: string;
+  readonly sectorId?: string;
+}
+
+export interface ClassifiedPackageResponse {
+  readonly id: string;
+  readonly tenantId: string;
+  readonly trackingCode: string;
+  readonly state: PackageState;
+  readonly zoneId: string;
+  readonly sectorId: string | null;
+}
+
+export function listPackages(options?: {
+  readonly state?: PackageState;
+}): Promise<PackageListItemResponse[]> {
+  const query = options?.state
+    ? `?state=${encodeURIComponent(options.state)}`
+    : '';
+  return apiFetch<PackageListItemResponse[]>(`/packages${query}`);
 }
 
 export function getPackageDetail(packageId: string): Promise<PackageDetailResponse> {
   return apiFetch<PackageDetailResponse>(`/packages/${encodeURIComponent(packageId)}`);
+}
+
+export function classifyPackage(
+  packageId: string,
+  payload: ClassifyPackagePayload,
+): Promise<ClassifiedPackageResponse> {
+  return apiFetch<ClassifiedPackageResponse>(
+    `/packages/${encodeURIComponent(packageId)}/classify`,
+    {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    },
+  );
 }
