@@ -4,6 +4,7 @@ import { runWithTenant } from '../../../database/run-with-tenant';
 import {
     PackageQueryPort,
     type PackageDetail,
+    type PackageListFilter,
     type PackageListItem,
 } from '../application/ports/package-query.port';
 
@@ -13,10 +14,16 @@ export class PrismaPackageQueryAdapter extends PackageQueryPort {
         super();
     }
 
-    async listByTenant(tenantId: string): Promise<PackageListItem[]> {
+    async listByTenant(
+        tenantId: string,
+        filter?: PackageListFilter,
+    ): Promise<PackageListItem[]> {
         const packages = await runWithTenant(this.prisma, tenantId, (tx) =>
             tx.package.findMany({
-                where: { tenantId },
+                where: {
+                    tenantId,
+                    ...(filter?.state ? { state: filter.state } : {}),
+                },
                 orderBy: { trackingCode: 'desc' },
                 select: {
                     id: true,

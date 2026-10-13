@@ -17,3 +17,14 @@ export const PackageStatus = {
 export type PackageStatus = (typeof PackageStatus)[keyof typeof PackageStatus];
 
 export type PackageStateName = PackageStatus;
+
+export const PACKAGE_STATE_NAMES = Object.values(
+    PackageStatus,
+) as readonly PackageStateName[];
+
+export function isPackageStateName(value: unknown): value is PackageStateName {
+    return (
+        typeof value === 'string' &&
+        PACKAGE_STATE_NAMES.includes(value as PackageStateName)
+    );
+}

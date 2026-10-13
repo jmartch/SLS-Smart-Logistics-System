@@ -11,7 +11,6 @@ export interface PackageListItem {
     readonly shipmentType: string;
     readonly registeredAt: Date | null;
 }
-
 export interface PackageHistoryItem {
     readonly fromState: string | null;
     readonly toState: string;
@@ -28,8 +27,17 @@ export interface PackageDetail extends PackageListItem {
     readonly history: readonly PackageHistoryItem[];
 }
 
+import type { PackageStateName } from '../../domain/package-state.types';
+
+export interface PackageListFilter {
+    readonly state?: PackageStateName;
+}
+
 export abstract class PackageQueryPort {
-    abstract listByTenant(tenantId: string): Promise<PackageListItem[]>;
+    abstract listByTenant(
+        tenantId: string,
+        filter?: PackageListFilter,
+    ): Promise<PackageListItem[]>;
     abstract findByTenantAndId(
         tenantId: string,
         packageId: string,
