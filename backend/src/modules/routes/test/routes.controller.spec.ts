@@ -10,6 +10,7 @@ import { PermissionsGuard } from '../../auth/presentation/permissions.guard';
 import { REQUIRED_PERMISSION_KEY } from '../../auth/presentation/require-permission.decorator';
 import {
   COORDINATE_ROUTES_PERMISSION,
+  ROUTE_EXECUTION_PERMISSIONS,
   RoutesController,
 } from '../presentation/routes.controller';
 import { ListRoutesUseCase } from '../application/use-cases/list-routes.use-case';
@@ -141,6 +142,36 @@ describe('RoutesController', () => {
 
     expect(guards).toEqual([AuthGuard, PermissionsGuard]);
     expect(permission).toBe(COORDINATE_ROUTES_PERMISSION);
+    expect(
+      Reflect.getMetadata(
+        REQUIRED_PERMISSION_KEY,
+        RoutesController.prototype.listRoutes,
+      ),
+    ).toEqual([...ROUTE_EXECUTION_PERMISSIONS]);
+    expect(
+      Reflect.getMetadata(
+        REQUIRED_PERMISSION_KEY,
+        RoutesController.prototype.getRouteDetail,
+      ),
+    ).toEqual([...ROUTE_EXECUTION_PERMISSIONS]);
+    expect(
+      Reflect.getMetadata(
+        REQUIRED_PERMISSION_KEY,
+        RoutesController.prototype.startRoute,
+      ),
+    ).toEqual([...ROUTE_EXECUTION_PERMISSIONS]);
+    expect(
+      Reflect.getMetadata(
+        REQUIRED_PERMISSION_KEY,
+        RoutesController.prototype.interruptRoute,
+      ),
+    ).toEqual([...ROUTE_EXECUTION_PERMISSIONS]);
+    expect(
+      Reflect.getMetadata(
+        REQUIRED_PERMISSION_KEY,
+        RoutesController.prototype.getRouteSummary,
+      ),
+    ).toEqual([...ROUTE_EXECUTION_PERMISSIONS]);
   });
 
   describe('listRoutes', () => {

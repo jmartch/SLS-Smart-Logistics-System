@@ -6,7 +6,11 @@ import {
   HttpStatus,
   Param,
   Post,
+  UseGuards,
 } from '@nestjs/common';
+import { AuthGuard } from '../../auth/presentation/auth.guard';
+import { PermissionsGuard } from '../../auth/presentation/permissions.guard';
+import { RequirePermission } from '../../auth/presentation/require-permission.decorator';
 import { SectorCatalogService } from '../application/sector-catalog.service';
 import { ZoneCatalogService } from '../application/zone-catalog.service';
 import { CatalogNotFoundError } from '../domain/catalog-errors';
@@ -19,7 +23,16 @@ import type { CreateZoneDto, CreateSectorDto } from './dto';
 
 export type { CreateZoneDto, CreateSectorDto };
 
+export const MANAGE_CATALOGS_PERMISSION = 'MANAGE_TENANT';
+export const VIEW_CATALOGS_PERMISSIONS = [
+  'MANAGE_TENANT',
+  'REGISTER_PACKAGES',
+  'CLASSIFY_PACKAGES',
+  'COORDINATE_ROUTES',
+] as const;
+
 @Controller('zones')
+@UseGuards(AuthGuard, PermissionsGuard)
 export class ZonesController {
   constructor(
     private readonly zoneService: ZoneCatalogService,
@@ -27,12 +40,14 @@ export class ZonesController {
   ) {}
 
   @Get()
+  @RequirePermission(...VIEW_CATALOGS_PERMISSIONS)
   async listZones(@CurrentTenant() tenantId: string) {
     return this.zoneService.list(tenantId);
   }
 
   @Post()
   @HttpCode(HttpStatus.CREATED)
+  @RequirePermission(MANAGE_CATALOGS_PERMISSION)
   async createZone(
     @CurrentTenant() tenantId: string,
     @Body() body: CreateZoneDto,
@@ -49,6 +64,7 @@ export class ZonesController {
   }
 
   @Get(':zoneId')
+  @RequirePermission(...VIEW_CATALOGS_PERMISSIONS)
   async getZone(
     @CurrentTenant() tenantId: string,
     @Param('zoneId') zoneId: string,
@@ -61,6 +77,7 @@ export class ZonesController {
   }
 
   @Get(':zoneId/sectors')
+  @RequirePermission(...VIEW_CATALOGS_PERMISSIONS)
   async listSectors(
     @CurrentTenant() tenantId: string,
     @Param('zoneId') zoneId: string,
@@ -74,6 +91,7 @@ export class ZonesController {
 
   @Post(':zoneId/sectors')
   @HttpCode(HttpStatus.CREATED)
+  @RequirePermission(MANAGE_CATALOGS_PERMISSION)
   async createSector(
     @CurrentTenant() tenantId: string,
     @Param('zoneId') zoneId: string,
@@ -96,6 +114,7 @@ export class ZonesController {
   }
 
   @Get(':zoneId/sectors/:sectorId')
+  @RequirePermission(...VIEW_CATALOGS_PERMISSIONS)
   async getSector(
     @CurrentTenant() tenantId: string,
     @Param('zoneId') zoneId: string,

@@ -278,10 +278,6 @@ describe('RouteMap & routeDetailApi (Barranquilla OpenStreetMap)', () => {
 
     const detail = await fetchRouteDetailFromBackend(
       '30000000-0000-4000-8000-000000000001',
-      {
-        tenantId: '10000000-0000-4000-8000-000000000001',
-        userId: '20000000-0000-4000-8000-000000000001',
-      },
     );
 
     expect(fetchMock).toHaveBeenCalledTimes(1);

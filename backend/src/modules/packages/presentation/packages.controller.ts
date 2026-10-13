@@ -28,6 +28,12 @@ import {
 } from './package-http-errors';
 
 export const REGISTER_PACKAGES_PERMISSION = 'REGISTER_PACKAGES';
+export const VIEW_PACKAGES_PERMISSIONS = [
+    'REGISTER_PACKAGES',
+    'CLASSIFY_PACKAGES',
+    'COORDINATE_ROUTES',
+    'MANAGE_TENANT',
+] as const;
 
 @Controller('packages')
 @UseGuards(AuthGuard, PermissionsGuard)
@@ -39,13 +45,13 @@ export class PackagesController {
     ) {}
 
     @Get()
-    @RequirePermission(REGISTER_PACKAGES_PERMISSION)
+    @RequirePermission(...VIEW_PACKAGES_PERMISSIONS)
     listPackagesEndpoint(@CurrentContext() context: RequestContext) {
         return this.listPackages.execute(context.tenantId);
     }
 
     @Get(':packageId')
-    @RequirePermission(REGISTER_PACKAGES_PERMISSION)
+    @RequirePermission(...VIEW_PACKAGES_PERMISSIONS)
     async getPackageDetailEndpoint(
         @CurrentContext() context: RequestContext,
         @Param('packageId') packageId: string,

@@ -97,23 +97,13 @@ export function mapBackendStopsToRouteMapStops(
 
 export async function fetchRouteDetailFromBackend(
   routeId: string,
-  context?: { readonly tenantId?: string; readonly userId?: string },
 ): Promise<BackendRouteDetailDto | null> {
   if (!isUuidRouteId(routeId)) {
     return null;
   }
 
-  const headers: Record<string, string> = {};
-  if (context?.tenantId && UUID_REGEX.test(context.tenantId)) {
-    headers['x-tenant-id'] = context.tenantId;
-  }
-  if (context?.userId && UUID_REGEX.test(context.userId)) {
-    headers['x-user-id'] = context.userId;
-  }
-
   const payload = await apiFetch<BackendRouteDetailDto>(`/routes/${routeId}`, {
     method: 'GET',
-    headers,
   });
 
   if (

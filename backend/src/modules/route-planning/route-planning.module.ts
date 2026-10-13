@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { PrismaModule } from '../../database/prisma.module';
+import { AuthModule } from '../auth/auth.module';
 import { BuildRouteRoadPathService } from './application/build-route-road-path.service';
 import { ClusterPackagesService } from './application/cluster-packages.service';
 import { FindRoadPathService } from './application/find-road-path.service';
@@ -20,7 +21,7 @@ import { PrismaPlanningAssignmentUnitOfWork } from './infrastructure/prisma-plan
 import { RoutePlanningController } from './presentation/route-planning.controller';
 
 @Module({
-  imports: [PrismaModule],
+  imports: [PrismaModule, AuthModule],
   controllers: [RoutePlanningController],
   providers: [
     PrismaRoadGraphRepository,

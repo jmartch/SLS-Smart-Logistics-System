@@ -3,11 +3,19 @@ import {
   ConflictException,
   NotFoundException,
 } from '@nestjs/common';
+import { GUARDS_METADATA } from '@nestjs/common/constants';
+import { AuthGuard } from '../../auth/presentation/auth.guard';
+import { PermissionsGuard } from '../../auth/presentation/permissions.guard';
+import { REQUIRED_PERMISSION_KEY } from '../../auth/presentation/require-permission.decorator';
 import { SectorCatalogService } from '../application/sector-catalog.service';
 import { ZoneCatalogService } from '../application/zone-catalog.service';
 import { InvalidCatalogCodeError } from '../domain/catalog-code';
 import { InvalidCatalogNameError } from '../domain/catalog-name';
-import { ZonesController } from '../presentation/zones.controller';
+import {
+  MANAGE_CATALOGS_PERMISSION,
+  VIEW_CATALOGS_PERMISSIONS,
+  ZonesController,
+} from '../presentation/zones.controller';
 
 const TENANT_ID = '10000000-0000-4000-8000-000000000001';
 const ZONE_ID = '20000000-0000-4000-8000-000000000001';
@@ -36,6 +44,51 @@ function createTestContext() {
 }
 
 describe('ZonesController', () => {
+  it('protects zone and sector endpoints with AuthGuard and PermissionsGuard', () => {
+    const guards = Reflect.getMetadata(
+      GUARDS_METADATA,
+      ZonesController,
+    ) as unknown[];
+
+    expect(guards).toEqual([AuthGuard, PermissionsGuard]);
+    expect(
+      Reflect.getMetadata(
+        REQUIRED_PERMISSION_KEY,
+        ZonesController.prototype.createZone,
+      ),
+    ).toBe(MANAGE_CATALOGS_PERMISSION);
+    expect(
+      Reflect.getMetadata(
+        REQUIRED_PERMISSION_KEY,
+        ZonesController.prototype.createSector,
+      ),
+    ).toBe(MANAGE_CATALOGS_PERMISSION);
+    expect(
+      Reflect.getMetadata(
+        REQUIRED_PERMISSION_KEY,
+        ZonesController.prototype.listZones,
+      ),
+    ).toEqual([...VIEW_CATALOGS_PERMISSIONS]);
+    expect(
+      Reflect.getMetadata(
+        REQUIRED_PERMISSION_KEY,
+        ZonesController.prototype.getZone,
+      ),
+    ).toEqual([...VIEW_CATALOGS_PERMISSIONS]);
+    expect(
+      Reflect.getMetadata(
+        REQUIRED_PERMISSION_KEY,
+        ZonesController.prototype.listSectors,
+      ),
+    ).toEqual([...VIEW_CATALOGS_PERMISSIONS]);
+    expect(
+      Reflect.getMetadata(
+        REQUIRED_PERMISSION_KEY,
+        ZonesController.prototype.getSector,
+      ),
+    ).toEqual([...VIEW_CATALOGS_PERMISSIONS]);
+  });
+
   describe('listZones', () => {
     it('returns the list of zones from the catalog service', async () => {
       const { controller, zoneService } = createTestContext();

@@ -3,9 +3,17 @@ import {
   ConflictException,
   NotFoundException,
 } from '@nestjs/common';
+import { GUARDS_METADATA } from '@nestjs/common/constants';
+import { AuthGuard } from '../../auth/presentation/auth.guard';
+import { PermissionsGuard } from '../../auth/presentation/permissions.guard';
+import { REQUIRED_PERMISSION_KEY } from '../../auth/presentation/require-permission.decorator';
 import { ShipmentTypeCatalogService } from '../application/shipment-type-catalog.service';
 import { InvalidCatalogCodeError } from '../domain/catalog-code';
 import { ShipmentTypesController } from '../presentation/shipment-types.controller';
+import {
+  MANAGE_CATALOGS_PERMISSION,
+  VIEW_CATALOGS_PERMISSIONS,
+} from '../presentation/zones.controller';
 
 const TENANT_ID = '10000000-0000-4000-8000-000000000001';
 const SHIPMENT_TYPE_ID = '40000000-0000-4000-8000-000000000001';
@@ -26,6 +34,33 @@ function createTestContext() {
 }
 
 describe('ShipmentTypesController', () => {
+  it('protects shipment-type endpoints with AuthGuard and PermissionsGuard', () => {
+    const guards = Reflect.getMetadata(
+      GUARDS_METADATA,
+      ShipmentTypesController,
+    ) as unknown[];
+
+    expect(guards).toEqual([AuthGuard, PermissionsGuard]);
+    expect(
+      Reflect.getMetadata(
+        REQUIRED_PERMISSION_KEY,
+        ShipmentTypesController.prototype.createShipmentType,
+      ),
+    ).toBe(MANAGE_CATALOGS_PERMISSION);
+    expect(
+      Reflect.getMetadata(
+        REQUIRED_PERMISSION_KEY,
+        ShipmentTypesController.prototype.listShipmentTypes,
+      ),
+    ).toEqual([...VIEW_CATALOGS_PERMISSIONS]);
+    expect(
+      Reflect.getMetadata(
+        REQUIRED_PERMISSION_KEY,
+        ShipmentTypesController.prototype.getShipmentType,
+      ),
+    ).toEqual([...VIEW_CATALOGS_PERMISSIONS]);
+  });
+
   describe('listShipmentTypes', () => {
     it('returns active shipment types by default', async () => {
       const { controller, shipmentTypeService } = createTestContext();

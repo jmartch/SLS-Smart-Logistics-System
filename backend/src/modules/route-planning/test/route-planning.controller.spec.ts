@@ -6,8 +6,15 @@ import {
     NotFoundException,
     UnauthorizedException,
 } from '@nestjs/common';
+import { GUARDS_METADATA } from '@nestjs/common/constants';
 import type { Response } from 'express';
-import { RoutePlanningController } from '../presentation/route-planning.controller';
+import { AuthGuard } from '../../auth/presentation/auth.guard';
+import { PermissionsGuard } from '../../auth/presentation/permissions.guard';
+import { REQUIRED_PERMISSION_KEY } from '../../auth/presentation/require-permission.decorator';
+import {
+    COORDINATE_ROUTES_PERMISSION,
+    RoutePlanningController,
+} from '../presentation/route-planning.controller';
 import { PlanAndAssignRoutesService } from '../application/plan-and-assign-routes.service';
 import type { PlanAndAssignRoutesResult } from '../application/ports/plan-and-assign-routes.contract';
 import { extractRequestContext } from '../../../shared/presentation/request-context.decorator';
@@ -57,6 +64,28 @@ function createTestContext() {
 }
 
 describe('RoutePlanningController', () => {
+    it('protects route-planning endpoints with AuthGuard and PermissionsGuard', () => {
+        // Arrange & Act
+        const guards = Reflect.getMetadata(
+            GUARDS_METADATA,
+            RoutePlanningController,
+        ) as unknown[];
+
+        // Assert
+        expect(guards).toEqual([AuthGuard, PermissionsGuard]);
+    });
+
+    it('requires COORDINATE_ROUTES permission on the controller', () => {
+        // Arrange & Act
+        const permission = Reflect.getMetadata(
+            REQUIRED_PERMISSION_KEY,
+            RoutePlanningController,
+        ) as unknown;
+
+        // Assert
+        expect(permission).toBe(COORDINATE_ROUTES_PERMISSION);
+    });
+
     describe('planAndAssign', () => {
         it('executes planning successfully and returns 201 result when input is valid', async () => {
             // Arrange
@@ -216,12 +245,16 @@ describe('RoutePlanningController', () => {
     });
 
     describe('extractRequestContext', () => {
-        it('extracts tenantId, actorUserId, and correlationId from request headers', () => {
+        it('extracts tenantId, actorUserId, and correlationId from authenticated actor and correlation header', () => {
             // Arrange
             const req = {
+                actor: {
+                    kind: 'TENANT_USER' as const,
+                    tenantId: TENANT_ID,
+                    userId: 'coordinator-42',
+                    permissions: new Set(['COORDINATE_ROUTES']),
+                },
                 headers: {
-                    'x-tenant-id': TENANT_ID,
-                    'x-user-id': 'coordinator-42',
                     'x-correlation-id': 'corr-abc',
                 },
             };
@@ -235,9 +268,14 @@ describe('RoutePlanningController', () => {
             expect(ctx.correlationId).toBe('corr-abc');
         });
 
-        it('rejects with UnauthorizedException when tenant header is missing or invalid', () => {
+        it('rejects with UnauthorizedException when authenticated actor is missing even if legacy headers are present', () => {
             // Arrange
-            const req = { headers: {} };
+            const req = {
+                headers: {
+                    'x-tenant-id': TENANT_ID,
+                    'x-user-id': 'coordinator-42',
+                },
+            };
 
             // Act & Assert
             expect(() => extractRequestContext(req)).toThrow(UnauthorizedException);

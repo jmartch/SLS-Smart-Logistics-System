@@ -15,6 +15,7 @@ import { InvalidPackageRegistrationError } from '../domain/invalid-package-regis
 import {
     PackagesController,
     REGISTER_PACKAGES_PERMISSION,
+    VIEW_PACKAGES_PERMISSIONS,
 } from '../presentation/packages.controller';
 
 const TENANT_ID = '10000000-0000-4000-8000-000000000001';
@@ -77,7 +78,13 @@ describe('PackagesController', () => {
                 REQUIRED_PERMISSION_KEY,
                 PackagesController.prototype.listPackagesEndpoint,
             ),
-        ).toBe(REGISTER_PACKAGES_PERMISSION);
+        ).toEqual([...VIEW_PACKAGES_PERMISSIONS]);
+        expect(
+            Reflect.getMetadata(
+                REQUIRED_PERMISSION_KEY,
+                PackagesController.prototype.getPackageDetailEndpoint,
+            ),
+        ).toEqual([...VIEW_PACKAGES_PERMISSIONS]);
     });
 
     it('lists only packages from the authenticated tenant context', async () => {

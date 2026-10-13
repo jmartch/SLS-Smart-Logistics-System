@@ -47,6 +47,11 @@ import { RequirePermission } from '../../auth/presentation/require-permission.de
 import { handleRoutesDomainError } from './routes-http-errors';
 
 export const COORDINATE_ROUTES_PERMISSION = 'COORDINATE_ROUTES';
+export const OPERATE_DELIVERIES_PERMISSION = 'OPERATE_DELIVERIES';
+export const ROUTE_EXECUTION_PERMISSIONS = [
+	COORDINATE_ROUTES_PERMISSION,
+	OPERATE_DELIVERIES_PERMISSION,
+] as const;
 
 @Controller('routes')
 @UseGuards(AuthGuard, PermissionsGuard)
@@ -64,6 +69,7 @@ export class RoutesController {
 	) { }
 
 	@Get()
+	@RequirePermission(...ROUTE_EXECUTION_PERMISSIONS)
 	async listRoutes(
 		@CurrentContext() context: RequestContext,
 		@Query() query: Record<string, unknown>,
@@ -82,6 +88,7 @@ export class RoutesController {
 	}
 
 	@Get(':id')
+	@RequirePermission(...ROUTE_EXECUTION_PERMISSIONS)
 	async getRouteDetail(
 		@CurrentContext() context: RequestContext,
 		@Param('id') id: string,
@@ -123,6 +130,7 @@ export class RoutesController {
 
 	@Post(':id/start')
 	@HttpCode(HttpStatus.OK)
+	@RequirePermission(...ROUTE_EXECUTION_PERMISSIONS)
 	async startRoute(
 		@CurrentContext() context: RequestContext,
 		@Param('id') id: string,
@@ -167,6 +175,7 @@ export class RoutesController {
 
 	@Post(':id/interrupt')
 	@HttpCode(HttpStatus.OK)
+	@RequirePermission(...ROUTE_EXECUTION_PERMISSIONS)
 	async interruptRoute(
 		@CurrentContext() context: RequestContext,
 		@Param('id') id: string,
@@ -219,6 +228,7 @@ export class RoutesController {
 	}
 
 	@Get(':id/summary')
+	@RequirePermission(...ROUTE_EXECUTION_PERMISSIONS)
 	async getRouteSummary(
 		@CurrentContext() context: RequestContext,
 		@Param('id') id: string,

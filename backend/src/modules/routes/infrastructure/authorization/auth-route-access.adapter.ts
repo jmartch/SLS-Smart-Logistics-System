@@ -134,9 +134,24 @@ export class AuthRouteAccessAdapter implements RouteAccessPort {
         where: {
           tenantId,
           userId,
-          role: {
-            name: { in: ['COORDINATOR', 'ADMIN', 'SUPERADMIN'] },
-          },
+          OR: [
+            {
+              role: {
+                name: { in: ['COORDINATOR', 'ADMIN', 'SUPERADMIN'] },
+              },
+            },
+            {
+              role: {
+                rolePermissions: {
+                  some: {
+                    permission: {
+                      code: { in: ['COORDINATE_ROUTES', 'MANAGE_TENANT'] },
+                    },
+                  },
+                },
+              },
+            },
+          ],
         },
         select: { roleId: true },
       });
