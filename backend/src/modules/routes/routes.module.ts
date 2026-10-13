@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { PrismaModule } from '../../database/prisma.module';
+import { AuthModule } from '../auth/auth.module';
 import { PrismaRouteRepository } from './infrastructure/persistence/prisma-route.repository';
 import { PrismaRouteLifecycleUnitOfWork } from './infrastructure/persistence/prisma-route-lifecycle-unit-of-work';
 import { PrismaRouteResourcesAdapter } from './infrastructure/persistence/prisma-route-resources.adapter';
@@ -17,7 +18,7 @@ import { GetRouteSummaryUseCase } from './application/use-cases/get-route-summar
 import { RoutesController } from './presentation/routes.controller';
 
 @Module({
-  imports: [PrismaModule],
+  imports: [PrismaModule, AuthModule],
   controllers: [RoutesController],
   providers: [
     PrismaRouteRepository,

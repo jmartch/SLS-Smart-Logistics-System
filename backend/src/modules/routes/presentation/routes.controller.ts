@@ -8,6 +8,7 @@ import {
 	Param,
 	Post,
 	Query,
+	UseGuards,
 } from '@nestjs/common';
 import {
 	CurrentContext,
@@ -40,9 +41,16 @@ import {
 	validateCloseRouteBody,
 	validateIdempotencyKey,
 } from './dto/close-route.dto';
+import { AuthGuard } from '../../auth/presentation/auth.guard';
+import { PermissionsGuard } from '../../auth/presentation/permissions.guard';
+import { RequirePermission } from '../../auth/presentation/require-permission.decorator';
 import { handleRoutesDomainError } from './routes-http-errors';
 
+export const COORDINATE_ROUTES_PERMISSION = 'COORDINATE_ROUTES';
+
 @Controller('routes')
+@UseGuards(AuthGuard, PermissionsGuard)
+@RequirePermission(COORDINATE_ROUTES_PERMISSION)
 export class RoutesController {
 	constructor(
 		private readonly listRoutesUseCase: ListRoutesUseCase,
