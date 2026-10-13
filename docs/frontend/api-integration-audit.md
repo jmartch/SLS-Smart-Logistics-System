@@ -8,10 +8,10 @@ Plan relacionado: [`docs/plans/ui-01-04.md`](../plans/ui-01-04.md)
 
 ## Resumen ejecutivo
 
-- El backend publica **41 endpoints de negocio bajo `/api/v1`** y un endpoint raíz de salud.
-- **18 endpoints** son consumidos por alguna ruta activa del frontend.
+- El backend publica **42 endpoints de negocio bajo `/api/v1`** y un endpoint raíz de salud.
+- **19 endpoints** son consumidos por alguna ruta activa del frontend.
 - **23 endpoints** existen, pero ninguna pantalla activa los consume.
-- De las 14 pantallas privadas activas: 7 consumen datos reales de forma principal, 6 usan datos simulados y 1 es un stub.
+- De las 14 pantallas privadas activas: 8 consumen datos reales de forma principal, 5 usan datos simulados y 1 es un stub.
 - El rastreo público sigue completamente simulado.
 - El portal legado bajo `/empresa` fue retirado de la navegación; sus archivos con mocks permanecen en el árbol, pero no son rutas activas.
 - La configuración de ejemplo y Docker Compose usan `VITE_USE_MOCK_DATA=false`; el registro activo obtiene sus catálogos desde la API.
@@ -24,7 +24,7 @@ Plan relacionado: [`docs/plans/ui-01-04.md`](../plans/ui-01-04.md)
 | Listado de paquetes | `/app/paquetes` | API real | `GET /packages` | Lectura habilitada para recepción, clasificación, coordinación y administración del tenant |
 | Registro de paquete | `/app/paquetes/nuevo` | API real | `POST /packages`, `GET /zones`, `GET /zones/:id/sectors`, `GET /shipment-types` | Sin IDs codificados ni generadores demo en el flujo activo |
 | Detalle de paquete | `/app/paquetes/:packageId` | API real | `GET /packages/:id` | Presenta únicamente los datos disponibles en el contrato actual |
-| Clasificación | `/app/clasificacion` | Mock | `PACKAGES` y temporizador | Falta API de bandeja, geocodificación/revisión y confirmación de clasificación |
+| Clasificación | `/app/clasificacion` | API real | `GET /packages?state=REGISTERED`, `POST /packages/:id/classify`, `GET /zones`, `GET /zones/:id/sectors` | Conectado sin `mockData.ts` |
 | Pendientes de asignación | `/app/pendientes` | Mock | `PACKAGES` | Falta consulta de pendientes con motivo y operación manual de asignación/reasignación |
 | Planificación | `/app/planificacion` | Mock | `PACKAGES` y temporizador | Falta workspace de recursos y contrato para recalcular una ruta `PLANNED` existente |
 | Listado de rutas | `/app/rutas` | API real | `GET /routes` | Mostrar nombres operativos en vez de UUID cuando existan catálogos |
@@ -62,13 +62,14 @@ Todos los endpoints de negocio usan el prefijo `/api/v1`. La columna “Uso acti
 
 | API | Uso activo | Consumidor | Observación |
 | --- | --- | --- | --- |
-| `GET /packages` | Sí | `PackagesListPage.tsx` | Lectura autorizada según las capacidades operativas del usuario |
+| `GET /packages` | Sí | `PackagesListPage.tsx`, `ClassificationPage.tsx` | Admite filtro opcional `?state=REGISTERED` |
 | `GET /packages/:packageId` | Sí | `PackageDetailPage.tsx` | Sin fallback a fixtures |
 | `POST /packages` | Sí | `NewPackagePage.tsx` | Envía identificadores seleccionados desde catálogos reales |
-| `GET /zones` | Sí | `NewPackagePage.tsx` mediante `catalogApi.ts` | Catálogo tenant-scoped |
+| `POST /packages/:packageId/classify` | Sí | `ClassificationPage.tsx` | Transición `REGISTERED` → `CLASSIFIED` con asignación de zona/sector |
+| `GET /zones` | Sí | `NewPackagePage.tsx`, `ClassificationPage.tsx` mediante `catalogApi.ts` | Catálogo tenant-scoped |
 | `POST /zones` | No | — | Sin UI administrativa |
 | `GET /zones/:zoneId` | No | — | Sin consumidor |
-| `GET /zones/:zoneId/sectors` | Sí | `NewPackagePage.tsx` mediante `catalogApi.ts` | Se consulta al seleccionar una zona |
+| `GET /zones/:zoneId/sectors` | Sí | `NewPackagePage.tsx`, `ClassificationPage.tsx` mediante `catalogApi.ts` | Se consulta al seleccionar una zona |
 | `POST /zones/:zoneId/sectors` | No | — | Sin UI administrativa |
 | `GET /zones/:zoneId/sectors/:sectorId` | No | — | Sin consumidor |
 | `GET /shipment-types` | Sí | `NewPackagePage.tsx` mediante `catalogApi.ts` | Solo se muestran tipos activos |
@@ -81,11 +82,11 @@ Todos los endpoints de negocio usan el prefijo `/api/v1`. La columna “Uso acti
 | --- | --- | --- | --- |
 | `POST /vehicles` | No | — | `AdminVehiclesPage` es un stub; no existen lecturas de vehículos |
 | `POST /couriers` | No | — | No existe pantalla de mensajeros ni endpoints de lectura |
-| `POST /routes/planning/plan-and-assign` | No | — | `PlanningPage` simula el resultado. Guards agregados y verificados localmente, aún sin commit |
+| `POST /routes/planning/plan-and-assign` | No | — | `PlanningPage` simula el resultado. Guards agregados y verificados |
 | `GET /routes` | Sí | `RoutesListPage.tsx` mediante `routesApi.ts` | Listado real paginado |
 | `GET /routes/:id` | Sí | `RouteDetailPage.tsx` mediante `routesApi.ts` | Detalle real; existe `routeDetailApi.ts` duplicado y no usado por runtime |
 | `POST /routes/:id/prepare` | No | — | Backend implementado, falta acción UI |
-| `POST /routes/:id/start` | No | — | Backend exige hoy `COORDINATE_ROUTES`; el flujo objetivo indica que inicia el mensajero asignado |
+| `POST /routes/:id/start` | No | — | Backend admite `COORDINATE_ROUTES` u `OPERATE_DELIVERIES`; falta acción UI |
 | `POST /routes/:id/cancel` | No | — | Backend implementado, falta acción UI |
 | `POST /routes/:id/interrupt` | No | — | Backend implementado, falta acción UI |
 | `POST /routes/:id/close` | No | — | Backend implementado, falta acción UI e idempotency key |
@@ -124,7 +125,6 @@ RabbitMQ, worker, Outbox, consumidor idempotente y DLQ existen como infraestruct
 
 | Capacidad faltante | Contrato HTTP sugerido | Pantallas dependientes |
 | --- | --- | --- |
-| Bandeja y confirmación de clasificación | Consulta de paquetes `REGISTERED` y comando de clasificar/geocodificar | Clasificación |
 | Workspace de planificación | Lectura tenant-scoped de paquetes candidatos, depósitos, recursos, turnos, datasets `READY` y rutas `PLANNED` editables | Planificación, pendientes |
 | Replanificar ruta existente | Caso de uso/endpoint explícito para recalcular una ruta `PLANNED`; nunca una `READY` | Planificación, detalle de ruta |
 | Asignación/reasignación manual | Comando con historial, capacidad y validación de manifiesto | Pendientes |
@@ -138,7 +138,7 @@ RabbitMQ, worker, Outbox, consumidor idempotente y DLQ existen como infraestruct
 
 1. **Cerrar autenticación y permisos de APIs existentes (COMPLETADO).** Proteger catálogos y entregas, corregir permisos de lectura de paquetes e inicio de ruta y retirar cabeceras de identidad heredadas.
 2. **Consolidar el registro de paquetes (COMPLETADO).** Elegir una sola pantalla (`NewPackagePage`), conectar zonas/sectores/tipos reales (`catalogApi.ts`), eliminar IDs codificados y fallback de fixtures en detalle/listado, y desactivar `VITE_USE_MOCK_DATA` en el flujo normal.
-3. **Implementar clasificación real.** Sin paquetes `CLASSIFIED` no existe una entrada confiable para planificación.
+3. **Implementar clasificación real (COMPLETADO).** `POST /api/v1/packages/:packageId/classify`, filtro `?state=REGISTERED` en `GET /api/v1/packages` y conexión de `ClassificationPage` a API real sin `mockData.ts`.
 4. **Publicar recursos y rutas editables de planificación.** Incluir capacidad/turnos y rutas `PLANNED`; definir después el comando de replanificación.
 5. **Conectar planificación, pendientes y acciones de ruta.** Crear/recalcular propuesta, revisar, preparar y cancelar antes de despacho.
 6. **Conectar el portal del mensajero.** Descubrir su ruta, iniciar, atender paradas, registrar entrega/fallo/evidencia e incidentes.
