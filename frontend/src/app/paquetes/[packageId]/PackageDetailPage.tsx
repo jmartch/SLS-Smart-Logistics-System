@@ -1,72 +1,43 @@
-import { AlertCircle, ArrowLeft, Loader2 } from "lucide-react"
+import { ArrowLeft, Loader2 } from "lucide-react"
 import { useEffect, useState } from "react"
 import { Link, useParams } from "react-router"
-import {
-  PACKAGES,
-  STATUS_COLOR,
-  STATUS_LABELS,
-  type Package as Pkg,
-  type PkgStatus,
-} from "../../../mockData"
 import { EmptyState } from "../../../shared/ui/EmptyState"
-import { getPackageDetail } from "../api/packagesApi"
-
-function isUuid(value: string): boolean {
-  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value)
-}
+import { getPackageDetail, type PackageDetailResponse } from "../api/packagesApi"
+import {
+  PACKAGE_PRIORITY_LABELS,
+  PACKAGE_STATE_COLORS,
+  PACKAGE_STATE_LABELS,
+  type PackagePriority,
+  type PackageState,
+} from "../types"
 
 export function PackageDetailPage() {
   const { packageId } = useParams()
-  const fixturePackage = PACKAGES.find((p) => p.id === packageId) ?? null
-  const [pkg, setPkg] = useState<Pkg | null>(fixturePackage)
-  const [loadingDetail, setLoadingDetail] = useState(Boolean(packageId && isUuid(packageId)))
-  const [detailError, setDetailError] = useState<string | null>(null)
+  const [pkg, setPkg] = useState<PackageDetailResponse | null>(null)
+  const [loadingDetail, setLoadingDetail] = useState(Boolean(packageId))
+  const [detailError, setDetailError] = useState<string | null>(
+    packageId ? null : "No se proporcionó un identificador de paquete válido.",
+  )
 
   useEffect(() => {
-    if (!packageId || !isUuid(packageId)) return
+    if (!packageId) return
     let active = true
-    setLoadingDetail(true)
-    setDetailError(null)
-    void getPackageDetail(packageId)
-      .then((detail) => {
+    async function loadDetail(id: string) {
+      setLoadingDetail(true)
+      setDetailError(null)
+      try {
+        const detail = await getPackageDetail(id)
         if (!active) return
-        setPkg({
-          id: detail.id,
-          trackingCode: detail.trackingCode,
-          sender: "No registrado en el MVP",
-          recipient: "No registrado en el MVP",
-          recipientAddress: detail.address,
-          recipientPhone: "No registrado en el MVP",
-          zone: detail.zone ?? "Sin zona",
-          sector: detail.sector ?? "Sin sector",
-          weight: Number(detail.weightKg),
-          volume: Number(detail.volumeM3),
-          priority:
-            detail.priority === "URGENT"
-              ? "express"
-              : detail.priority === "HIGH"
-                ? "urgent"
-                : "normal",
-          shipmentType: detail.shipmentType,
-          status: detail.state as PkgStatus,
-          createdAt: detail.registeredAt ?? new Date(0).toISOString(),
-          estimatedDelivery: detail.deadline ?? detail.registeredAt ?? new Date(0).toISOString(),
-          history: detail.history.map((item) => ({
-            status: item.toState as PkgStatus,
-            at: item.createdAt,
-            by: item.changedBy ?? "Sistema SLS",
-            note: item.reasonCode ?? undefined,
-          })),
-        })
-      })
-      .catch((error: unknown) => {
+        setPkg(detail)
+      } catch (error: unknown) {
         if (!active) return
         setDetailError(error instanceof Error ? error.message : "No fue posible consultar el paquete.")
         setPkg(null)
-      })
-      .finally(() => {
+      } finally {
         if (active) setLoadingDetail(false)
-      })
+      }
+    }
+    void loadDetail(packageId)
     return () => {
       active = false
     }
@@ -89,6 +60,10 @@ export function PackageDetailPage() {
     )
   }
 
+  const stateKey = pkg.state as PackageState
+  const priorityKey = pkg.priority as PackagePriority
+  const volumeLiters = (Number(pkg.volumeM3) * 1000).toFixed(2)
+
   return (
     <>
       <div className="company-page-heading" style={{ alignItems: "flex-start" }}>
@@ -97,10 +72,10 @@ export function PackageDetailPage() {
             <ArrowLeft size={15} /> Paquetes
           </Link>
           <h1 style={{ fontSize: "clamp(1.6rem, 3vw, 2.4rem)" }}>{pkg.trackingCode}</h1>
-          <p style={{ marginTop: "0.4rem" }}>{pkg.sender} → {pkg.recipient}</p>
+          <p style={{ marginTop: "0.4rem" }}>{pkg.address}</p>
         </div>
-        <span className={`status ${STATUS_COLOR[pkg.status]}`} style={{ fontSize: "0.78rem", padding: "0.5rem 1rem", flexShrink: 0, marginTop: "0.5rem" }}>
-          {STATUS_LABELS[pkg.status] ?? pkg.status}
+        <span className={`status ${PACKAGE_STATE_COLORS[stateKey] ?? "status--muted"}`} style={{ fontSize: "0.78rem", padding: "0.5rem 1rem", flexShrink: 0, marginTop: "0.5rem" }}>
+          {PACKAGE_STATE_LABELS[stateKey] ?? pkg.state}
         </span>
       </div>
 
@@ -115,16 +90,38 @@ export function PackageDetailPage() {
             </div>
             <dl style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem 2rem" }}>
               {[
-                ["Remitente", pkg.sender],
-                ["Destinatario", pkg.recipient],
-                ["Dirección", pkg.recipientAddress],
-                ["Teléfono", pkg.recipientPhone],
-                ["Zona", `${pkg.zone} · ${pkg.sector}`],
+                ["Código de guía", pkg.trackingCode],
+                ["Dirección de entrega", pkg.address],
+                ["Zona y sector", `${pkg.zone ?? "Sin zona"} · ${pkg.sector ?? "Sin sector"}`],
                 ["Tipo de envío", pkg.shipmentType],
-                ["Peso", `${pkg.weight} kg`],
-                ["Volumen", `${(pkg.volume * 1000).toFixed(0)} L`],
-                ["Prioridad", pkg.priority === "urgent" ? "Urgente" : pkg.priority === "express" ? "Express" : "Normal"],
-                ["Entrega estimada", new Date(pkg.estimatedDelivery).toLocaleDateString("es-CL", { day: "2-digit", month: "long", year: "numeric" })],
+                ["Prioridad", PACKAGE_PRIORITY_LABELS[priorityKey] ?? pkg.priority],
+                ["Peso", `${pkg.weightKg} kg`],
+                ["Dimensiones (L × A × H)", `${pkg.lengthCm} × ${pkg.widthCm} × ${pkg.heightCm} cm`],
+                ["Volumen", `${volumeLiters} L (${pkg.volumeM3} m³)`],
+                [
+                  "Fecha de registro",
+                  pkg.registeredAt
+                    ? new Date(pkg.registeredAt).toLocaleString("es-CO", {
+                        day: "2-digit",
+                        month: "short",
+                        year: "numeric",
+                        hour: "2-digit",
+                        minute: "2-digit",
+                      })
+                    : "Sin fecha",
+                ],
+                [
+                  "Fecha límite",
+                  pkg.deadline
+                    ? new Date(pkg.deadline).toLocaleString("es-CO", {
+                        day: "2-digit",
+                        month: "short",
+                        year: "numeric",
+                        hour: "2-digit",
+                        minute: "2-digit",
+                      })
+                    : "Sin fecha límite",
+                ],
               ].map(([k, v]) => (
                 <div key={k}>
                   <dt style={{ color: "var(--text-muted)", fontSize: "0.65rem", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: "0.2rem" }}>{k}</dt>
@@ -132,15 +129,6 @@ export function PackageDetailPage() {
                 </div>
               ))}
             </dl>
-            {pkg.notes && (
-              <div className="delivery-note" style={{ marginTop: "1.2rem" }}>
-                <AlertCircle size={18} />
-                <div>
-                  <strong>Observación</strong>
-                  <span>{pkg.notes}</span>
-                </div>
-              </div>
-            )}
           </div>
         </div>
 
@@ -152,23 +140,28 @@ export function PackageDetailPage() {
             </div>
           </div>
           <ol style={{ listStyle: "none", margin: 0, padding: 0, display: "grid", gap: 0 }}>
-            {[...pkg.history].reverse().map((h, i) => (
-              <li key={i} style={{ display: "grid", gridTemplateColumns: "auto 1fr", gap: "0 0.9rem", paddingBottom: i < pkg.history.length - 1 ? "1.2rem" : 0, position: "relative" }}>
-                {i < pkg.history.length - 1 && (
-                  <span style={{ position: "absolute", left: "10px", top: "24px", bottom: 0, width: "2px", background: "var(--border)" }} aria-hidden="true" />
-                )}
-                <span style={{ width: 22, height: 22, borderRadius: "50%", background: i === 0 ? "var(--blue)" : "var(--border)", display: "grid", placeItems: "center", flexShrink: 0, zIndex: 1 }}>
-                  {i === 0 && <span style={{ width: 8, height: 8, background: "white", borderRadius: "50%" }} />}
-                </span>
-                <div>
-                  <strong style={{ display: "block", color: "var(--navy)", fontSize: "0.78rem" }}>{STATUS_LABELS[h.status] ?? h.status}</strong>
-                  <span style={{ color: "var(--text-muted)", fontSize: "0.67rem" }}>
-                    {new Date(h.at).toLocaleString("es-CL", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" })} · {h.by}
+            {[...pkg.history].reverse().map((h, i) => {
+              const toStateKey = h.toState as PackageState
+              return (
+                <li key={i} style={{ display: "grid", gridTemplateColumns: "auto 1fr", gap: "0 0.9rem", paddingBottom: i < pkg.history.length - 1 ? "1.2rem" : 0, position: "relative" }}>
+                  {i < pkg.history.length - 1 && (
+                    <span style={{ position: "absolute", left: "10px", top: "24px", bottom: 0, width: "2px", background: "var(--border)" }} aria-hidden="true" />
+                  )}
+                  <span style={{ width: 22, height: 22, borderRadius: "50%", background: i === 0 ? "var(--blue)" : "var(--border)", display: "grid", placeItems: "center", flexShrink: 0, zIndex: 1 }}>
+                    {i === 0 && <span style={{ width: 8, height: 8, background: "white", borderRadius: "50%" }} />}
                   </span>
-                  {h.note && <p style={{ margin: "0.2rem 0 0", color: "var(--text-muted)", fontSize: "0.67rem" }}>{h.note}</p>}
-                </div>
-              </li>
-            ))}
+                  <div>
+                    <strong style={{ display: "block", color: "var(--navy)", fontSize: "0.78rem" }}>
+                      {PACKAGE_STATE_LABELS[toStateKey] ?? h.toState}
+                    </strong>
+                    <span style={{ color: "var(--text-muted)", fontSize: "0.67rem" }}>
+                      {new Date(h.createdAt).toLocaleString("es-CO", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" })} · {h.changedBy ?? "Sistema SLS"}
+                    </span>
+                    {h.reasonCode && <p style={{ margin: "0.2rem 0 0", color: "var(--text-muted)", fontSize: "0.67rem" }}>{h.reasonCode}</p>}
+                  </div>
+                </li>
+              )
+            })}
           </ol>
         </div>
       </div>

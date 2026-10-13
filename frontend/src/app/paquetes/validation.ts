@@ -1,19 +1,42 @@
 import { PACKAGE_PRIORITIES } from './types';
 import type { RegisterPackageFormErrors, RegisterPackageFormValues } from './types';
 
+const TRACKING_CODE_PATTERN = /^[A-Z0-9_-]{3,40}$/i;
+const MUNICIPALITY_CODE_PATTERN = /^[A-Z0-9]{2,10}$/i;
+const ADDRESS_MAX_LENGTH = 300;
+
 export function validateRegisterPackageForm(
   form: RegisterPackageFormValues,
 ): RegisterPackageFormErrors {
   const errors: RegisterPackageFormErrors = {};
 
-  if (!form.trackingCode.trim()) {
+  const trackingCode = form.trackingCode.trim();
+  if (!trackingCode) {
     errors.trackingCode = 'El número de guía es obligatorio.';
+  } else if (!TRACKING_CODE_PATTERN.test(trackingCode)) {
+    errors.trackingCode = 'La guía debe tener entre 3 y 40 caracteres alfanuméricos, guiones o guiones bajos.';
   }
-  if (!form.zoneId) {
-    errors.zoneId = 'Selecciona una zona.';
+
+  const addressText = form.recipientAddress.trim();
+  if (!addressText) {
+    errors.recipientAddress = 'La dirección de entrega es obligatoria.';
+  } else if (addressText.length > ADDRESS_MAX_LENGTH) {
+    errors.recipientAddress = 'La dirección no puede superar 300 caracteres.';
   }
-  if (!form.shipmentTypeId) {
+
+  const municipalityCode = form.municipalityCode.trim();
+  if (!municipalityCode) {
+    errors.municipalityCode = 'El código de municipio (DANE) es obligatorio.';
+  } else if (!MUNICIPALITY_CODE_PATTERN.test(municipalityCode)) {
+    errors.municipalityCode = 'El código de municipio debe tener entre 2 y 10 caracteres alfanuméricos.';
+  }
+
+  if (!form.shipmentTypeId.trim()) {
     errors.shipmentTypeId = 'Selecciona un tipo de envío.';
+  }
+
+  if (form.sectorId.trim() && !form.zoneId.trim()) {
+    errors.sectorId = 'Selecciona una zona antes de elegir un sector.';
   }
 
   requirePositiveNumber(form.weightKg, 'El peso debe ser mayor a 0.', (msg) => (errors.weightKg = msg));
@@ -25,21 +48,10 @@ export function validateRegisterPackageForm(
     errors.priority = 'Selecciona una prioridad válida.';
   }
 
-  // Coordenadas: obligatorias en el schema actual (latitude/longitude no son nullable).
-  if (!form.latitude.trim()) {
-    errors.latitude = 'La latitud es obligatoria.';
-  } else {
-    const lat = Number(form.latitude);
-    if (!Number.isFinite(lat) || lat < -90 || lat > 90) {
-      errors.latitude = 'La latitud debe estar entre -90 y 90.';
-    }
-  }
-  if (!form.longitude.trim()) {
-    errors.longitude = 'La longitud es obligatoria.';
-  } else {
-    const lng = Number(form.longitude);
-    if (!Number.isFinite(lng) || lng < -180 || lng > 180) {
-      errors.longitude = 'La longitud debe estar entre -180 y 180.';
+  if (form.deadline.trim()) {
+    const parsed = new Date(form.deadline);
+    if (Number.isNaN(parsed.getTime())) {
+      errors.deadline = 'Ingresa una fecha y hora límite válida.';
     }
   }
 

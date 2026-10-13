@@ -2,25 +2,27 @@ import { AlertCircle, ChevronRight, Loader2, Package, PackagePlus, Search } from
 import { useEffect, useState } from "react"
 import { Link } from "react-router"
 import { useAuth } from "../../auth"
-import { STATUS_COLOR, STATUS_LABELS, type PkgStatus } from "../../mockData"
 import { EmptyState } from "../../shared/ui/EmptyState"
 import { listPackages, type PackageListItemResponse } from "./api/packagesApi"
+import {
+  PACKAGE_STATES,
+  PACKAGE_STATE_COLORS,
+  PACKAGE_STATE_LABELS,
+  type PackageState,
+} from "./types"
 
-const STATUS_FILTER_OPTIONS: { value: PkgStatus | ""; label: string }[] = [
+const STATUS_FILTER_OPTIONS: { value: PackageState | ""; label: string }[] = [
   { value: "", label: "Todos los estados" },
-  { value: "REGISTERED", label: "Registrado" },
-  { value: "CLASSIFIED", label: "Clasificado" },
-  { value: "PENDING_ASSIGNMENT", label: "Pendiente asignación" },
-  { value: "ASSIGNED", label: "Asignado" },
-  { value: "IN_TRANSIT", label: "En tránsito" },
-  { value: "DELIVERED", label: "Entregado" },
-  { value: "FAILED", label: "Fallido" },
+  ...PACKAGE_STATES.map((state) => ({
+    value: state,
+    label: PACKAGE_STATE_LABELS[state],
+  })),
 ]
 
 export function PackagesListPage() {
   const { user } = useAuth()
   const [query, setQuery] = useState("")
-  const [statusFilter, setStatusFilter] = useState<PkgStatus | "">("")
+  const [statusFilter, setStatusFilter] = useState<PackageState | "">("")
   const [packages, setPackages] = useState<PackageListItemResponse[]>([])
   const [loadingPackages, setLoadingPackages] = useState(true)
   const [packagesError, setPackagesError] = useState<string | null>(null)
@@ -76,15 +78,17 @@ export function PackagesListPage() {
         <div className="tracking-search" style={{ flex: 1, minWidth: 220, borderRadius: "var(--radius-sm)" }}>
           <Search size={17} style={{ marginLeft: "0.7rem", color: "var(--blue-dark)" }} />
           <input
-            type="search" placeholder="Guía, destinatario o remitente…"
-            value={query} onChange={(e) => setQuery(e.target.value)}
+            type="search"
+            placeholder="Guía o dirección…"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
             style={{ minHeight: 42, paddingInline: "0.5rem", background: "transparent", border: 0, outline: "none", width: "100%", fontWeight: 600 }}
           />
         </div>
         <div className="field" style={{ margin: 0 }}>
           <select
             value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value as PkgStatus | "")}
+            onChange={(e) => setStatusFilter(e.target.value as PackageState | "")}
             style={{ minHeight: 44, paddingInline: "0.9rem", background: "white", border: "1px solid var(--border)", borderRadius: "var(--radius-sm)", color: "var(--text)" }}
           >
             {STATUS_FILTER_OPTIONS.map((o) => (
@@ -113,24 +117,29 @@ export function PackagesListPage() {
           ) : filtered.length === 0 ? (
             <EmptyState icon={<Package size={32} />} title="Sin resultados" body="Ajusta los filtros o registra un nuevo paquete." />
           ) : (
-            filtered.map((pkg) => (
-              <div key={pkg.id} className="company-table__row" style={{ gridTemplateColumns: "1.3fr 1.6fr 1fr 0.8fr 0.4fr" }}>
-                <strong style={{ display: "grid", gap: "0.15rem" }}>
-                  <span style={{ fontSize: "0.82rem" }}>{pkg.trackingCode}</span>
-                  <span style={{ color: "var(--text-muted)", fontSize: "0.68rem", fontWeight: 400 }}>{pkg.shipmentType}</span>
-                </strong>
-                <span>{pkg.address}</span>
-                <span>{pkg.zone ?? "Sin zona"} · {pkg.sector ?? "Sin sector"}</span>
-                <span>
-                  <span className={`status ${STATUS_COLOR[pkg.state as PkgStatus] ?? "status--muted"}`}>{STATUS_LABELS[pkg.state as PkgStatus] ?? pkg.state}</span>
-                </span>
-                <span>
-                  <Link to={`/app/paquetes/${pkg.id}`} style={{ display: "grid", width: 32, height: 32, placeItems: "center", color: "var(--blue-dark)", borderRadius: 8 }} aria-label={`Ver detalle ${pkg.trackingCode}`}>
-                    <ChevronRight size={17} />
-                  </Link>
-                </span>
-              </div>
-            ))
+            filtered.map((pkg) => {
+              const stateKey = pkg.state as PackageState
+              return (
+                <div key={pkg.id} className="company-table__row" style={{ gridTemplateColumns: "1.3fr 1.6fr 1fr 0.8fr 0.4fr" }}>
+                  <strong style={{ display: "grid", gap: "0.15rem" }}>
+                    <span style={{ fontSize: "0.82rem" }}>{pkg.trackingCode}</span>
+                    <span style={{ color: "var(--text-muted)", fontSize: "0.68rem", fontWeight: 400 }}>{pkg.shipmentType}</span>
+                  </strong>
+                  <span>{pkg.address}</span>
+                  <span>{pkg.zone ?? "Sin zona"} · {pkg.sector ?? "Sin sector"}</span>
+                  <span>
+                    <span className={`status ${PACKAGE_STATE_COLORS[stateKey] ?? "status--muted"}`}>
+                      {PACKAGE_STATE_LABELS[stateKey] ?? pkg.state}
+                    </span>
+                  </span>
+                  <span>
+                    <Link to={`/app/paquetes/${pkg.id}`} style={{ display: "grid", width: 32, height: 32, placeItems: "center", color: "var(--blue-dark)", borderRadius: 8 }} aria-label={`Ver detalle ${pkg.trackingCode}`}>
+                      <ChevronRight size={17} />
+                    </Link>
+                  </span>
+                </div>
+              )
+            })
           )}
         </div>
       </div>

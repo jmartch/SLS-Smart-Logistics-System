@@ -26,12 +26,6 @@ export interface ParsedPackageQrData {
   readonly isStructuredJson: boolean;
 }
 
-const DEFAULT_DEMO_IDS = {
-  zoneId: '08d92a06-4921-4989-92ff-f1917240779c',
-  sectorId: '2ef99933-082e-4d24-b1a1-b5c574ca6aa5',
-  shipmentTypeId: 'b268c5c7-b2b5-411d-b734-07746ae7e6e6',
-} as const;
-
 function pickString(
   record: Record<string, unknown>,
   keys: readonly string[],
@@ -148,20 +142,16 @@ export function parsePackageQrPayload(rawText: string): ParsedPackageQrData {
         '+57 300 412 8890',
       );
 
-      const zone = pickString(rec, ['zone', 'zona'], 'Zona Norte');
-      const zoneId = pickString(rec, ['zoneId'], DEFAULT_DEMO_IDS.zoneId);
-      const sector = pickString(rec, ['sector'], 'Sector A');
-      const sectorId = pickString(rec, ['sectorId'], DEFAULT_DEMO_IDS.sectorId);
+      const zone = pickString(rec, ['zone', 'zona'], '');
+      const zoneId = pickString(rec, ['zoneId'], '');
+      const sector = pickString(rec, ['sector'], '');
+      const sectorId = pickString(rec, ['sectorId'], '');
       const shipmentType = pickString(
         rec,
         ['shipmentType', 'service', 'tipoEnvio'],
-        'Estándar',
+        '',
       );
-      const shipmentTypeId = pickString(
-        rec,
-        ['shipmentTypeId'],
-        DEFAULT_DEMO_IDS.shipmentTypeId,
-      );
+      const shipmentTypeId = pickString(rec, ['shipmentTypeId'], '');
 
       const rawPriority =
         rec.urgente === true
@@ -227,12 +217,12 @@ export function parsePackageQrPayload(rawText: string): ParsedPackageQrData {
     recipientAddress: '',
     recipientPhone: '',
     municipalityCode: '08001',
-    zone: 'Zona Norte',
-    zoneId: DEFAULT_DEMO_IDS.zoneId,
-    sector: 'Sector A',
-    sectorId: DEFAULT_DEMO_IDS.sectorId,
-    shipmentType: 'Estándar',
-    shipmentTypeId: DEFAULT_DEMO_IDS.shipmentTypeId,
+    zone: '',
+    zoneId: '',
+    sector: '',
+    sectorId: '',
+    shipmentType: '',
+    shipmentTypeId: '',
     priority: 'normal',
     backendPriority: 'NORMAL',
     weightKg: 2.5,
@@ -361,8 +351,5 @@ export function generateRandomDemoQrJson(): string {
     ...chosen,
     volume,
     municipalityCode: '08001',
-    zoneId: DEFAULT_DEMO_IDS.zoneId,
-    sectorId: DEFAULT_DEMO_IDS.sectorId,
-    shipmentTypeId: DEFAULT_DEMO_IDS.shipmentTypeId,
   });
 }
