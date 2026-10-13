@@ -17,8 +17,8 @@ import {
 import { useState } from "react"
 import { Link, NavLink, Navigate, Outlet, useNavigate } from "react-router"
 
-import { useAuth, Role, type User } from "./auth"
-import { NOTIFICATIONS } from "./mockData"
+import { useAuth, Role, type User } from "../auth"
+import { NOTIFICATIONS } from "../mockData"
 
 function Brand({ compact = false }: { compact?: boolean }) {
   return (

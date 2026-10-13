@@ -4,7 +4,7 @@ import PackageForm from './PackageForm';
 import { validateRegisterPackageForm } from '../validation';
 import { registerPackage } from '../api/packagesApi';
 import { fetchSectors, fetchShipmentTypes, fetchZones } from '../api/catalogApi';
-import { parsePackageQrPayload } from '../qrPackageParser';
+import { parsePackageQrPayload } from '../../../shared/qr/qrPackageParser';
 import { ApiError } from '../../../shared/api/httpClient';
 import { USE_MOCK_DATA } from '../../../shared/config/environment';
 import { EMPTY_REGISTER_PACKAGE_FORM } from '../types';
