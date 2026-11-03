@@ -1,5 +1,6 @@
 import { GetRouteDetailUseCase } from '../application/use-cases/get-route-detail.use-case';
 import { Route } from '../domain/route';
+import { RouteStop } from '../domain/route-stop';
 import { RouteState } from '../domain/route-state';
 import { RouteStopState } from '../domain/route-stop-state';
 import {
@@ -148,5 +149,60 @@ describe('GetRouteDetailUseCase', () => {
     // Assert
     expect(result.startedAt).toBe(startedAt.toISOString());
     expect(result.completedAt).toBe(completedAt.toISOString());
+  });
+
+  it('returns enriched vehicle, courier, depot, zone, and stop package details when available', async () => {
+    // Arrange
+    const { useCase, repository } = createTestContext();
+    const stopWithPkg = new RouteStop({
+      id: 'stop-pkg-1',
+      tenantId: 'tenant-a',
+      routeId: 'route-enriched',
+      stopNumber: 1,
+      latitude: 10.9878,
+      longitude: -74.7889,
+      state: RouteStopState.PENDING,
+      packageId: 'pkg-123',
+      trackingCode: 'TRK-99999',
+      address: 'Carrera 43 # 80-120, Barranquilla',
+    });
+
+    const route = new Route(
+      createRoutePropsFixture({
+        id: 'route-enriched',
+        tenantId: 'tenant-a',
+        state: RouteState.READY,
+        vehicleId: 'veh-1',
+        courierId: 'courier-1',
+        vehiclePlate: 'COL-123',
+        courierEmail: 'courier@logistics.com',
+        depotName: 'Depósito Central',
+        zoneId: 'zone-north',
+        zoneName: 'Zona Norte',
+        stops: [stopWithPkg],
+      }),
+    );
+    repository.seed(route);
+    const query = createQuery({ routeId: 'route-enriched' });
+
+    // Act
+    const result = await useCase.execute(query);
+
+    // Assert
+    expect(result.vehiclePlate).toBe('COL-123');
+    expect(result.courierEmail).toBe('courier@logistics.com');
+    expect(result.depotName).toBe('Depósito Central');
+    expect(result.zoneId).toBe('zone-north');
+    expect(result.zoneName).toBe('Zona Norte');
+    expect(result.stops[0]).toEqual({
+      id: 'stop-pkg-1',
+      stopNumber: 1,
+      latitude: 10.9878,
+      longitude: -74.7889,
+      state: RouteStopState.PENDING,
+      packageId: 'pkg-123',
+      trackingCode: 'TRK-99999',
+      address: 'Carrera 43 # 80-120, Barranquilla',
+    });
   });
 });

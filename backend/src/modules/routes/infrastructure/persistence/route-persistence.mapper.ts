@@ -7,24 +7,47 @@ import { Route } from '../../domain/route';
 import { RouteStop } from '../../domain/route-stop';
 
 export type PrismaRouteWithStops = PrismaRoute & {
-  readonly stops?: readonly PrismaRouteStop[];
+  readonly stops?: readonly (PrismaRouteStop & {
+    readonly assignments?: readonly {
+      readonly package?: {
+        readonly id: string;
+        readonly trackingCode: string;
+        readonly address?: {
+          readonly originalText: string;
+        } | null;
+      } | null;
+    }[];
+  })[];
+  readonly vehicle?: { readonly plate: string } | null;
+  readonly courier?: { readonly user?: { readonly email: string } | null } | null;
+  readonly depot?: { readonly name: string } | null;
+  readonly planningRequest?: { readonly parameters?: unknown } | null;
 };
 
 export class RoutePersistenceMapper {
-  static toDomain(raw: PrismaRouteWithStops): Route {
+  static toDomain(raw: PrismaRouteWithStops, zoneName?: string | null): Route {
     const rawStops = raw.stops ?? [];
-    const domainStops = rawStops.map(
-      (s) =>
-        new RouteStop({
-          id: s.id,
-          tenantId: s.tenantId,
-          routeId: s.routeId,
-          stopNumber: s.sequence,
-          latitude: Number(s.latitude),
-          longitude: Number(s.longitude),
-          state: s.state,
-        }),
-    );
+    const domainStops = rawStops.map((s) => {
+      const assignment = s.assignments?.[0];
+      const pkg = assignment?.package;
+      return new RouteStop({
+        id: s.id,
+        tenantId: s.tenantId,
+        routeId: s.routeId,
+        stopNumber: s.sequence,
+        latitude: Number(s.latitude),
+        longitude: Number(s.longitude),
+        state: s.state,
+        packageId: pkg?.id ?? null,
+        trackingCode: pkg?.trackingCode ?? null,
+        address: pkg?.address?.originalText ?? null,
+      });
+    });
+
+    const params = raw.planningRequest?.parameters as
+      Record<string, unknown> | null | undefined;
+    const zoneId =
+      typeof params?.zoneId === 'string' ? params.zoneId : null;
 
     return new Route({
       id: raw.id,
@@ -41,6 +64,11 @@ export class RoutePersistenceMapper {
       plannedEndAt: raw.plannedEndAt,
       stops: domainStops,
       dispatchManifestSnapshot: raw.dispatchManifestSnapshot,
+      vehiclePlate: raw.vehicle?.plate ?? null,
+      courierEmail: raw.courier?.user?.email ?? null,
+      depotName: raw.depot?.name ?? null,
+      zoneId,
+      zoneName: zoneName ?? null,
     });
   }
 

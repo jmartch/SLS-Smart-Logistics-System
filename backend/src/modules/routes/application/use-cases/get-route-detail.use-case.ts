@@ -49,6 +49,9 @@ export class GetRouteDetailUseCase {
           latitude: stop.latitude,
           longitude: stop.longitude,
           state: stop.state,
+          ...(stop.packageId ? { packageId: stop.packageId } : {}),
+          ...(stop.trackingCode ? { trackingCode: stop.trackingCode } : {}),
+          ...(stop.address ? { address: stop.address } : {}),
         });
       }
     }
@@ -68,6 +71,11 @@ export class GetRouteDetailUseCase {
         : null,
       startedAt: route.startedAt ? route.startedAt.toISOString() : null,
       completedAt: route.completedAt ? route.completedAt.toISOString() : null,
+      vehiclePlate: route.vehiclePlate ?? null,
+      courierEmail: route.courierEmail ?? null,
+      depotName: route.depotName ?? null,
+      zoneId: route.zoneId ?? null,
+      zoneName: route.zoneName ?? null,
       stops: Object.freeze(stops),
     };
   }

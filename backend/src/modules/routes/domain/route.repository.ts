@@ -24,6 +24,10 @@ export interface RouteSummaryProjection {
   readonly startedAt?: Date | null;
   readonly completedAt?: Date | null;
   readonly stopCount: number;
+  readonly vehiclePlate?: string | null;
+  readonly courierEmail?: string | null;
+  readonly depotName?: string | null;
+  readonly zoneName?: string | null;
 }
 
 export interface RouteRepository {

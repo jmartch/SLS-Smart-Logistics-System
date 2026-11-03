@@ -31,6 +31,10 @@ describe('PrismaRouteRepository', () => {
       routeStop: {
         upsert: jest.fn(),
       },
+      zone: {
+        findUnique: jest.fn(),
+        findMany: jest.fn().mockResolvedValue([]),
+      },
     };
 
     repository = new PrismaRouteRepository(
@@ -54,6 +58,10 @@ describe('PrismaRouteRepository', () => {
         completedAt: null,
         plannedStartAt: new Date('2026-10-06T09:00:00Z'),
         plannedEndAt: new Date('2026-10-06T17:00:00Z'),
+        vehicle: { plate: 'ABC-123' },
+        courier: { user: { email: 'courier@sls.local' } },
+        depot: null,
+        planningRequest: { parameters: { zoneId: 'zone-1' } },
         stops: [
           {
             id: 'stop-1',
@@ -63,6 +71,15 @@ describe('PrismaRouteRepository', () => {
             latitude: new Prisma.Decimal('10.963889'),
             longitude: new Prisma.Decimal('-74.796389'),
             state: 'PENDING',
+            assignments: [
+              {
+                package: {
+                  id: 'pkg-1',
+                  trackingCode: 'TRK-001',
+                  address: { originalText: 'Calle 72 # 54-10' },
+                },
+              },
+            ],
           },
           {
             id: 'stop-2',
@@ -72,11 +89,13 @@ describe('PrismaRouteRepository', () => {
             latitude: new Prisma.Decimal('10.970000'),
             longitude: new Prisma.Decimal('-74.800000'),
             state: 'PENDING',
+            assignments: [],
           },
         ],
       };
 
       mockPrisma.route.findUnique.mockResolvedValue(rawRoute);
+      mockPrisma.zone.findUnique.mockResolvedValue({ name: 'Zona Norte' });
 
       // Act
       const result = await repository.findById(tenantId, routeId);
@@ -86,8 +105,15 @@ describe('PrismaRouteRepository', () => {
       expect(result?.id).toBe(routeId);
       expect(result?.tenantId).toBe(tenantId);
       expect(result?.state).toBe(RouteState.PLANNED);
+      expect(result?.vehiclePlate).toBe('ABC-123');
+      expect(result?.courierEmail).toBe('courier@sls.local');
+      expect(result?.zoneId).toBe('zone-1');
+      expect(result?.zoneName).toBe('Zona Norte');
       expect(result?.stops).toHaveLength(2);
       expect(result?.stops?.[0]?.stopNumber).toBe(1);
+      expect(result?.stops?.[0]?.packageId).toBe('pkg-1');
+      expect(result?.stops?.[0]?.trackingCode).toBe('TRK-001');
+      expect(result?.stops?.[0]?.address).toBe('Calle 72 # 54-10');
       expect(result?.stops?.[1]?.stopNumber).toBe(2);
       expect(mockPrisma.route.findUnique).toHaveBeenCalledWith({
         where: {
@@ -97,8 +123,40 @@ describe('PrismaRouteRepository', () => {
           },
         },
         include: {
+          vehicle: {
+            select: { plate: true },
+          },
+          courier: {
+            select: {
+              user: {
+                select: { email: true },
+              },
+            },
+          },
+          depot: {
+            select: { name: true },
+          },
+          planningRequest: {
+            select: { parameters: true },
+          },
           stops: {
             orderBy: { sequence: 'asc' },
+            include: {
+              assignments: {
+                where: { status: 'ACTIVE' },
+                select: {
+                  package: {
+                    select: {
+                      id: true,
+                      trackingCode: true,
+                      address: {
+                        select: { originalText: true },
+                      },
+                    },
+                  },
+                },
+              },
+            },
           },
         },
       });
@@ -197,6 +255,9 @@ describe('PrismaRouteRepository', () => {
           plannedEndAt: new Date('2026-10-06T17:00:00Z'),
           startedAt: null,
           completedAt: null,
+          vehicle: { plate: 'XYZ-789' },
+          courier: { user: { email: 'mensajero@sls.local' } },
+          depot: null,
           planningRequest: {
             parameters: { zoneId: 'zone-north' },
           },
@@ -204,6 +265,9 @@ describe('PrismaRouteRepository', () => {
             stops: 5,
           },
         },
+      ]);
+      mockPrisma.zone.findMany.mockResolvedValue([
+        { id: 'zone-north', name: 'Zona Norte' },
       ]);
 
       // Act
@@ -226,6 +290,9 @@ describe('PrismaRouteRepository', () => {
           vehicleId,
           courierId,
           zoneId: 'zone-north',
+          zoneName: 'Zona Norte',
+          vehiclePlate: 'XYZ-789',
+          courierEmail: 'mensajero@sls.local',
           stopCount: 5,
         }),
       );

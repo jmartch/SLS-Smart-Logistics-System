@@ -60,5 +60,10 @@ export function createRoutePropsFixture(
       overrides?.plannedStartAt ?? new Date('2026-10-06T09:00:00Z'),
     plannedEndAt: overrides?.plannedEndAt ?? new Date('2026-10-06T17:00:00Z'),
     stops: overrides?.stops ?? createValidStopsFixture(3, tenantId, id),
+    vehiclePlate: overrides?.vehiclePlate ?? null,
+    courierEmail: overrides?.courierEmail ?? null,
+    depotName: overrides?.depotName ?? null,
+    zoneId: overrides?.zoneId ?? null,
+    zoneName: overrides?.zoneName ?? null,
   };
 }

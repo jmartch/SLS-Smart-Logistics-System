@@ -8,6 +8,9 @@ export interface RouteStopProps {
   readonly latitude: number;
   readonly longitude: number;
   readonly state: RouteStopState;
+  readonly packageId?: string | null;
+  readonly trackingCode?: string | null;
+  readonly address?: string | null;
 }
 
 export class RouteStop {
@@ -42,5 +45,17 @@ export class RouteStop {
 
   get state(): RouteStopState {
     return this.props.state;
+  }
+
+  get packageId(): string | null | undefined {
+    return this.props.packageId;
+  }
+
+  get trackingCode(): string | null | undefined {
+    return this.props.trackingCode;
+  }
+
+  get address(): string | null | undefined {
+    return this.props.address;
   }
 }
