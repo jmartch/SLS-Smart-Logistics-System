@@ -4,6 +4,7 @@ import { AppShell } from "./app/AppShell"
 import { AdminTenantsPage } from "./app/admin/empresas/AdminTenantsPage"
 import { AdminUsersPage } from "./app/admin/usuarios/AdminUsersPage"
 import { AdminVehiclesPage } from "./app/admin/vehiculos/AdminVehiclesPage"
+import { AdminCouriersPage } from "./app/admin/mensajeros/AdminCouriersPage"
 import { ClassificationPage } from "./app/clasificacion/ClassificationPage"
 import { MyRoutePage } from "./app/mi-ruta/MyRoutePage"
 import { StopPage } from "./app/mi-ruta/paradas/[stopId]/StopPage"
@@ -65,6 +66,7 @@ export const router = createBrowserRouter([
       { path: "notificaciones", Component: NotificationsPage },
       { path: "admin/usuarios", Component: AdminUsersPage },
       { path: "admin/vehiculos", Component: AdminVehiclesPage },
+      { path: "admin/mensajeros", Component: AdminCouriersPage },
       { path: "admin/empresas", Component: AdminTenantsPage },
     ],
   },

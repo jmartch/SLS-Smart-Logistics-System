@@ -180,6 +180,59 @@ describe("routesApi & rutas/constants", () => {
     ).rejects.toThrow("El detalle de ruta recibido no cumple el contrato esperado.")
   })
 
+  it("mapea campos descriptivos (placa, email, zona, depósito, guía y dirección)", async () => {
+    const detailPayload = {
+      id: "30000000-0000-4000-8000-000000000099",
+      tenantId: "10000000-0000-4000-8000-000000000001",
+      state: "PLANNED",
+      vehicleId: "60000000-0000-4000-8000-000000000001",
+      vehiclePlate: "XYZ-789",
+      courierId: "70000000-0000-4000-8000-000000000001",
+      courierEmail: "carlos.mensajero@logistics.com",
+      depotId: "80000000-0000-4000-8000-000000000001",
+      depotName: "Depósito Centro",
+      zoneId: "50000000-0000-4000-8000-000000000001",
+      zoneName: "Zona Norte",
+      plannedStartAt: "2026-10-12T13:00:00.000Z",
+      plannedEndAt: null,
+      startedAt: null,
+      completedAt: null,
+      stops: [
+        {
+          id: "31000000-0000-4000-8000-000000000001",
+          stopNumber: 1,
+          latitude: 10.9961,
+          longitude: -74.806,
+          state: "PENDING",
+          packageId: "20000000-0000-4000-8000-000000000001",
+          trackingCode: "PKG-TRK-001",
+          address: "Calle 72 # 54-20",
+        },
+      ],
+    }
+
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(JSON.stringify(detailPayload), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      }),
+    )
+    vi.stubGlobal("fetch", fetchMock)
+
+    const detail = await getRouteDetail("30000000-0000-4000-8000-000000000099")
+    expect(detail.vehiclePlate).toBe("XYZ-789")
+    expect(detail.courierEmail).toBe("carlos.mensajero@logistics.com")
+    expect(detail.depotName).toBe("Depósito Centro")
+    expect(detail.zoneName).toBe("Zona Norte")
+    expect(detail.stops[0]?.trackingCode).toBe("PKG-TRK-001")
+    expect(detail.stops[0]?.address).toBe("Calle 72 # 54-20")
+
+    const mapStops = mapRouteDetailStopsToMapStops(detail.stops)
+    expect(mapStops[0]?.trackingCode).toBe("PKG-TRK-001")
+    expect(mapStops[0]?.address).toBe("Calle 72 # 54-20")
+    expect(mapStops[0]?.label).toBe("Guía PKG-TRK-001")
+  })
+
   it("formatea IDs abreviados y fechas planificadas o 'Sin fecha'", () => {
     expect(
       formatShortEntityId("60000000-0000-4000-8000-000000000001"),

@@ -1,6 +1,8 @@
 import { AlertCircle, ArrowLeft, Loader2, MapPin } from "lucide-react"
 import { useEffect, useState } from "react"
 import { Link, useParams } from "react-router"
+import { useAuth } from "../../../auth"
+import { RouteOperations } from "../RouteOperations"
 import { EmptyState } from "../../../shared/ui/EmptyState"
 import {
   ROUTE_STATUS_COLOR,
@@ -13,6 +15,7 @@ import {
 import { RouteMap } from "../RouteMap"
 import {
   getRouteDetail,
+  getRouteSummary,
   mapRouteDetailStopsToMapStops,
   type RouteDetailResult,
 } from "../routesApi"
@@ -23,10 +26,17 @@ export function RouteDetailPage() {
 }
 
 function RouteDetailView({ routeId }: { readonly routeId: string }) {
+  const { user } = useAuth()
   const [route, setRoute] = useState<RouteDetailResult | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [reloadCount, setReloadCount] = useState(0)
+  const [actionBusy, setActionBusy] = useState<string | null>(null)
+  const [actionFeedback, setActionFeedback] = useState<{
+    readonly kind: "success" | "error"
+    readonly message: string
+  } | null>(null)
+  const [summary, setSummary] = useState<Record<string, unknown> | null>(null)
 
   useEffect(() => {
     let active = true
@@ -36,6 +46,17 @@ function RouteDetailView({ routeId }: { readonly routeId: string }) {
         if (!active) return
         setRoute(detail)
         setError(null)
+        if (detail.state === "COMPLETED") {
+          void getRouteSummary(routeId)
+            .then((sum) => {
+              if (active) setSummary(sum)
+            })
+            .catch(() => {
+              if (active) setSummary(null)
+            })
+        } else {
+          setSummary(null)
+        }
       })
       .catch((err: unknown) => {
         if (!active) return
@@ -61,6 +82,30 @@ function RouteDetailView({ routeId }: { readonly routeId: string }) {
     setLoading(true)
     setError(null)
     setReloadCount((current) => current + 1)
+  }
+
+  const runAction = async (
+    label: string,
+    fn: () => Promise<unknown>,
+    successMessage: string,
+  ) => {
+    setActionBusy(label)
+    setActionFeedback(null)
+    try {
+      await fn()
+      setActionFeedback({ kind: "success", message: successMessage })
+      setReloadCount((current) => current + 1)
+    } catch (err: unknown) {
+      setActionFeedback({
+        kind: "error",
+        message:
+          err instanceof Error
+            ? err.message
+            : "No fue posible ejecutar la acción sobre la ruta.",
+      })
+    } finally {
+      setActionBusy(null)
+    }
   }
 
   if (loading) {
@@ -140,7 +185,10 @@ function RouteDetailView({ routeId }: { readonly routeId: string }) {
 
   return (
     <>
-      <div className="company-page-heading" style={{ alignItems: "flex-start" }}>
+      <div
+        className="company-page-heading"
+        style={{ alignItems: "flex-start" }}
+      >
         <div>
           <Link
             to="/app/rutas"
@@ -171,19 +219,34 @@ function RouteDetailView({ routeId }: { readonly routeId: string }) {
             Mensajero:{" "}
             <abbr
               title={route.courierId}
-              aria-label={`ID de mensajero ${route.courierId}`}
-              style={{ textDecoration: "none", fontFamily: "monospace" }}
+              aria-label={`Mensajero ${route.courierEmail ?? route.courierId}`}
+              style={{ textDecoration: "none" }}
             >
-              {formatShortEntityId(route.courierId)}
+              {route.courierEmail ?? formatShortEntityId(route.courierId)}
             </abbr>{" "}
             · Vehículo:{" "}
             <abbr
               title={route.vehicleId}
-              aria-label={`ID de vehículo ${route.vehicleId}`}
-              style={{ textDecoration: "none", fontFamily: "monospace" }}
+              aria-label={`Vehículo ${route.vehiclePlate ?? route.vehicleId}`}
+              style={{ textDecoration: "none" }}
             >
-              {formatShortEntityId(route.vehicleId)}
+              {route.vehiclePlate ?? formatShortEntityId(route.vehicleId)}
             </abbr>
+            {route.zoneName ? (
+              <>
+                {" "}
+                · Zona:{" "}
+                <abbr
+                  title={route.zoneId ?? undefined}
+                  aria-label={
+                    route.zoneId ? `Zona ${route.zoneName}` : undefined
+                  }
+                  style={{ textDecoration: "none" }}
+                >
+                  {route.zoneName}
+                </abbr>
+              </>
+            ) : null}
           </p>
         </div>
         <span
@@ -245,7 +308,8 @@ function RouteDetailView({ routeId }: { readonly routeId: string }) {
                 style={{
                   height: "100%",
                   width: `${progress}%`,
-                  background: "linear-gradient(90deg, var(--blue), var(--success))",
+                  background:
+                    "linear-gradient(90deg, var(--blue), var(--success))",
                   borderRadius: 999,
                   transition: "width 0.5s ease",
                 }}
@@ -348,13 +412,29 @@ function RouteDetailView({ routeId }: { readonly routeId: string }) {
                         style={{ color: "var(--navy)", fontSize: "0.82rem" }}
                       >
                         Parada #{stop.stopNumber}
+                        {stop.trackingCode
+                          ? ` · Guía: ${stop.trackingCode}`
+                          : ""}
                       </strong>
+                      {stop.address ? (
+                        <span
+                          style={{
+                            display: "block",
+                            color: "var(--blue-dark)",
+                            fontSize: "0.74rem",
+                            fontWeight: 600,
+                            marginTop: "0.15rem",
+                          }}
+                        >
+                          📍 {stop.address}
+                        </span>
+                      ) : null}
                       <span
                         style={{
                           display: "block",
                           color: "var(--text-muted)",
-                          fontSize: "0.68rem",
-                          fontFamily: "monospace",
+                          fontSize: "0.66rem",
+                          marginTop: "0.15rem",
                         }}
                       >
                         ID:{" "}
@@ -364,16 +444,8 @@ function RouteDetailView({ routeId }: { readonly routeId: string }) {
                           style={{ textDecoration: "none" }}
                         >
                           {formatShortEntityId(stop.id)}
-                        </abbr>
-                      </span>
-                      <span
-                        style={{
-                          display: "block",
-                          color: "var(--text-muted)",
-                          fontSize: "0.65rem",
-                        }}
-                      >
-                        Coordenadas: ({stop.latitude.toFixed(4)},{" "}
+                        </abbr>{" "}
+                        · Coordenadas: ({stop.latitude.toFixed(4)},{" "}
                         {stop.longitude.toFixed(4)})
                       </span>
                     </div>
@@ -389,68 +461,158 @@ function RouteDetailView({ routeId }: { readonly routeId: string }) {
           </div>
         </div>
 
-        <div className="dashboard-panel">
-          <div className="panel-heading">
-            <div>
-              <span
-                style={{
-                  color: "var(--text-muted)",
-                  fontSize: "0.65rem",
-                  fontWeight: 600,
-                }}
-              >
-                Resumen · Solo lectura
-              </span>
-              <h2>Datos de ruta</h2>
-            </div>
-          </div>
-          <dl style={{ display: "grid", gap: "0.9rem", margin: 0 }}>
-            {[
-              ["ID de ruta", route.id],
-              ["Estado", ROUTE_STATUS_LABELS[route.state] ?? route.state],
-              ["Mensajero (ID)", route.courierId],
-              ["Vehículo (ID)", route.vehicleId],
-              ["Depósito (ID)", route.depotId ?? "Sin depósito"],
-              ["Inicio planificado", formatPlannedDate(route.plannedStartAt)],
-              ["Fin planificado", formatPlannedDate(route.plannedEndAt)],
-              ["Inicio real", formatPlannedDate(route.startedAt)],
-              ["Cierre real", formatPlannedDate(route.completedAt)],
-              ["Total paradas", String(totalStops)],
-            ].map(([k, v]) => (
-              <div
-                key={k}
-                style={{
-                  display: "grid",
-                  gridTemplateColumns: "0.95fr 1.25fr",
-                  gap: "0.5rem",
-                }}
-              >
-                <dt
+        <div style={{ display: "grid", gap: "1rem" }}>
+          <div className="dashboard-panel">
+            <div className="panel-heading">
+              <div>
+                <span
                   style={{
                     color: "var(--text-muted)",
                     fontSize: "0.65rem",
-                    fontWeight: 700,
-                    textTransform: "uppercase",
-                    letterSpacing: "0.05em",
-                    alignSelf: "center",
-                  }}
-                >
-                  {k}
-                </dt>
-                <dd
-                  style={{
-                    margin: 0,
-                    color: "var(--navy)",
-                    fontSize: "0.75rem",
                     fontWeight: 600,
-                    overflowWrap: "anywhere",
                   }}
                 >
-                  {v}
-                </dd>
+                  Resumen · Solo lectura
+                </span>
+                <h2>Datos de ruta</h2>
               </div>
-            ))}
-          </dl>
+            </div>
+            <dl style={{ display: "grid", gap: "0.9rem", margin: 0 }}>
+              {[
+                { label: "ID de ruta", value: route.id, title: route.id },
+                {
+                  label: "Estado",
+                  value: ROUTE_STATUS_LABELS[route.state] ?? route.state,
+                },
+                {
+                  label: "Mensajero",
+                  value:
+                    route.courierEmail ?? formatShortEntityId(route.courierId),
+                  title: route.courierId,
+                },
+                {
+                  label: "Vehículo",
+                  value: route.vehiclePlate
+                    ? `${route.vehiclePlate} (${formatShortEntityId(route.vehicleId)})`
+                    : formatShortEntityId(route.vehicleId),
+                  title: route.vehicleId,
+                },
+                {
+                  label: "Zona",
+                  value:
+                    route.zoneName ??
+                    (route.zoneId
+                      ? formatShortEntityId(route.zoneId)
+                      : "Sin zona"),
+                  title: route.zoneId ?? undefined,
+                },
+                {
+                  label: "Depósito",
+                  value:
+                    route.depotName ??
+                    (route.depotId
+                      ? formatShortEntityId(route.depotId)
+                      : "Sin depósito"),
+                  title: route.depotId ?? undefined,
+                },
+                {
+                  label: "Inicio planificado",
+                  value: formatPlannedDate(route.plannedStartAt),
+                },
+                {
+                  label: "Fin planificado",
+                  value: formatPlannedDate(route.plannedEndAt),
+                },
+                {
+                  label: "Inicio real",
+                  value: formatPlannedDate(route.startedAt),
+                },
+                {
+                  label: "Cierre real",
+                  value: formatPlannedDate(route.completedAt),
+                },
+                { label: "Total paradas", value: String(totalStops) },
+              ].map(({ label, value, title }) => (
+                <div
+                  key={label}
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns: "0.95fr 1.25fr",
+                    gap: "0.5rem",
+                  }}
+                >
+                  <dt
+                    style={{
+                      color: "var(--text-muted)",
+                      fontSize: "0.65rem",
+                      fontWeight: 700,
+                      textTransform: "uppercase",
+                      letterSpacing: "0.05em",
+                      alignSelf: "center",
+                    }}
+                  >
+                    {label}
+                  </dt>
+                  <dd
+                    style={{
+                      margin: 0,
+                      color: "var(--navy)",
+                      fontSize: "0.75rem",
+                      fontWeight: 600,
+                      overflowWrap: "anywhere",
+                    }}
+                  >
+                    {title ? (
+                      <abbr title={title} style={{ textDecoration: "none" }}>
+                        {value}
+                      </abbr>
+                    ) : (
+                      value
+                    )}
+                  </dd>
+                </div>
+              ))}
+            </dl>
+          </div>
+
+          <RouteOperations
+            route={route}
+            permissions={user?.permissions ?? []}
+            actionBusy={actionBusy}
+            actionFeedback={actionFeedback}
+            runAction={runAction}
+          />
+
+          {summary && (
+            <div className="dashboard-panel">
+              <div className="panel-heading">
+                <div>
+                  <span
+                    style={{
+                      color: "var(--text-muted)",
+                      fontSize: "0.65rem",
+                      fontWeight: 600,
+                    }}
+                  >
+                    GET /api/v1/routes/:id/summary
+                  </span>
+                  <h2>Resumen de cierre</h2>
+                </div>
+              </div>
+              <pre
+                style={{
+                  margin: 0,
+                  padding: "0.75rem",
+                  background: "var(--surface-muted)",
+                  borderRadius: "var(--radius-sm)",
+                  fontSize: "0.68rem",
+                  overflowX: "auto",
+                }}
+              >
+                {JSON.stringify(summary, null, 2)}
+              </pre>
+            </div>
+          )}
         </div>
       </div>
     </>

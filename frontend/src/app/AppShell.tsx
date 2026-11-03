@@ -71,6 +71,7 @@ function navForRole(role: Role): NavItem[] {
         { to: "/app/rutas", label: "Rutas", icon: <Route size={17} /> },
         { to: "/app/admin/usuarios", label: "Usuarios", icon: <Users size={17} /> },
         { to: "/app/admin/vehiculos", label: "Vehículos", icon: <Truck size={17} /> },
+        { to: "/app/admin/mensajeros", label: "Mensajeros", icon: <Users size={17} /> },
         { to: "/app/notificaciones", label: "Notificaciones", icon: <Bell size={17} /> },
       ]
     case "superadmin":
@@ -156,6 +157,7 @@ function navForUser(user: User): NavItem[] {
     })
   }
   if (perms.has("MANAGE_TENANT")) {
+    items.push({ to: "/app/admin/mensajeros", label: "Mensajeros", icon: <Users size={17} /> })
     items.push({
       to: "/app/admin/vehiculos",
       label: "Vehículos",

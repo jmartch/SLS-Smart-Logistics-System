@@ -121,7 +121,7 @@ export function RoutesListPage() {
             className="company-table__head"
             style={{
               gridTemplateColumns:
-                "0.85fr 1.15fr 0.85fr 0.85fr 0.85fr 0.6fr 0.95fr 0.35fr",
+                "0.75fr 1.1fr 1.4fr 0.85fr 0.9fr 0.55fr 0.95fr 0.35fr",
             }}
           >
             <span>ID</span>
@@ -159,7 +159,7 @@ export function RoutesListPage() {
                 className="company-table__row"
                 style={{
                   gridTemplateColumns:
-                    "0.85fr 1.15fr 0.85fr 0.85fr 0.85fr 0.6fr 0.95fr 0.35fr",
+                    "0.75fr 1.1fr 1.4fr 0.85fr 0.9fr 0.55fr 0.95fr 0.35fr",
                 }}
               >
                 <strong>
@@ -175,29 +175,29 @@ export function RoutesListPage() {
                 <span>
                   <abbr
                     title={r.courierId}
-                    aria-label={`ID de mensajero ${r.courierId}`}
-                    style={{ textDecoration: "none", fontFamily: "monospace" }}
+                    aria-label={`Mensajero ${r.courierEmail ?? r.courierId}`}
+                    style={{ textDecoration: "none" }}
                   >
-                    {formatShortEntityId(r.courierId)}
+                    {r.courierEmail ?? formatShortEntityId(r.courierId)}
                   </abbr>
                 </span>
                 <span>
                   <abbr
                     title={r.vehicleId}
-                    aria-label={`ID de vehículo ${r.vehicleId}`}
-                    style={{ textDecoration: "none", fontFamily: "monospace" }}
+                    aria-label={`Vehículo ${r.vehiclePlate ?? r.vehicleId}`}
+                    style={{ textDecoration: "none" }}
                   >
-                    {formatShortEntityId(r.vehicleId)}
+                    {r.vehiclePlate ?? formatShortEntityId(r.vehicleId)}
                   </abbr>
                 </span>
                 <span>
-                  {r.zoneId ? (
+                  {r.zoneName || r.zoneId ? (
                     <abbr
-                      title={r.zoneId}
-                      aria-label={`ID de zona ${r.zoneId}`}
-                      style={{ textDecoration: "none", fontFamily: "monospace" }}
+                      title={r.zoneId ?? undefined}
+                      aria-label={r.zoneId ? `Zona ${r.zoneName ?? r.zoneId}` : undefined}
+                      style={{ textDecoration: "none" }}
                     >
-                      {formatShortEntityId(r.zoneId)}
+                      {r.zoneName ?? formatShortEntityId(r.zoneId!)}
                     </abbr>
                   ) : (
                     "Sin zona"

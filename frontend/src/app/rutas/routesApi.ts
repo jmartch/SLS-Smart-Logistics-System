@@ -108,6 +108,9 @@ export interface RouteDetailStopResult {
   readonly latitude: number
   readonly longitude: number
   readonly state: RouteStopState
+  readonly packageId?: string | null
+  readonly trackingCode?: string | null
+  readonly address?: string | null
 }
 
 export interface RouteDetailResult {
@@ -121,6 +124,11 @@ export interface RouteDetailResult {
   readonly plannedEndAt?: string | null
   readonly startedAt?: string | null
   readonly completedAt?: string | null
+  readonly vehiclePlate?: string | null
+  readonly courierEmail?: string | null
+  readonly depotName?: string | null
+  readonly zoneId?: string | null
+  readonly zoneName?: string | null
   readonly stops: readonly RouteDetailStopResult[]
 }
 
@@ -137,6 +145,10 @@ export interface RouteSummaryItemResult {
   readonly startedAt?: string | null
   readonly completedAt?: string | null
   readonly stopCount: number
+  readonly vehiclePlate?: string | null
+  readonly courierEmail?: string | null
+  readonly depotName?: string | null
+  readonly zoneName?: string | null
 }
 
 export interface PaginatedRoutesResult {
@@ -172,6 +184,10 @@ function validateRouteSummaryItem(raw: unknown): RouteSummaryItemResult {
     startedAt,
     completedAt,
     stopCount,
+    vehiclePlate,
+    courierEmail,
+    depotName,
+    zoneName,
   } = raw
 
   if (
@@ -186,6 +202,10 @@ function validateRouteSummaryItem(raw: unknown): RouteSummaryItemResult {
     !isNullableString(plannedEndAt) ||
     !isNullableString(startedAt) ||
     !isNullableString(completedAt) ||
+    !isNullableString(vehiclePlate) ||
+    !isNullableString(courierEmail) ||
+    !isNullableString(depotName) ||
+    !isNullableString(zoneName) ||
     typeof stopCount !== "number" ||
     !Number.isFinite(stopCount)
   ) {
@@ -205,6 +225,10 @@ function validateRouteSummaryItem(raw: unknown): RouteSummaryItemResult {
     startedAt: startedAt ?? null,
     completedAt: completedAt ?? null,
     stopCount,
+    vehiclePlate: vehiclePlate ?? null,
+    courierEmail: courierEmail ?? null,
+    depotName: depotName ?? null,
+    zoneName: zoneName ?? null,
   }
 }
 
@@ -213,7 +237,7 @@ function validateRouteDetailStop(raw: unknown): RouteDetailStopResult {
     throw new Error("Parada de ruta inválida en la respuesta del servidor.")
   }
 
-  const { id, stopNumber, latitude, longitude, state } = raw
+  const { id, stopNumber, latitude, longitude, state, packageId, trackingCode, address } = raw
 
   if (
     typeof id !== "string" ||
@@ -223,7 +247,10 @@ function validateRouteDetailStop(raw: unknown): RouteDetailStopResult {
     !Number.isFinite(latitude) ||
     typeof longitude !== "number" ||
     !Number.isFinite(longitude) ||
-    !isRouteStopState(state)
+    !isRouteStopState(state) ||
+    !isNullableString(packageId) ||
+    !isNullableString(trackingCode) ||
+    !isNullableString(address)
   ) {
     throw new Error("Una parada recibida no cumple el contrato esperado.")
   }
@@ -234,6 +261,9 @@ function validateRouteDetailStop(raw: unknown): RouteDetailStopResult {
     latitude,
     longitude,
     state,
+    packageId: packageId ?? null,
+    trackingCode: trackingCode ?? null,
+    address: address ?? null,
   }
 }
 
@@ -281,6 +311,11 @@ function validateRouteDetailResult(raw: unknown): RouteDetailResult {
     startedAt,
     completedAt,
     stops,
+    vehiclePlate,
+    courierEmail,
+    depotName,
+    zoneId,
+    zoneName,
   } = raw
 
   if (
@@ -294,6 +329,11 @@ function validateRouteDetailResult(raw: unknown): RouteDetailResult {
     !isNullableString(plannedEndAt) ||
     !isNullableString(startedAt) ||
     !isNullableString(completedAt) ||
+    !isNullableString(vehiclePlate) ||
+    !isNullableString(courierEmail) ||
+    !isNullableString(depotName) ||
+    !isNullableString(zoneId) ||
+    !isNullableString(zoneName) ||
     !Array.isArray(stops)
   ) {
     throw new Error("El detalle de ruta recibido no cumple el contrato esperado.")
@@ -311,6 +351,11 @@ function validateRouteDetailResult(raw: unknown): RouteDetailResult {
     startedAt: startedAt ?? null,
     completedAt: completedAt ?? null,
     stops: stops.map(validateRouteDetailStop),
+    vehiclePlate: vehiclePlate ?? null,
+    courierEmail: courierEmail ?? null,
+    depotName: depotName ?? null,
+    zoneId: zoneId ?? null,
+    zoneName: zoneName ?? null,
   }
 }
 
@@ -367,6 +412,72 @@ export function mapRouteDetailStopsToMapStops(
       latitude: stop.latitude,
       longitude: stop.longitude,
       state: stop.state,
+      ...(stop.trackingCode ? { label: `Guía ${stop.trackingCode}`, trackingCode: stop.trackingCode } : {}),
+      ...(stop.address ? { address: stop.address } : {}),
     }))
     .sort((a, b) => a.stopNumber - b.stopNumber)
+}
+
+export async function prepareRoute(
+  routeId: string,
+  depotConfirmed = true,
+): Promise<RouteOperationResult> {
+  return apiFetch<RouteOperationResult>(
+    `/routes/${encodeURIComponent(routeId.trim())}/prepare`,
+    {
+      method: "POST",
+      body: JSON.stringify({ depotConfirmed }),
+    },
+  )
+}
+
+export async function startRoute(
+  routeId: string,
+): Promise<RouteOperationResult> {
+  return apiFetch<RouteOperationResult>(
+    `/routes/${encodeURIComponent(routeId.trim())}/start`,
+    {
+      method: "POST",
+      body: JSON.stringify({}),
+    },
+  )
+}
+
+export async function cancelRoute(
+  routeId: string,
+  reasonCode: string,
+  reason?: string,
+): Promise<RouteOperationResult> {
+  return apiFetch<RouteOperationResult>(
+    `/routes/${encodeURIComponent(routeId.trim())}/cancel`,
+    {
+      method: "POST",
+      body: JSON.stringify({ reasonCode, reason }),
+    },
+  )
+}
+
+export async function interruptRoute(
+  routeId: string,
+  reasonCode: string,
+  reason?: string,
+): Promise<RouteOperationResult> {
+  return apiFetch<RouteOperationResult>(
+    `/routes/${encodeURIComponent(routeId.trim())}/interrupt`,
+    {
+      method: "POST",
+      body: JSON.stringify({ reasonCode, reason }),
+    },
+  )
+}
+
+export async function getRouteSummary(
+  routeId: string,
+): Promise<Record<string, unknown>> {
+  return apiFetch<Record<string, unknown>>(
+    `/routes/${encodeURIComponent(routeId.trim())}/summary`,
+    {
+      method: "GET",
+    },
+  )
 }
