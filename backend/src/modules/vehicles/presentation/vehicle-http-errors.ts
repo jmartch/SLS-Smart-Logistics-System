@@ -1,4 +1,13 @@
-import { BadRequestException, ConflictException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ConflictException,
+  NotFoundException,
+} from '@nestjs/common';
+import {
+  VehicleDomainError,
+  VehicleNotFoundError,
+  VehicleValidationError,
+} from '../domain/vehicle-errors';
 import {
   InvalidVehicleError,
   type InvalidVehicleReason,
@@ -20,6 +29,20 @@ const REASON_MESSAGES: Record<InvalidVehicleReason, string> = {
 };
 
 export function handleVehicleDomainError(error: unknown): never {
+  if (error instanceof VehicleDomainError) {
+    const payload = {
+      code: error.code,
+      message: error.message,
+      ...(error.field
+        ? { field: error.field, fields: { [error.field]: error.message } }
+        : {}),
+    };
+    if (error instanceof VehicleNotFoundError)
+      throw new NotFoundException(payload);
+    if (error instanceof VehicleValidationError)
+      throw new BadRequestException(payload);
+    throw new ConflictException(payload);
+  }
   if (error instanceof InvalidVehicleError) {
     const detail = `${FIELD_LABELS[error.field]} ${REASON_MESSAGES[error.reason]}`;
 

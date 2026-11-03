@@ -5,6 +5,8 @@ import { PermissionsGuard } from '../../auth/presentation/permissions.guard';
 import { REQUIRED_PERMISSION_KEY } from '../../auth/presentation/require-permission.decorator';
 import type { RequestContext } from '../../../shared/presentation/request-context.decorator';
 import { RegisterVehicleService } from '../application/register-vehicle.service';
+import { ManageVehicleService } from '../application/manage-vehicle.service';
+import { ListVehiclesUseCase } from '../application/list-vehicles.use-case';
 import { InvalidVehicleError } from '../domain/invalid-vehicle.error';
 import {
   MANAGE_VEHICLES_PERMISSION,
@@ -25,11 +27,66 @@ function createFixture() {
   const execute = jest.fn();
   const service = { execute } as unknown as RegisterVehicleService;
 
-  return { execute, controller: new VehiclesController(service) };
+  const list = jest.fn();
+  return {
+    execute,
+    list,
+    controller: new VehiclesController(
+      service,
+      {
+        execute: list,
+      } as unknown as ListVehiclesUseCase,
+      {} as ManageVehicleService,
+    ),
+  };
 }
 
 describe('VehiclesController', () => {
+  it.each(['detail', 'update', 'changeStatus'] as const)(
+    'protects %s with tenant management permission',
+    (method) => {
+      expect(
+        Reflect.getMetadata(
+          REQUIRED_PERMISSION_KEY,
+          VehiclesController.prototype[method],
+        ),
+      ).toBe('MANAGE_TENANT');
+    },
+  );
   const body = { plate: 'abc123', maxWeightKg: 1200.5, maxVolumeM3: 8.25 };
+
+  it('protects vehicle reads and derives the tenant from the session', async () => {
+    const { controller, list } = createFixture();
+    list.mockResolvedValue({ items: [], total: 0, page: 2, pageSize: 10 });
+    expect(
+      Reflect.getMetadata(
+        REQUIRED_PERMISSION_KEY,
+        VehiclesController.prototype.list,
+      ),
+    ).toBe('MANAGE_TENANT');
+    await controller.list(context, {
+      page: '2',
+      pageSize: '10',
+      tenantId: 'other-tenant',
+    });
+    expect(list).toHaveBeenCalledWith(TENANT_ID, {
+      page: 2,
+      pageSize: 10,
+      search: undefined,
+      status: undefined,
+    });
+  });
+
+  it.each([
+    { page: '0' },
+    { pageSize: '101' },
+    { status: 'BROKEN' },
+    { page: ['1', '2'] },
+  ])('rejects invalid list query %j', (query) => {
+    const { controller, list } = createFixture();
+    expect(() => controller.list(context, query)).toThrow(BadRequestException);
+    expect(list).not.toHaveBeenCalled();
+  });
 
   it('protects POST /vehicles with AuthGuard, PermissionsGuard and MANAGE_TENANT', () => {
     const guards = Reflect.getMetadata(
