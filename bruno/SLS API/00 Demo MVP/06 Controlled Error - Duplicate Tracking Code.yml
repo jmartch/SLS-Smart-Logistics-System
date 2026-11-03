@@ -14,7 +14,7 @@ http:
     type: json
     data: |-
       {
-        "trackingCode": "PKG-BAQ-0001",
+        "trackingCode": "OSM-DEMO-329842F6-1",
         "address": {
           "text": "Carrera 54 # 70-15, El Prado, Barranquilla",
           "municipalityCode": "08001"

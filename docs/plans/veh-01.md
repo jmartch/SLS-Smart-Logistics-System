@@ -6,11 +6,11 @@
 | --- | --- |
 | Módulo | `VEH-01` |
 | Dominio | Vehículos, mensajeros, disponibilidad y capacidad |
-| Estado general | `TODO` para el encargo funcional |
+| Estado general | `IN_PROGRESS` |
 | Asignación | Vivian |
-| Rama observada | `develop` |
-| Última auditoría | 2026-09-29; plan finalizado 2026-09-30 |
-| Commit auditado | `8cdb2c4` |
+| Rama observada | `feature/mvp-demo-flow` |
+| Última auditoría | 2026-10-13 |
+| Commit auditado | `4e03970`; cambios de planificación posteriores aún sin commit |
 | Informe | [VEH-01](../modules/veh-01-report.md) |
 | Coordinación | [Puntos 1 y 2](mvp-puntos-1-2.md) |
 
@@ -39,12 +39,13 @@ DATA-01; AUTH-01/TENANT-01 para acceso; servicio público de usuarios de AUTH pa
 - [backend/src/modules/assignments/infrastructure/prisma-assignment-reservation.ts](../../backend/src/modules/assignments/infrastructure/prisma-assignment-reservation.ts)
 - [docs/adr/002-assignment-integrity.md](../../docs/adr/002-assignment-integrity.md)
 - [docs/geospatial/gdb-01-report.md](../../docs/geospatial/gdb-01-report.md)
+- [Contrato administrativo propuesto](../modules/veh-01-contract.md)
 
 ## Diagnóstico actual
 
-Existen Vehicle, Courier, VehicleShift y CourierShift, estados e índices. Courier requiere User del mismo tenant; no es una segunda cuenta. Hay reserva transaccional y tests de asignación, pero no módulos operativos vehicles/couriers. ADR-002 advierte que editar capacidades debe coordinarse con bloqueos/recálculo de la reserva: una simple lectura seguida de UPDATE introduce una carrera.
+Existen `Vehicle`, `Courier`, `Depot`, `VehicleShift` y `CourierShift`, estados e índices. `POST /vehicles` y `POST /couriers` están implementados, protegidos con sesión y `MANAGE_TENANT`, probados y confirmados en `649f34d`/`7356d59`. Courier requiere un User activo del mismo tenant; no es una segunda cuenta. El workspace de planificación en el árbol de trabajo consulta depósitos, capacidades, turnos y ocupación, pero no constituye una API administrativa.
 
-La asignación no equivale a implementación. El código base está confirmado en `8cdb2c4`; las comprobaciones de esta auditoría son estáticas. Los nuevos contratos/runners/rutas son propuestas pendientes, no herramientas o endpoints disponibles. No se ejecutaron builds ni tests ni se modificó la base compartida para elaborar este plan.
+Vehículos ya permite listado, alta, detalle, edición y cambio de estado con `MANAGE_TENANT`, capacidades exactas y acciones reales en `AdminVehiclesPage`. Las ediciones y estados se auditan atómicamente y respetan carga activa/rutas comprometidas bajo bloqueo serializable; la carrera con reserva y el rollback de auditoría se probaron en PostgreSQL real. Mensajeros ya permite listado/detalle, candidatos de usuarios activos, vinculación y cambio de estado con auditoría atómica y protección frente a compromiso. El directorio lo posee `UsersModule` y no expone credenciales. Siguen pendientes depósitos y turnos. El árbol contiene además cambios previos de planificación.
 
 ## Criterios de aceptación
 
@@ -59,16 +60,24 @@ La asignación no equivale a implementación. El código base está confirmado e
 
 | Paso | Fase | Responsable | Estado | Dependencias | Aceptación | Evidencia |
 | --- | --- | --- | --- | --- | --- | --- |
-| 1 | Contrato operativo | `USER` | `TODO` | Contrato AUTH/TENANT; ADR-002 | Ejemplos de recurso activo ocupado, sin turno, mantenimiento, usuario ajeno y capacidad insuficiente resueltos. | Pendiente |
-| 2 | Reglas y pruebas | `USER` | `TODO` | 1 | Pruebas de bordes/precisión, intervalos inválidos y elegibilidad; imports independientes de Nest/Prisma. | Pendiente |
-| 3 | Casos de uso y adapters | `USER` | `TODO` | 2; gateway users acordado | Duplicados y recursos ajenos controlados; capacidades/turnos persistidos sin romper FK ni historia. | Pendiente |
-| 4 | Consistencia con reservas | `USER` | `TODO` | 3; ADR-002 | Dos operaciones concurrentes de reserva/edición nunca dejan carga mayor al máximo; historial de asignaciones preservado. | Pendiente |
-| 5 | HTTP y consumo | `USER` | `TODO` | 4; AUTH/TENANT HTTP | Demo autenticada de alta/cambio/consulta; usuario sin permiso rechazado y tenant ajeno invisible. | Pendiente |
-| 6 | Verificación y documentación | `USER` | `TODO` | 5 | Pruebas relevantes y regresión pasan; contrato listo para ASSIGN-01; informe enlazado. | Pendiente |
+| 1 | Contrato operativo | `USER` | `IN_PROGRESS` | Contrato AUTH/TENANT; ADR-002 | Ejemplos de recurso activo ocupado, sin turno, mantenimiento, usuario ajeno y capacidad insuficiente resueltos. | Contrato aprobado; corte de listado de vehículos verificado; políticas de mutación pendientes |
+| 2 | Reglas y pruebas | `USER` | `IN_PROGRESS` | 1 | Pruebas de bordes/precisión, intervalos inválidos y elegibilidad; imports independientes de Nest/Prisma. | Placa, capacidad, estados y elegibilidad de mensajeros probados; depósitos/turnos pendientes |
+| 3 | Casos de uso y adapters | `USER` | `IN_PROGRESS` | 2; gateway users acordado | Duplicados y recursos ajenos controlados; capacidades/turnos persistidos sin romper FK ni historia. | Vehículos/mensajeros implementados; lector público users integrado; depósitos/turnos pendientes |
+| 4 | Consistencia con reservas | `USER` | `IN_PROGRESS` | 3; ADR-002 | Dos operaciones concurrentes de reserva/edición nunca dejan carga mayor al máximo; historial de asignaciones preservado. | Vehículo: carrera reserva/reducción verificada. Mensajero: compromiso, vínculo concurrente y rollback verificados; carrera con planificación completa y turnos pendientes |
+| 5 | HTTP y consumo | `USER` | `IN_PROGRESS` | 4; AUTH/TENANT HTTP | Demo autenticada de alta/cambio/consulta; usuario sin permiso rechazado y tenant ajeno invisible. | Vehículos y mensajeros conectados con UI, permisos y aislamiento A/B; depósitos/turnos pendientes |
+| 6 | Verificación y documentación | `USER` | `IN_PROGRESS` | 5 | Pruebas relevantes y regresión pasan; contrato listo para ASSIGN-01; informe enlazado. | 152 suites/1332 pruebas backend; 63 E2E; 59 pruebas frontend y builds aprobados; módulo parcial |
 
 ## Paso actual
 
-Empezar únicamente por el paso 1: publicar el contrato mínimo con ejemplos y casos de rechazo. Se puede completar con la evidencia del repositorio antes de disponer de endpoints integrados. No cambiar el estado general a `DONE` por tener tablas o clases base.
+Primer corte terminado localmente: `GET /vehicles` con capacidad ocupada/disponible derivada, paginación, búsqueda, estado y `MANAGE_TENANT`. Verificado con 7 suites/72 pruebas unitarias de vehículos, build backend y 40 pruebas HTTP de `registration-01` sobre PostgreSQL/PostGIS desechable. Sin commit de este corte.
+
+Segundo corte terminado localmente: `AdminVehiclesPage` conecta listado y alta reales, búsqueda, paginación, estados, carga/vacío/error/reintento, permiso denegado y errores por campo. Verificado con 7 archivos/43 pruebas frontend, build aprobado, lint con 0 errores (15 advertencias existentes), y navegador demo para carga real, búsqueda vacía y placa duplicada.
+
+Tercer corte terminado localmente (2026-10-13): detalle, edición y estado de vehículos con política de capacidad/compromiso en dominio, escritura serializable, bloqueo de vehículo y auditoría atómica. Verificado: 8 suites/96 pruebas unitarias de vehículos, 49 E2E `registration-01`, builds backend/frontend y 7 archivos/48 pruebas frontend; lint frontend sin errores, con 15 advertencias previas. Navegador: detalle real, estados comprometidos bloqueados y rechazo de reducción inválida.
+
+Cuarto corte terminado localmente (2026-10-13): administración de mensajeros con listado/detalle, directorio paginado de usuarios elegibles, alta auditada y cambio de estado transaccional. UI real en `/app/admin/mensajeros`, sin crear cuentas ni modificar roles/permisos. Verificado con 57 pruebas unitarias de mensajeros, regresión backend completa de 152 suites/1332 pruebas, 63 E2E `registration-01` y frontend 8 archivos/59 pruebas; builds aprobados y lint sin errores. Navegador: datos reales, usuarios candidatos e inactivación deshabilitada por 3 asignaciones y 1 ruta. Sin escrituras exitosas sobre la base compartida durante la comprobación visual.
+
+Siguiente corte: depósitos — listado/detalle/alta/edición, coordenadas, zona horaria y horario validados, auditoría y pantalla real. Después turnos. Los cortes de administración siguen sin commit. Queda por demostrar específicamente la carrera mensajero/planificación completa; este corte prueba vinculación concurrente y mantiene bloqueos compatibles con el planificador existente, sin atribuirle una E2E de esa carrera.
 
 ## Fichas de implementación
 
@@ -76,7 +85,7 @@ Empezar únicamente por el paso 1: publicar el contrato mínimo con ejemplos y c
 
 **Objetivo y razón:** Acordar normalización placa, unidades, elegibilidad usuario, estados, fecha/intervalo de consulta, zona horaria y política de turnos/solapamientos. Proponer /vehicles, /couriers, acciones de estado, /shifts y consulta de disponibilidad/capacidad.
 
-**Dependencias:** Contrato AUTH/TENANT; ADR-002. **Estado:** `TODO`. **Responsable:** `USER`.
+**Dependencias:** Contrato AUTH/TENANT; ADR-002. **Estado:** `REVIEW`. **Responsable:** `USER`.
 
 **Archivos esperados:** docs/modules/veh-01-contract.md (nuevo); backend/prisma/schema/routing.prisma; calendar.prisma. Las rutas nuevas son propuestas; adaptar nombres al contrato sin crear capas vacías.
 
@@ -88,7 +97,7 @@ Empezar únicamente por el paso 1: publicar el contrato mínimo con ejemplos y c
 
 **Lote mecánico posible:** sincronizar documentación y referencias de este paso; scaffolding/imports/wiring solo cuando se solicite una transformación ya determinada. Las decisiones de dominio, autorización, SQL, migraciones y concurrencia corresponden a `USER`.
 
-**Evidencia obtenida:** ninguna de implementación nueva; completar con comando, resultado, fecha y commit al ejecutar el paso.
+**Evidencia obtenida:** borrador `docs/modules/veh-01-contract.md`, reconciliado el 2026-10-12 con controladores, puertos, esquema, frontend e historial actual. Falta aprobación del contrato.
 
 ### Paso 2 — Reglas y pruebas
 
@@ -214,6 +223,11 @@ Conservar salida real, base/servidor de prueba, casos cubiertos y fallos pendien
 | --- | --- | --- | --- | --- |
 | 2026-09-29 | Auditoría inicial | Existen Vehicle, Courier, VehicleShift y CourierShift, estados e índices. | Lectura estática de fuentes; no ejecución | Base `8cdb2c4` |
 | 2026-09-30 | Planificación | Plan y reporte creados; responsabilidades y aceptación explícitas | Revisión documental y enlaces | Sin commit |
+| 2026-10-12 | Auditoría Bloque 8 | Confirmadas altas de vehículos/mensajeros; faltan lecturas, ediciones, estados, depósitos, turnos y frontend. Se redactó contrato administrativo propuesto y se aisló el trabajo sucio de planificación. | Inspección estática de schema, módulos, frontend, historial y árbol de trabajo; sin ejecutar pruebas nuevas | `649f34d`, `7356d59`; documentación en árbol de trabajo |
+| 2026-10-12 | Primer corte aprobado | `GET /vehicles` tenant-scoped, paginado, filtrado por placa/estado y capacidad decimal derivada de asignaciones activas. Pruebas de 401/403, identidad de sesión, aislamiento A/B, histórico excluido y precisión real. | `docker compose exec backend npm test -- --runInBand modules/vehicles`: 7 suites/72 pruebas; `make integration-test TEST=registration-01`: build aprobado y 40 pruebas E2E aprobadas; base aleatoria eliminada por runner | Sin commit |
+| 2026-10-12 | Segundo corte — UI vehículos | Sustituido stub con listado, registro, capacidad, filtros y paginación reales. Cliente valida respuestas y conserva errores por campo de API. | Frontend: 7 archivos/43 pruebas; build PASS; lint 0 errores, 15 advertencias existentes; navegador: BAQ101 con carga real, búsqueda sin resultados y conflicto de placa | Sin commit |
+| 2026-10-13 | Tercer corte — edición/estado de vehículos | Detalle, PATCH parcial y estado con `MANAGE_TENANT`, capacidad exacta, bloqueo de recurso comprometido, transacción serializable y `AuditLog` atómico. UI con panel de edición y errores traducidos por código. | 8 suites/96 pruebas vehículos; build backend; 49 E2E en PostgreSQL/PostGIS desechable, aislamiento/rollback/carrera con reserva; 7 archivos/48 pruebas frontend, build y lint 0 errores; navegador BAQ101 verificado | Sin commit |
+| 2026-10-13 | Cuarto corte — mensajeros | Listado/detalle/candidatos/alta/estado reales; lector público users; compromiso y auditoría atómica con rollback de alta/estado; UI sin mocks | 152 suites/1332 pruebas backend; 63 E2E en base desechable; 8 archivos/59 pruebas frontend; builds, lint y navegador verificados | Sin commit |
 
 ## Cierre
 

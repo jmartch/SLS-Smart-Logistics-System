@@ -1,17 +1,19 @@
 # Auditoría de integración frontend–API
 
-Fecha de auditoría: 2026-10-12
+Fecha de auditoría: 2026-10-13
 
 Alcance: rutas activas de `frontend/src/routes.tsx`, controladores registrados por `backend/src/app.module.ts` y árbol de trabajo actual.
 
 Plan relacionado: [`docs/plans/ui-01-04.md`](../plans/ui-01-04.md)
 
+Revalidación del demo y del entorno: [DEMO-01, 2026-10-13](../demo/demo-01-report.md). Builds y pruebas actuales pasan; entregas/cierre web y notificaciones siguen pendientes.
+
 ## Resumen ejecutivo
 
-- El backend publica **42 endpoints de negocio bajo `/api/v1`** y un endpoint raíz de salud.
-- **19 endpoints** son consumidos por alguna ruta activa del frontend.
-- **23 endpoints** existen, pero ninguna pantalla activa los consume.
-- De las 14 pantallas privadas activas: 8 consumen datos reales de forma principal, 5 usan datos simulados y 1 es un stub.
+- El backend publica **52 endpoints de negocio bajo `/api/v1`** y un endpoint raíz de salud.
+- **35 endpoints** son consumidos por alguna ruta activa del frontend.
+- **17 endpoints** existen, pero ninguna pantalla activa los consume todavía.
+- De las 15 pantallas privadas activas: 12 consumen datos reales de forma principal y 3 usan datos simulados.
 - El rastreo público sigue completamente simulado.
 - El portal legado bajo `/empresa` fue retirado de la navegación; sus archivos con mocks permanecen en el árbol, pero no son rutas activas.
 - La configuración de ejemplo y Docker Compose usan `VITE_USE_MOCK_DATA=false`; el registro activo obtiene sus catálogos desde la API.
@@ -25,15 +27,16 @@ Plan relacionado: [`docs/plans/ui-01-04.md`](../plans/ui-01-04.md)
 | Registro de paquete | `/app/paquetes/nuevo` | API real | `POST /packages`, `GET /zones`, `GET /zones/:id/sectors`, `GET /shipment-types` | Sin IDs codificados ni generadores demo en el flujo activo |
 | Detalle de paquete | `/app/paquetes/:packageId` | API real | `GET /packages/:id` | Presenta únicamente los datos disponibles en el contrato actual |
 | Clasificación | `/app/clasificacion` | API real | `GET /packages?state=REGISTERED`, `POST /packages/:id/classify`, `GET /zones`, `GET /zones/:id/sectors` | Conectado sin `mockData.ts` |
-| Pendientes de asignación | `/app/pendientes` | Mock | `PACKAGES` | Falta consulta de pendientes con motivo y operación manual de asignación/reasignación |
-| Planificación | `/app/planificacion` | Mock | `PACKAGES` y temporizador | Falta workspace de recursos y contrato para recalcular una ruta `PLANNED` existente |
+| Pendientes de asignación | `/app/pendientes` | API real | `GET /routes/planning/workspace`, `POST /routes/planning/routes/:id/replan` | Implementado localmente; falta validación integrada y commit |
+| Planificación | `/app/planificacion` | API real | `GET /routes/planning/workspace`, `POST /routes/planning/plan-and-assign`, `POST /routes/planning/routes/:id/replan` | Implementado localmente; falta validación integrada y commit |
 | Listado de rutas | `/app/rutas` | API real | `GET /routes` | Mostrar nombres operativos en vez de UUID cuando existan catálogos |
-| Detalle de ruta | `/app/rutas/:routeId` | API real, solo lectura | `GET /routes/:id` | Conectar preparar/cancelar/resumen y replanificación editable |
-| Mi ruta | `/app/mi-ruta` | Mock | `ROUTES` | Conectar manifiesto del mensajero y resolver autorización de consulta/inicio |
+| Detalle de ruta | `/app/rutas/:routeId` | API real con acciones por permiso | `GET /routes/:id`, `POST /routes/:id/prepare`, `POST /routes/:id/start`, `POST /routes/:id/interrupt`, `POST /routes/:id/cancel`, `GET /routes/:id/summary` | Preparar/replanificar/cancelar requieren COORDINATE_ROUTES; iniciar/interrumpir admiten OPERATE_DELIVERIES; el backend valida permisos y pertenencia. Mensajero en PLANNED ve aviso de preparación pendiente |
+| Mi ruta | `/app/mi-ruta` | API real | `GET /routes` y detalle `/app/rutas/:routeId` | Lista paginada derivada de sesión; muestra rutas planificadas y activas, carga, 401, 403 y errores; vacío solo tras respuesta correcta |
 | Resultado de parada | `/app/mi-ruta/paradas/:stopId` | Mock | `ROUTES` y temporizador | Conectar atender, entrega exitosa/fallida, evidencia e incidentes |
 | Notificaciones | `/app/notificaciones` | Mock | `NOTIFICATIONS` | Falta módulo HTTP de notificaciones y marcar leídas |
 | Usuarios | `/app/admin/usuarios` | API real | cinco endpoints `/users` | Sin brecha principal observada en el cliente |
-| Vehículos | `/app/admin/vehiculos` | Stub | Ninguna | Backend solo permite crear; faltan listado, edición, estado, turnos y UI |
+| Vehículos | `/app/admin/vehiculos` | API real | `GET /vehicles`, `POST /vehicles`, `GET /vehicles/:id`, `PATCH /vehicles/:id`, `PATCH /vehicles/:id/status` | Listado, alta, capacidades, detalle, edición y estado; selección automática sin exigir turnos |
+| Mensajeros | `/app/admin/mensajeros` | API real | `GET /couriers`, `GET /couriers/eligible-users`, `GET /couriers/:id`, `POST /couriers`, `PATCH /couriers/:id/status` | Vinculación a usuario activo, listado, detalle, compromiso y estado auditados; selección automática sin exigir turnos |
 | Empresas SaaS | `/app/admin/empresas` | API real parcial | `POST /platform/tenants` | Solo aprovisiona; falta listado/estado si se quiere administración completa |
 | Rastreo público | `/track` | Mock | `PACKAGES` | Falta endpoint público seguro por identificador no sensible |
 
@@ -80,23 +83,33 @@ Todos los endpoints de negocio usan el prefijo `/api/v1`. La columna “Uso acti
 
 | API | Uso activo | Consumidor | Observación |
 | --- | --- | --- | --- |
-| `POST /vehicles` | No | — | `AdminVehiclesPage` es un stub; no existen lecturas de vehículos |
-| `POST /couriers` | No | — | No existe pantalla de mensajeros ni endpoints de lectura |
-| `POST /routes/planning/plan-and-assign` | No | — | `PlanningPage` simula el resultado. Guards agregados y verificados |
+| `GET /vehicles` | Sí | `AdminVehiclesPage.tsx` mediante `vehiclesApi.ts` | Listado paginado y filtrado con capacidad derivada y `MANAGE_TENANT` |
+| `POST /vehicles` | Sí | `AdminVehiclesPage.tsx` mediante `vehiclesApi.ts` | Alta con errores por campo y actualización del listado |
+| `GET /vehicles/:vehicleId` | Sí | `VehicleEditor.tsx` mediante `vehiclesApi.ts` | Detalle con capacidad y compromiso |
+| `PATCH /vehicles/:vehicleId` | Sí | `VehicleEditor.tsx` mediante `vehiclesApi.ts` | Edición parcial con validación de carga y auditoría atómica |
+| `PATCH /vehicles/:vehicleId/status` | Sí | `VehicleEditor.tsx` mediante `vehiclesApi.ts` | Estado protegido frente a compromiso y auditado |
+| `GET /couriers` | Sí | `AdminCouriersPage.tsx` mediante `couriersApi.ts` | Paginación, búsqueda por correo, estado y compromiso |
+| `GET /couriers/eligible-users` | Sí | `AdminCouriersPage.tsx` mediante `couriersApi.ts` | Directorio mínimo de usuarios activos no vinculados; no requiere administrar empleados |
+| `GET /couriers/:courierId` | Sí | `CourierEditor` mediante `couriersApi.ts` | Cuenta, estado operativo, asignaciones activas y rutas sin cerrar |
+| `POST /couriers` | Sí | `AdminCouriersPage.tsx` mediante `couriersApi.ts` | Alta existente ahora con elegibilidad y auditoría en una transacción |
+| `PATCH /couriers/:courierId/status` | Sí | `CourierEditor` mediante `couriersApi.ts` | Inactivación protegida y reactivación con usuario activo; auditoría atómica |
+| `GET /routes/planning/workspace` | Sí | `PlanningPage.tsx`, `PendingAssignmentsPage.tsx` mediante `planningApi.ts` | Publica recursos, candidatos y rutas `PLANNED` editables con `COORDINATE_ROUTES` |
+| `POST /routes/planning/plan-and-assign` | Sí | `PlanningPage.tsx` mediante `planningApi.ts` | La planificación solo se ejecuta por acción del coordinador |
+| `POST /routes/planning/routes/:routeId/replan` | Sí | `PlanningPage.tsx`, `PendingAssignmentsPage.tsx` mediante `planningApi.ts` | Solo acepta rutas `PLANNED` editables y registra asignaciones manuales |
 | `GET /routes` | Sí | `RoutesListPage.tsx` mediante `routesApi.ts` | Listado real paginado |
 | `GET /routes/:id` | Sí | `RouteDetailPage.tsx` mediante `routesApi.ts` | Detalle real; existe `routeDetailApi.ts` duplicado y no usado por runtime |
-| `POST /routes/:id/prepare` | No | — | Backend implementado, falta acción UI |
-| `POST /routes/:id/start` | No | — | Backend admite `COORDINATE_ROUTES` u `OPERATE_DELIVERIES`; falta acción UI |
-| `POST /routes/:id/cancel` | No | — | Backend implementado, falta acción UI |
-| `POST /routes/:id/interrupt` | No | — | Backend implementado, falta acción UI |
+| `POST /routes/:id/prepare` | Sí | `RouteDetailPage.tsx` | Confirma depósito y congela el manifiesto al pasar a `READY` |
+| `POST /routes/:id/start` | Sí | `RouteOperations` en `RouteDetailPage` | Acción para rutas READY con `COORDINATE_ROUTES` u `OPERATE_DELIVERIES` |
+| `POST /routes/:id/cancel` | Sí | `RouteDetailPage.tsx` | Acción disponible para rutas cancelables |
+| `POST /routes/:id/interrupt` | Sí | `RouteOperations` en `RouteDetailPage` | Acción para rutas IN_PROGRESS con validación de permisos en backend |
 | `POST /routes/:id/close` | No | — | Backend implementado, falta acción UI e idempotency key |
-| `GET /routes/:id/summary` | No | — | Backend implementado, falta presentación |
+| `GET /routes/:id/summary` | Sí | `RouteDetailPage.tsx` | Resumen mostrado junto al detalle operativo |
 
 ### Ejecución de entregas
 
 | API | Uso activo | Consumidor | Observación |
 | --- | --- | --- | --- |
-| `GET /deliveries/routes/:routeId/manifest` | No | — | Es el candidato natural para `MyRoutePage`, pero falta descubrir la ruta activa del actor |
+| `GET /deliveries/routes/:routeId/manifest` | No | — | Mi ruta ya descubre rutas por sesión; falta integrar manifiesto y operación de paradas |
 | `POST /deliveries/routes/:routeId/stops/:stopId/attend` | No | — | Falta UI y cabecera de idempotencia |
 | `POST /deliveries/routes/:routeId/stops/:stopId/packages/:packageId/successful-attempts` | No | — | Admite foto/firma multipart; UI no lo usa |
 | `POST /deliveries/routes/:routeId/stops/:stopId/packages/:packageId/failed-attempts` | No | — | UI simula el fallo |
@@ -119,17 +132,14 @@ RabbitMQ, worker, Outbox, consumidor idempotente y DLQ existen como infraestruct
 2. **Resuelto localmente (Bloque 1):** `PackagesController` acepta `REGISTER_PACKAGES`, `CLASSIFY_PACKAGES`, `COORDINATE_ROUTES` o `MANAGE_TENANT` para listar y consultar paquetes.
 3. **Resuelto localmente (Bloque 1):** `RoutesController` permite `COORDINATE_ROUTES` u `OPERATE_DELIVERIES` en consulta, inicio, interrupción y resumen de ruta, y los adaptadores de acceso verifican también códigos `rolePermissions`.
 4. **Resuelto localmente (Bloque 1):** `routeDetailApi.ts` ya no envía `x-tenant-id` ni `x-user-id` y usa sesión `credentials: 'include'`.
-5. **Pendiente:** El DTO de planificación usa el fallback textual `BAQ-ROAD-2026` para `datasetId`, aunque la persistencia lo trata como UUID. La UI debe obtener un dataset `READY` real y el contrato debe validar UUID.
+5. **Resuelto localmente (Bloques 4 y 5):** `GET /api/v1/routes/planning/workspace` publica los `GeoDataset` `READY` y `PlanningPage` consume el `datasetId` real junto con los recursos tenant-scoped.
 
 ## APIs que faltan para completar el flujo
 
 | Capacidad faltante | Contrato HTTP sugerido | Pantallas dependientes |
 | --- | --- | --- |
-| Workspace de planificación | Lectura tenant-scoped de paquetes candidatos, depósitos, recursos, turnos, datasets `READY` y rutas `PLANNED` editables | Planificación, pendientes |
-| Replanificar ruta existente | Caso de uso/endpoint explícito para recalcular una ruta `PLANNED`; nunca una `READY` | Planificación, detalle de ruta |
-| Asignación/reasignación manual | Comando con historial, capacidad y validación de manifiesto | Pendientes |
-| Catálogo operativo de flota | Listar/detallar/actualizar vehículos, mensajeros, turnos y depósitos | Vehículos, planificación |
-| Ruta activa del mensajero | Consulta derivada de la identidad autenticada, sin `courierId` libre | Mi ruta |
+| Administración de depósitos | Listado/alta/edición de depósitos; turnos pospuestos según ADR 010 | Administración operativa |
+| Operación de paradas del mensajero | La lista Mi ruta ya usa identidad autenticada; falta conectar la pantalla de resultado de parada | Resultado de parada |
 | Notificaciones internas | Listar, contar no leídas y marcar leídas | AppShell, notificaciones |
 | Rastreo público seguro | Consulta por identificador público que omita PII e información interna | Rastreo público |
 | Administración SaaS completa | Listar tenants y activar/desactivar, si entra en el alcance de la demo | Empresas SaaS |
@@ -139,11 +149,11 @@ RabbitMQ, worker, Outbox, consumidor idempotente y DLQ existen como infraestruct
 1. **Cerrar autenticación y permisos de APIs existentes (COMPLETADO).** Proteger catálogos y entregas, corregir permisos de lectura de paquetes e inicio de ruta y retirar cabeceras de identidad heredadas.
 2. **Consolidar el registro de paquetes (COMPLETADO).** Elegir una sola pantalla (`NewPackagePage`), conectar zonas/sectores/tipos reales (`catalogApi.ts`), eliminar IDs codificados y fallback de fixtures en detalle/listado, y desactivar `VITE_USE_MOCK_DATA` en el flujo normal.
 3. **Implementar clasificación real (COMPLETADO).** `POST /api/v1/packages/:packageId/classify`, filtro `?state=REGISTERED` en `GET /api/v1/packages` y conexión de `ClassificationPage` a API real sin `mockData.ts`.
-4. **Publicar recursos y rutas editables de planificación.** Incluir capacidad/turnos y rutas `PLANNED`; definir después el comando de replanificación.
-5. **Conectar planificación, pendientes y acciones de ruta.** Crear/recalcular propuesta, revisar, preparar y cancelar antes de despacho.
+4. **Publicar recursos y rutas editables de planificación (COMPLETADO).** `GET /api/v1/routes/planning/workspace` con zonas, depósitos, datasets `READY`, vehículos/mensajeros elegibles con capacidad y sin rutas coincidentes; no exige turnos, paquetes candidatos y rutas `PLANNED` editables.
+5. **Conectar planificación, pendientes y acciones de ruta (IMPLEMENTADO LOCALMENTE; EN PRUEBAS).** Crear/recalcular propuesta, recuperar pendientes manualmente, revisar, preparar y cancelar antes de despacho.
 6. **Conectar el portal del mensajero.** Descubrir su ruta, iniciar, atender paradas, registrar entrega/fallo/evidencia e incidentes.
 7. **Implementar notificaciones y rastreo público.** Requieren APIs nuevas; no deben seguir leyendo `mockData.ts`.
-8. **Completar administración de recursos.** Vehículos, mensajeros, turnos, depósitos y catálogos.
+8. **Completar administración de recursos (EN PROGRESO).** Vehículos y mensajeros conectados con listado/detalle/estado; falta administración de depósitos; turnos pospuestos según ADR 010. La vinculación de mensajeros no crea cuentas ni asigna permisos de entrega.
 
 ## Limpieza posterior
 
