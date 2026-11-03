@@ -178,6 +178,7 @@ export class PrismaAssignmentReservation implements AssignmentReservationReposit
                                         id: true,
                                         tenantId: true,
                                         status: true,
+                                        user: { select: { status: true } },
                                     },
                                 },
                             },
@@ -254,14 +255,9 @@ export class PrismaAssignmentReservation implements AssignmentReservationReposit
                     const datasetId = routeData.planningRequest.datasetId;
                     const selectedCandidateId =
                         attempt?.selectedCandidateId ?? null;
-                    const completeWindow =
-                        routeData.plannedStartAt !== null &&
-                        routeData.plannedEndAt !== null;
                     const [
                         coordinates,
                         attachment,
-                        vehicleShift,
-                        courierShift,
                         duplicate,
                         sourceAssignment,
                     ] = await Promise.all([
@@ -298,32 +294,6 @@ export class PrismaAssignmentReservation implements AssignmentReservationReposit
                                   },
                               })
                             : Promise.resolve(null),
-                        completeWindow
-                            ? transaction.vehicleShift.findFirst({
-                                  where: {
-                                      tenantId: request.tenantId,
-                                      vehicleId: routeData.vehicle.id,
-                                      startAt: {
-                                          lte: routeData.plannedStartAt!,
-                                      },
-                                      endAt: { gte: routeData.plannedEndAt! },
-                                  },
-                                  select: { id: true },
-                              })
-                            : Promise.resolve({ id: 'no-window' }),
-                        completeWindow
-                            ? transaction.courierShift.findFirst({
-                                  where: {
-                                      tenantId: request.tenantId,
-                                      courierId: routeData.courier.id,
-                                      startAt: {
-                                          lte: routeData.plannedStartAt!,
-                                      },
-                                      endAt: { gte: routeData.plannedEndAt! },
-                                  },
-                                  select: { id: true },
-                              })
-                            : Promise.resolve({ id: 'no-window' }),
                         transaction.assignment.findFirst({
                             where: {
                                 tenantId: request.tenantId,
@@ -384,19 +354,25 @@ export class PrismaAssignmentReservation implements AssignmentReservationReposit
                                 incomingPackage.address.originalText,
                             addressId: incomingPackage.addressId,
                             zoneId: incomingPackage.zoneId,
-                            weightGrams: Math.round(incomingPackage.weightKg.toNumber() * 1000),
-                            volumeCm3: Math.round(incomingPackage.volumeM3.toNumber() * 1000000),
+                            weightGrams: Math.round(
+                                incomingPackage.weightKg.toNumber() * 1000,
+                            ),
+                            volumeCm3: Math.round(
+                                incomingPackage.volumeM3.toNumber() * 1000000,
+                            ),
                             weightKg: incomingPackage.weightKg.toNumber(),
                             volumeM3: incomingPackage.volumeM3.toNumber(),
                         },
                         vehicle: {
                             id: routeData.vehicle.id,
                             tenantId: routeData.vehicle.tenantId,
-                            available:
-                                routeData.vehicle.status === 'ACTIVE' &&
-                                vehicleShift !== null,
-                            remainingWeightGrams: Math.round(remainingWeightKg.toNumber() * 1000),
-                            remainingVolumeCm3: Math.round(remainingVolumeM3.toNumber() * 1000000),
+                            available: routeData.vehicle.status === 'ACTIVE',
+                            remainingWeightGrams: Math.round(
+                                remainingWeightKg.toNumber() * 1000,
+                            ),
+                            remainingVolumeCm3: Math.round(
+                                remainingVolumeM3.toNumber() * 1000000,
+                            ),
                             remainingWeightKg: remainingWeightKg.toNumber(),
                             remainingVolumeM3: remainingVolumeM3.toNumber(),
                         },
@@ -405,7 +381,7 @@ export class PrismaAssignmentReservation implements AssignmentReservationReposit
                             tenantId: routeData.courier.tenantId,
                             available:
                                 routeData.courier.status === 'ACTIVE' &&
-                                courierShift !== null,
+                                routeData.courier.user.status === 'ACTIVE',
                         },
                         route: {
                             id: routeData.id,

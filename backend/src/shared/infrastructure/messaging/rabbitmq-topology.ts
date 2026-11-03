@@ -73,8 +73,10 @@ export const TOPOLOGY_MANIFEST: TopologyDefinition = {
       options: {
         durable: true,
         arguments: {
+          'x-queue-type': 'quorum',
           'x-dead-letter-exchange': RABBITMQ_EXCHANGES.DEAD,
           'x-dead-letter-routing-key': AUDIT_CONSUMER_NAME,
+          'x-delivery-limit': 20,
         },
       },
     },
@@ -83,6 +85,7 @@ export const TOPOLOGY_MANIFEST: TopologyDefinition = {
       options: {
         durable: true,
         arguments: {
+          'x-queue-type': 'quorum',
           'x-message-ttl': 5000,
           'x-dead-letter-exchange': RABBITMQ_EXCHANGES.RETURN,
           'x-dead-letter-routing-key': AUDIT_CONSUMER_NAME,
@@ -94,6 +97,7 @@ export const TOPOLOGY_MANIFEST: TopologyDefinition = {
       options: {
         durable: true,
         arguments: {
+          'x-queue-type': 'quorum',
           'x-message-ttl': 10000,
           'x-dead-letter-exchange': RABBITMQ_EXCHANGES.RETURN,
           'x-dead-letter-routing-key': AUDIT_CONSUMER_NAME,
@@ -105,6 +109,7 @@ export const TOPOLOGY_MANIFEST: TopologyDefinition = {
       options: {
         durable: true,
         arguments: {
+          'x-queue-type': 'quorum',
           'x-message-ttl': 20000,
           'x-dead-letter-exchange': RABBITMQ_EXCHANGES.RETURN,
           'x-dead-letter-routing-key': AUDIT_CONSUMER_NAME,
@@ -115,12 +120,18 @@ export const TOPOLOGY_MANIFEST: TopologyDefinition = {
       name: RABBITMQ_QUEUES.AUDIT_DLQ,
       options: {
         durable: true,
+        arguments: {
+          'x-queue-type': 'quorum',
+        },
       },
     },
     {
       name: RABBITMQ_QUEUES.QUARANTINE,
       options: {
         durable: true,
+        arguments: {
+          'x-queue-type': 'quorum',
+        },
       },
     },
   ],

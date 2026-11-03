@@ -1,63 +1,49 @@
 import { createBrowserRouter, Navigate } from "react-router"
 import HomePage from "./HomePage"
-import {
-  CompanyDashboard,
-  CompanyLayout,
-  CompanyLogin,
-  CompanyPackageDetail,
-  CompanyPackages,
-  CompanyPackageRegistration,
-  CompanyRegistration,
-  CompanyResourceRegistration,
-  CompanyResources,
-  CompanyWorkers,
-  NotFound,
-  TrackingPage,
-  WorkerRegistration,
-} from "./PortalPages"
-import { AppShell } from "./AppShell"
-import {
-  AdminTenantsPage,
-  AdminUsersPage,
-  AdminVehiclesPage,
-  ClassificationPage,
-  LoginPage,
-  MyRoutePage,
-  NewPackagePage,
-  NotificationsPage,
-  PackageDetailPage,
-  PackagesListPage,
-  PendingAssignmentsPage,
-  PlanningPage,
-  PublicTrackingPage,
-  RouteDetailPage,
-  RoutesListPage,
-  StopPage,
-} from "./AppPages"
+import { AppShell } from "./app/AppShell"
+import { AdminTenantsPage } from "./app/admin/empresas/AdminTenantsPage"
+import { AdminUsersPage } from "./app/admin/usuarios/AdminUsersPage"
+import { AdminVehiclesPage } from "./app/admin/vehiculos/AdminVehiclesPage"
+import { AdminCouriersPage } from "./app/admin/mensajeros/AdminCouriersPage"
+import { ClassificationPage } from "./app/clasificacion/ClassificationPage"
+import { MyRoutePage } from "./app/mi-ruta/MyRoutePage"
+import { StopPage } from "./app/mi-ruta/paradas/[stopId]/StopPage"
+import { NotificationsPage } from "./app/notificaciones/NotificationsPage"
+import { PackagesListPage } from "./app/paquetes/PackagesListPage"
+import { PackageDetailPage } from "./app/paquetes/[packageId]/PackageDetailPage"
+import { NewPackagePage } from "./app/paquetes/nuevo/NewPackagePage"
+import { PendingAssignmentsPage } from "./app/pendientes/PendingAssignmentsPage"
+import { PlanningPage } from "./app/planificacion/PlanningPage"
+import { RoutesListPage } from "./app/rutas/RoutesListPage"
+import { RouteDetailPage } from "./app/rutas/[routeId]/RouteDetailPage"
+import { LoginPage } from "./login/LoginPage"
+import { TrackingPage } from "./seguimiento/TrackingPage"
+import { LegacyPackageDetailRedirect } from "./shared/routing/LegacyPackageDetailRedirect"
+import { NotFound } from "./shared/ui/NotFound"
+import { PublicTrackingPage } from "./track/PublicTrackingPage"
 
 export const router = createBrowserRouter([
   // Public
   { path: "/", Component: HomePage },
-  { path: "/login/empresa", Component: CompanyLogin },
-  { path: "/registro/usuario", element: <Navigate to="/login/empresa" replace /> },
-  { path: "/registro/empresa", Component: CompanyRegistration },
   { path: "/seguimiento", Component: TrackingPage },
   { path: "/track", Component: PublicTrackingPage },
   { path: "/login", Component: LoginPage },
 
-  // Legacy company app
+  // Legacy URLs (mock-data demo retired) -> real auth + app shell
+  { path: "/login/empresa", element: <Navigate to="/login" replace /> },
+  { path: "/registro/usuario", element: <Navigate to="/login" replace /> },
+  { path: "/registro/empresa", element: <Navigate to="/login" replace /> },
   {
     path: "/empresa",
-    Component: CompanyLayout,
     children: [
-      { index: true, Component: CompanyDashboard },
-      { path: "recursos", Component: CompanyResources },
-      { path: "recursos/nuevo", Component: CompanyResourceRegistration },
-      { path: "paquetes", Component: CompanyPackages },
-      { path: "paquetes/nuevo", Component: CompanyPackageRegistration },
-      { path: "paquetes/:packageId", Component: CompanyPackageDetail },
-      { path: "trabajadores", Component: CompanyWorkers },
-      { path: "trabajadores/nuevo", Component: WorkerRegistration },
+      { index: true, element: <Navigate to="/app" replace /> },
+      { path: "paquetes", element: <Navigate to="/app/paquetes" replace /> },
+      { path: "paquetes/nuevo", element: <Navigate to="/app/paquetes/nuevo" replace /> },
+      { path: "paquetes/:packageId", Component: LegacyPackageDetailRedirect },
+      { path: "trabajadores", element: <Navigate to="/app/admin/usuarios" replace /> },
+      { path: "trabajadores/nuevo", element: <Navigate to="/app/admin/usuarios" replace /> },
+      { path: "recursos", element: <Navigate to="/app/admin/vehiculos" replace /> },
+      { path: "recursos/nuevo", element: <Navigate to="/app/admin/vehiculos" replace /> },
     ],
   },
 
@@ -80,6 +66,7 @@ export const router = createBrowserRouter([
       { path: "notificaciones", Component: NotificationsPage },
       { path: "admin/usuarios", Component: AdminUsersPage },
       { path: "admin/vehiculos", Component: AdminVehiclesPage },
+      { path: "admin/mensajeros", Component: AdminCouriersPage },
       { path: "admin/empresas", Component: AdminTenantsPage },
     ],
   },

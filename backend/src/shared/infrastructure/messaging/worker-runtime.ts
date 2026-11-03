@@ -1,6 +1,11 @@
-import { Injectable, type OnApplicationShutdown } from '@nestjs/common';
+import {
+  Injectable,
+  Optional,
+  type OnApplicationShutdown,
+} from '@nestjs/common';
 import { RabbitmqConnectionManager } from './rabbitmq-connection';
 import { OutboxPublisher } from '../../application/messaging/outbox-publisher';
+import { DeadLetterRedrivePublisher } from '../../application/messaging/dead-letter-redrive-publisher';
 import { RabbitmqConsumerRunner } from './rabbitmq-consumer.runner';
 import { type MessagingConfig, loadMessagingConfig } from './messaging.config';
 
@@ -15,7 +20,8 @@ export class WorkerRuntime implements OnApplicationShutdown {
     private readonly connectionManager: RabbitmqConnectionManager,
     private readonly outboxPublisher: OutboxPublisher,
     private readonly consumerRunner: RabbitmqConsumerRunner,
-    config?: MessagingConfig,
+    @Optional() private readonly redrivePublisher?: DeadLetterRedrivePublisher,
+    @Optional() config?: MessagingConfig,
   ) {
     this.config = config ?? loadMessagingConfig();
   }
@@ -50,6 +56,9 @@ export class WorkerRuntime implements OnApplicationShutdown {
         this.isPolling = true;
         try {
           await this.outboxPublisher.publishPendingEvents();
+          if (this.redrivePublisher) {
+            await this.redrivePublisher.publishPendingRedrives();
+          }
         } catch {
           // Capturar error para mantener el loop activo
         } finally {

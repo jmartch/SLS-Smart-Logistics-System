@@ -5,7 +5,16 @@ import {
   ForbiddenException,
   NotFoundException,
 } from '@nestjs/common';
-import { DeliveriesController } from '../presentation/deliveries.controller';
+import { GUARDS_METADATA } from '@nestjs/common/constants';
+import { AuthGuard } from '../../auth/presentation/auth.guard';
+import { PermissionsGuard } from '../../auth/presentation/permissions.guard';
+import { REQUIRED_PERMISSION_KEY } from '../../auth/presentation/require-permission.decorator';
+import {
+  COORDINATE_ROUTES_PERMISSION,
+  DELIVERY_EXECUTION_PERMISSIONS,
+  DEPOT_RECEPTION_PERMISSIONS,
+  DeliveriesController,
+} from '../presentation/deliveries.controller';
 import { AttendRouteStopUseCase } from '../application/use-cases/attend-route-stop.use-case';
 import { RecordSuccessfulDeliveryUseCase } from '../application/use-cases/record-successful-delivery.use-case';
 import { RecordFailedDeliveryUseCase } from '../application/use-cases/record-failed-delivery.use-case';
@@ -103,6 +112,36 @@ function createTestContext() {
 }
 
 describe('DeliveriesController', () => {
+  it('protects delivery endpoints with AuthGuard and PermissionsGuard', () => {
+    const guards = Reflect.getMetadata(
+      GUARDS_METADATA,
+      DeliveriesController,
+    ) as unknown[];
+
+    expect(guards).toEqual([AuthGuard, PermissionsGuard]);
+    expect(
+      Reflect.getMetadata(REQUIRED_PERMISSION_KEY, DeliveriesController),
+    ).toEqual([...DELIVERY_EXECUTION_PERMISSIONS]);
+    expect(
+      Reflect.getMetadata(
+        REQUIRED_PERMISSION_KEY,
+        DeliveriesController.prototype.rescheduleDelivery,
+      ),
+    ).toBe(COORDINATE_ROUTES_PERMISSION);
+    expect(
+      Reflect.getMetadata(
+        REQUIRED_PERMISSION_KEY,
+        DeliveriesController.prototype.requestPackageReturn,
+      ),
+    ).toBe(COORDINATE_ROUTES_PERMISSION);
+    expect(
+      Reflect.getMetadata(
+        REQUIRED_PERMISSION_KEY,
+        DeliveriesController.prototype.returnPackageToDepot,
+      ),
+    ).toEqual([...DEPOT_RECEPTION_PERMISSIONS]);
+  });
+
   describe('attendRouteStop', () => {
     it('executes use case and returns attendance result', async () => {
       // Arrange

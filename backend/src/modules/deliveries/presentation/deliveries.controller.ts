@@ -9,9 +9,13 @@ import {
   Post,
   Query,
   UploadedFiles,
+  UseGuards,
   UseInterceptors,
 } from '@nestjs/common';
 import { FileFieldsInterceptor } from '@nestjs/platform-express';
+import { AuthGuard } from '../../auth/presentation/auth.guard';
+import { PermissionsGuard } from '../../auth/presentation/permissions.guard';
+import { RequirePermission } from '../../auth/presentation/require-permission.decorator';
 import {
   CurrentContext,
   type RequestContext,
@@ -41,7 +45,21 @@ interface UploadedFileItem {
   readonly mimetype: string;
 }
 
+export const OPERATE_DELIVERIES_PERMISSION = 'OPERATE_DELIVERIES';
+export const COORDINATE_ROUTES_PERMISSION = 'COORDINATE_ROUTES';
+export const REGISTER_PACKAGES_PERMISSION = 'REGISTER_PACKAGES';
+export const DELIVERY_EXECUTION_PERMISSIONS = [
+  OPERATE_DELIVERIES_PERMISSION,
+  COORDINATE_ROUTES_PERMISSION,
+] as const;
+export const DEPOT_RECEPTION_PERMISSIONS = [
+  COORDINATE_ROUTES_PERMISSION,
+  REGISTER_PACKAGES_PERMISSION,
+] as const;
+
 @Controller('deliveries')
+@UseGuards(AuthGuard, PermissionsGuard)
+@RequirePermission(...DELIVERY_EXECUTION_PERMISSIONS)
 export class DeliveriesController {
   constructor(
     private readonly attendRouteStopUseCase: AttendRouteStopUseCase,
@@ -207,6 +225,7 @@ export class DeliveriesController {
 
   @Post('packages/:packageId/reschedules')
   @HttpCode(HttpStatus.CREATED)
+  @RequirePermission(COORDINATE_ROUTES_PERMISSION)
   async rescheduleDelivery(
     @CurrentContext() context: RequestContext,
     @Param('packageId') packageIdParam: string,
@@ -236,6 +255,7 @@ export class DeliveriesController {
 
   @Post('packages/:packageId/return-requests')
   @HttpCode(HttpStatus.CREATED)
+  @RequirePermission(COORDINATE_ROUTES_PERMISSION)
   async requestPackageReturn(
     @CurrentContext() context: RequestContext,
     @Param('packageId') packageIdParam: string,
@@ -263,6 +283,7 @@ export class DeliveriesController {
 
   @Post('packages/:packageId/depot-receptions')
   @HttpCode(HttpStatus.CREATED)
+  @RequirePermission(...DEPOT_RECEPTION_PERMISSIONS)
   async returnPackageToDepot(
     @CurrentContext() context: RequestContext,
     @Param('packageId') packageIdParam: string,

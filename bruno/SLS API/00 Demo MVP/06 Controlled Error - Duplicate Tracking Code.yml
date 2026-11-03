@@ -1,0 +1,37 @@
+info:
+  name: 06 Controlled Error - Duplicate Tracking Code
+  type: http
+  seq: 6
+
+http:
+  method: POST
+  url: "{{baseUrl}}/packages"
+  auth: inherit
+  headers:
+    - name: Content-Type
+      value: application/json
+  body:
+    type: json
+    data: |-
+      {
+        "trackingCode": "OSM-DEMO-329842F6-1",
+        "address": {
+          "text": "Carrera 54 # 70-15, El Prado, Barranquilla",
+          "municipalityCode": "08001"
+        },
+        "shipmentTypeId": "{{shipmentTypeId}}",
+        "zoneId": "{{zoneId}}",
+        "sectorId": "{{sectorId}}",
+        "weightKg": 3.2,
+        "lengthCm": 30,
+        "widthCm": 20,
+        "heightCm": 15,
+        "priority": "HIGH"
+      }
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+  forwardAuthorizationHeader: false

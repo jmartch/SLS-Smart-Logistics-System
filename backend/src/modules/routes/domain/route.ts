@@ -37,6 +37,11 @@ export interface RouteProps {
     readonly plannedEndAt?: Date | null;
     readonly stops: readonly RouteStop[];
     readonly dispatchManifestSnapshot?: unknown | null;
+    readonly vehiclePlate?: string | null;
+    readonly courierEmail?: string | null;
+    readonly depotName?: string | null;
+    readonly zoneId?: string | null;
+    readonly zoneName?: string | null;
 }
 
 export class Route {
@@ -115,6 +120,26 @@ export class Route {
 
     get dispatchManifestSnapshot(): unknown | null | undefined {
         return this._dispatchManifestSnapshot;
+    }
+
+    get vehiclePlate(): string | null | undefined {
+        return this.props.vehiclePlate;
+    }
+
+    get courierEmail(): string | null | undefined {
+        return this.props.courierEmail;
+    }
+
+    get depotName(): string | null | undefined {
+        return this.props.depotName;
+    }
+
+    get zoneId(): string | null | undefined {
+        return this.props.zoneId;
+    }
+
+    get zoneName(): string | null | undefined {
+        return this.props.zoneName;
     }
 
     pullDomainEvents(): readonly RouteDomainEvent[] {

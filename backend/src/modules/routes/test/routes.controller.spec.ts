@@ -4,7 +4,15 @@ import {
   ForbiddenException,
   NotFoundException,
 } from '@nestjs/common';
-import { RoutesController } from '../presentation/routes.controller';
+import { GUARDS_METADATA } from '@nestjs/common/constants';
+import { AuthGuard } from '../../auth/presentation/auth.guard';
+import { PermissionsGuard } from '../../auth/presentation/permissions.guard';
+import { REQUIRED_PERMISSION_KEY } from '../../auth/presentation/require-permission.decorator';
+import {
+  COORDINATE_ROUTES_PERMISSION,
+  ROUTE_EXECUTION_PERMISSIONS,
+  RoutesController,
+} from '../presentation/routes.controller';
 import { ListRoutesUseCase } from '../application/use-cases/list-routes.use-case';
 import { GetRouteDetailUseCase } from '../application/use-cases/get-route-detail.use-case';
 import { PrepareRouteUseCase } from '../application/use-cases/prepare-route.use-case';
@@ -122,6 +130,50 @@ function createTestContext() {
 }
 
 describe('RoutesController', () => {
+  it('protects route endpoints with AuthGuard and PermissionsGuard', () => {
+    const guards = Reflect.getMetadata(
+      GUARDS_METADATA,
+      RoutesController,
+    ) as unknown[];
+    const permission = Reflect.getMetadata(
+      REQUIRED_PERMISSION_KEY,
+      RoutesController,
+    ) as unknown;
+
+    expect(guards).toEqual([AuthGuard, PermissionsGuard]);
+    expect(permission).toBe(COORDINATE_ROUTES_PERMISSION);
+    expect(
+      Reflect.getMetadata(
+        REQUIRED_PERMISSION_KEY,
+        RoutesController.prototype.listRoutes,
+      ),
+    ).toEqual([...ROUTE_EXECUTION_PERMISSIONS]);
+    expect(
+      Reflect.getMetadata(
+        REQUIRED_PERMISSION_KEY,
+        RoutesController.prototype.getRouteDetail,
+      ),
+    ).toEqual([...ROUTE_EXECUTION_PERMISSIONS]);
+    expect(
+      Reflect.getMetadata(
+        REQUIRED_PERMISSION_KEY,
+        RoutesController.prototype.startRoute,
+      ),
+    ).toEqual([...ROUTE_EXECUTION_PERMISSIONS]);
+    expect(
+      Reflect.getMetadata(
+        REQUIRED_PERMISSION_KEY,
+        RoutesController.prototype.interruptRoute,
+      ),
+    ).toEqual([...ROUTE_EXECUTION_PERMISSIONS]);
+    expect(
+      Reflect.getMetadata(
+        REQUIRED_PERMISSION_KEY,
+        RoutesController.prototype.getRouteSummary,
+      ),
+    ).toEqual([...ROUTE_EXECUTION_PERMISSIONS]);
+  });
+
   describe('listRoutes', () => {
     it('returns paginated routes when query parameters are valid', async () => {
       // Arrange

@@ -56,6 +56,9 @@ export interface RouteDetailStopResult {
   readonly latitude: number;
   readonly longitude: number;
   readonly state: RouteStopState;
+  readonly packageId?: string | null;
+  readonly trackingCode?: string | null;
+  readonly address?: string | null;
 }
 
 export interface RouteDetailResult {
@@ -69,6 +72,11 @@ export interface RouteDetailResult {
   readonly plannedEndAt?: string | null;
   readonly startedAt?: string | null;
   readonly completedAt?: string | null;
+  readonly vehiclePlate?: string | null;
+  readonly courierEmail?: string | null;
+  readonly depotName?: string | null;
+  readonly zoneId?: string | null;
+  readonly zoneName?: string | null;
   readonly stops: readonly RouteDetailStopResult[];
 }
 
@@ -85,6 +93,10 @@ export interface RouteSummaryItemResult {
   readonly startedAt?: string | null;
   readonly completedAt?: string | null;
   readonly stopCount: number;
+  readonly vehiclePlate?: string | null;
+  readonly courierEmail?: string | null;
+  readonly depotName?: string | null;
+  readonly zoneName?: string | null;
 }
 
 export interface PaginatedRoutesResult {

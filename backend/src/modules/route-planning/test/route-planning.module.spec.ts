@@ -1,6 +1,7 @@
 import { Test } from '@nestjs/testing';
 import { BuildRouteRoadPathService } from '../application/build-route-road-path.service';
 import { FindRoadPathService } from '../application/find-road-path.service';
+import { GetPlanningWorkspaceService } from '../application/get-planning-workspace.service';
 import { PlanExistingRouteRoadPathService } from '../application/plan-existing-route-road-path.service';
 import { PlanAndAssignRoutesService } from '../application/plan-and-assign-routes.service';
 import { OrderRouteStopsService } from '../application/order-route-stops.service';
@@ -27,6 +28,9 @@ describe('RoutePlanningModule', () => {
     );
     expect(testingModule.get(PlanAndAssignRoutesService)).toBeInstanceOf(
       PlanAndAssignRoutesService,
+    );
+    expect(testingModule.get(GetPlanningWorkspaceService)).toBeInstanceOf(
+      GetPlanningWorkspaceService,
     );
     expect(testingModule.get(PrismaPlanningAssignmentUnitOfWork)).toBeInstanceOf(
       PrismaPlanningAssignmentUnitOfWork,

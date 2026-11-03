@@ -29,8 +29,40 @@ export class PrismaRouteRepository implements RouteRepository {
           },
         },
         include: {
+          vehicle: {
+            select: { plate: true },
+          },
+          courier: {
+            select: {
+              user: {
+                select: { email: true },
+              },
+            },
+          },
+          depot: {
+            select: { name: true },
+          },
+          planningRequest: {
+            select: { parameters: true },
+          },
           stops: {
             orderBy: { sequence: 'asc' },
+            include: {
+              assignments: {
+                where: { status: 'ACTIVE' },
+                select: {
+                  package: {
+                    select: {
+                      id: true,
+                      trackingCode: true,
+                      address: {
+                        select: { originalText: true },
+                      },
+                    },
+                  },
+                },
+              },
+            },
           },
         },
       });
@@ -39,7 +71,26 @@ export class PrismaRouteRepository implements RouteRepository {
         return null;
       }
 
-      return RoutePersistenceMapper.toDomain(raw);
+      const params = raw.planningRequest?.parameters as
+        Record<string, unknown> | null | undefined;
+      const zoneId =
+        typeof params?.zoneId === 'string' ? params.zoneId : null;
+
+      let zoneName: string | null = null;
+      if (zoneId) {
+        const zone = await client.zone.findUnique({
+          where: {
+            tenantId_id: {
+              tenantId,
+              id: zoneId,
+            },
+          },
+          select: { name: true },
+        });
+        zoneName = zone?.name ?? null;
+      }
+
+      return RoutePersistenceMapper.toDomain(raw, zoneName);
     };
 
     if (this.tx) {
@@ -125,6 +176,19 @@ export class PrismaRouteRepository implements RouteRepository {
           take,
           orderBy: { plannedAt: 'desc' },
           include: {
+            vehicle: {
+              select: { plate: true },
+            },
+            courier: {
+              select: {
+                user: {
+                  select: { email: true },
+                },
+              },
+            },
+            depot: {
+              select: { name: true },
+            },
             planningRequest: {
               select: {
                 parameters: true,
@@ -139,11 +203,36 @@ export class PrismaRouteRepository implements RouteRepository {
         }),
       ]);
 
+      const zoneIds = Array.from(
+        new Set(
+          records
+            .map((r) => {
+              const p = r.planningRequest?.parameters as
+                Record<string, unknown> | null | undefined;
+              return typeof p?.zoneId === 'string' ? p.zoneId : null;
+            })
+            .filter((zid): zid is string => Boolean(zid)),
+        ),
+      );
+
+      let zoneMap = new Map<string, string>();
+      if (zoneIds.length > 0) {
+        const zones = await client.zone.findMany({
+          where: {
+            tenantId,
+            id: { in: zoneIds },
+          },
+          select: { id: true, name: true },
+        });
+        zoneMap = new Map(zones.map((z) => [z.id, z.name]));
+      }
+
       const items: RouteSummaryProjection[] = records.map((r) => {
         const params = r.planningRequest?.parameters as
           Record<string, unknown> | null | undefined;
         const zoneId =
           typeof params?.zoneId === 'string' ? params.zoneId : null;
+        const zoneName = zoneId ? (zoneMap.get(zoneId) ?? null) : null;
 
         return {
           id: r.id,
@@ -158,6 +247,10 @@ export class PrismaRouteRepository implements RouteRepository {
           startedAt: r.startedAt,
           completedAt: r.completedAt,
           stopCount: r._count?.stops ?? 0,
+          vehiclePlate: r.vehicle?.plate ?? null,
+          courierEmail: r.courier?.user?.email ?? null,
+          depotName: r.depot?.name ?? null,
+          zoneName,
         };
       });
 

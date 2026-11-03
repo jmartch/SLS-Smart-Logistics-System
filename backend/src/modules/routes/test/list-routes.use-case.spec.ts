@@ -167,4 +167,28 @@ describe('ListRoutesUseCase', () => {
     expect(result.total).toBe(0);
     expect(result.items).toHaveLength(0);
   });
+
+  it('preserves enriched vehicle, courier, depot, and zone names in summaries', async () => {
+    // Arrange
+    const { useCase, repository } = createTestContext();
+    repository.summaries = [
+      createSummary('r-enriched', {
+        vehiclePlate: 'TRK-555',
+        courierEmail: 'driver@sls.local',
+        depotName: 'Depósito Norte',
+        zoneName: 'Zona Norte',
+      }),
+    ];
+    const query = createQuery();
+
+    // Act
+    const result = await useCase.execute(query);
+
+    // Assert
+    expect(result.items).toHaveLength(1);
+    expect(result.items[0]?.vehiclePlate).toBe('TRK-555');
+    expect(result.items[0]?.courierEmail).toBe('driver@sls.local');
+    expect(result.items[0]?.depotName).toBe('Depósito Norte');
+    expect(result.items[0]?.zoneName).toBe('Zona Norte');
+  });
 });

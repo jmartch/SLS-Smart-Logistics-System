@@ -7,6 +7,11 @@ import {
   InvalidCourierError,
   type InvalidCourierReason,
 } from '../domain/invalid-courier.error';
+import {
+  CourierDomainError,
+  CourierNotFoundError,
+  CourierValidationError,
+} from '../domain/courier-errors';
 
 const REASON_MESSAGES: Record<InvalidCourierReason, string> = {
   REQUIRED: 'El identificador de usuario (userId) es obligatorio.',
@@ -15,6 +20,20 @@ const REASON_MESSAGES: Record<InvalidCourierReason, string> = {
 };
 
 export function handleCourierDomainError(error: unknown): never {
+  if (error instanceof CourierDomainError) {
+    const payload = {
+      code: error.code,
+      message: error.message,
+      ...(error.field
+        ? { field: error.field, fields: { [error.field]: error.message } }
+        : {}),
+    };
+    if (error instanceof CourierNotFoundError)
+      throw new NotFoundException(payload);
+    if (error instanceof CourierValidationError)
+      throw new BadRequestException(payload);
+    throw new ConflictException(payload);
+  }
   if (error instanceof InvalidCourierError) {
     const detail = REASON_MESSAGES[error.reason];
 

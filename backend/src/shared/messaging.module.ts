@@ -6,6 +6,7 @@ import { PrismaOutboxStore } from './infrastructure/messaging/persistence/prisma
 import { PrismaDeadLetterStore } from './infrastructure/messaging/persistence/prisma-dead-letter.store';
 import { PrismaRedriveStore } from './infrastructure/messaging/persistence/prisma-redrive.store';
 import { OutboxPublisher } from './application/messaging/outbox-publisher';
+import { DeadLetterRedrivePublisher } from './application/messaging/dead-letter-redrive-publisher';
 import { loadMessagingConfig } from './infrastructure/messaging/messaging.config';
 
 import { RetryPolicy } from './application/messaging/retry-policy';
@@ -44,6 +45,31 @@ import { RabbitmqFailureRouter } from './infrastructure/messaging/rabbitmq-failu
       },
       inject: [PrismaOutboxStore, RabbitmqConfirmPublisher],
     },
+    {
+      provide: DeadLetterRedrivePublisher,
+      useFactory: (
+        redriveStore: PrismaRedriveStore,
+        deadLetterStore: PrismaDeadLetterStore,
+        publisher: RabbitmqConfirmPublisher,
+      ) => {
+        const config = loadMessagingConfig();
+        return new DeadLetterRedrivePublisher(
+          redriveStore,
+          deadLetterStore,
+          publisher,
+          {
+            allowedTenantIds: config.allowedTenantIds,
+            batchSize: config.outboxBatchSize,
+            leaseDurationMs: config.outboxLeaseMs,
+          },
+        );
+      },
+      inject: [
+        PrismaRedriveStore,
+        PrismaDeadLetterStore,
+        RabbitmqConfirmPublisher,
+      ],
+    },
   ],
   exports: [
     RabbitmqConnectionManager,
@@ -55,6 +81,7 @@ import { RabbitmqFailureRouter } from './infrastructure/messaging/rabbitmq-failu
     DeadLetterRecorder,
     RabbitmqFailureRouter,
     OutboxPublisher,
+    DeadLetterRedrivePublisher,
   ],
 })
 export class MessagingModule {}

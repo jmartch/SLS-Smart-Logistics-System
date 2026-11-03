@@ -1,0 +1,382 @@
+.register-package-screen {
+  min-height: 100vh;
+  background: #0f172a;
+  color: #e2e8f0;
+  padding: 1.25rem max(1rem, calc((100vw - 760px) / 2)) 6rem;
+  font-family: system-ui, sans-serif;
+}
+
+.register-header {
+  display: flex;
+  gap: 1rem;
+  align-items: flex-start;
+  margin-bottom: 1rem;
+}
+
+.register-header h1 {
+  margin: 0;
+}
+
+.back-button {
+  border: 0;
+  background: transparent;
+  color: #94a3b8;
+  padding: 0.3rem 0;
+}
+
+.register-package-screen h1,
+.success-screen h1 {
+  font-size: 1.15rem;
+  margin-bottom: 1rem;
+  color: #f8fafc;
+}
+
+.notice {
+  border-radius: 0.5rem;
+  padding: 0.6rem 0.8rem;
+  font-size: 0.85rem;
+  margin-bottom: 1rem;
+}
+
+.notice-warning {
+  background: rgba(245, 158, 11, 0.15);
+  color: #fbbf24;
+}
+
+.notice-error {
+  background: rgba(239, 68, 68, 0.15);
+  color: #fca5a5;
+}
+
+.mock-button {
+  align-self: flex-start;
+  border: 1px dashed #64748b;
+  border-radius: 0.5rem;
+  background: transparent;
+  color: #cbd5e1;
+  padding: 0.55rem 0.75rem;
+  font-size: 0.82rem;
+}
+
+.package-form {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.section {
+  border: none;
+  border-radius: 0.75rem;
+  background: rgba(148, 163, 184, 0.08);
+  padding: 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.section legend {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: #94a3b8;
+  padding: 0;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  font-size: 0.85rem;
+}
+
+.required-mark {
+  color: #f87171;
+}
+
+.field-error {
+  font-size: 0.75rem;
+  color: #f87171;
+}
+
+.field-hint {
+  font-size: 0.75rem;
+  color: #94a3b8;
+}
+
+.input {
+  border-radius: 0.5rem;
+  border: 1px solid #475569;
+  background: #1e293b;
+  color: #f8fafc;
+  padding: 0.55rem 0.7rem;
+  font-size: 0.95rem;
+}
+
+.input:focus {
+  outline: none;
+  border-color: #3b82f6;
+}
+
+.input-error {
+  border-color: #ef4444;
+}
+
+.tracking-row {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.tracking-row .input {
+  flex: 1;
+}
+
+.scan-actions {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.scan-button {
+  flex-shrink: 0;
+  border: none;
+  border-radius: 0.5rem;
+  background: #059669;
+  color: white;
+  padding: 0 1rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+.scan-button:disabled {
+  opacity: 0.5;
+}
+
+.scan-button-secondary {
+  background: #334155;
+}
+
+.dimensions-row {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 0.5rem;
+}
+
+@media (min-width: 420px) {
+  .dimensions-row {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+.submit-button {
+  position: fixed;
+  left: 1rem;
+  right: 1rem;
+  bottom: 1rem;
+  border: none;
+  border-radius: 0.75rem;
+  background: #2563eb;
+  color: white;
+  padding: 0.85rem;
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.submit-button:disabled {
+  opacity: 0.5;
+}
+
+.scanner-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  display: flex;
+  flex-direction: column;
+  background: #020617;
+  overflow: hidden;
+}
+
+.scanner-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.9rem 1.15rem;
+  color: white;
+  font-size: 0.9rem;
+  background: rgba(15, 23, 42, 0.95);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  flex-shrink: 0;
+}
+
+.scanner-header button {
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.12);
+  color: white;
+  padding: 0.45rem 1rem;
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.scanner-viewport-wrapper {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  padding: 0.75rem;
+}
+
+.scanner-viewport {
+  width: 100%;
+  max-width: 480px;
+  max-height: calc(100vh - 96px);
+  overflow: hidden;
+  border-radius: 1rem;
+  position: relative;
+}
+
+#sls-barcode-scanner video {
+  width: 100% !important;
+  height: auto !important;
+  max-height: calc(100vh - 110px) !important;
+  object-fit: cover !important;
+  display: block !important;
+  border-radius: 1rem;
+}
+
+#sls-barcode-scanner video ~ video {
+  display: none !important;
+}
+
+.scanner-loading {
+  align-items: center;
+  justify-content: center;
+  color: white;
+  font-weight: 600;
+}
+
+.success-screen {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+  background: #0f172a;
+  color: #e2e8f0;
+  text-align: center;
+  padding: 0 1.5rem;
+  font-family: system-ui, sans-serif;
+}
+
+.success-icon {
+  font-size: 1.75rem;
+  background: rgba(16, 185, 129, 0.15);
+  color: #34d399;
+  border-radius: 999px;
+  width: 3.5rem;
+  height: 3.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.success-screen button {
+  border: none;
+  border-radius: 0.75rem;
+  background: #2563eb;
+  color: white;
+  padding: 0.75rem 1.25rem;
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
+.catalog-error {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.retry-button {
+  flex-shrink: 0;
+  border: 1px solid currentColor;
+  border-radius: 0.4rem;
+  background: transparent;
+  color: inherit;
+  padding: 0.35rem 0.65rem;
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+
+.retry-button:disabled {
+  opacity: 0.5;
+}
+
+.mono {
+  font-family: monospace;
+}
+
+.image-scanner-overlay {
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+  background: rgba(15, 23, 42, 0.86);
+}
+
+.image-scanner-card {
+  width: min(100%, 480px);
+  background: #0f172a;
+  border: 1px solid #334155;
+  border-radius: 1rem;
+  padding: 1.25rem;
+}
+
+.image-scanner-header {
+  padding: 0;
+}
+
+.image-scanner-header h2 {
+  margin: 0;
+  color: #f8fafc;
+}
+
+.image-scanner-copy {
+  color: #cbd5e1;
+  font-size: 0.9rem;
+  margin: 1.25rem 0;
+}
+
+.upload-button {
+  width: 100%;
+}
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+}
+
+.image-qr-reader {
+  height: 1px;
+  overflow: hidden;
+}
+
+@media (max-width: 560px) {
+  .tracking-row {
+    flex-direction: column;
+  }
+
+  .scan-actions {
+    flex-direction: column;
+  }
+
+  .scan-button {
+    padding: 0.7rem;
+  }
+
+  .dimensions-row {
+    grid-template-columns: 1fr;
+  }
+}

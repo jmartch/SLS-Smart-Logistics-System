@@ -9,6 +9,7 @@ import { PermissionsGuard } from '../../auth/presentation/permissions.guard';
 import { REQUIRED_PERMISSION_KEY } from '../../auth/presentation/require-permission.decorator';
 import type { RequestContext } from '../../../shared/presentation/request-context.decorator';
 import { RegisterCourierService } from '../application/register-courier.service';
+import { ManageCourierService } from '../application/manage-courier.service';
 import { InvalidCourierError } from '../domain/invalid-courier.error';
 import {
   CouriersController,
@@ -30,7 +31,10 @@ function createFixture() {
   const execute = jest.fn();
   const service = { execute } as unknown as RegisterCourierService;
 
-  return { execute, controller: new CouriersController(service) };
+  return {
+    execute,
+    controller: new CouriersController(service, {} as ManageCourierService),
+  };
 }
 
 describe('CouriersController', () => {
@@ -41,9 +45,13 @@ describe('CouriersController', () => {
       GUARDS_METADATA,
       CouriersController,
     ) as unknown[];
+    const method: unknown = Object.getOwnPropertyDescriptor(
+      CouriersController.prototype,
+      'createCourier',
+    )?.value;
     const permission = Reflect.getMetadata(
       REQUIRED_PERMISSION_KEY,
-      CouriersController.prototype.createCourier,
+      method as object,
     ) as unknown;
 
     expect(guards).toEqual([AuthGuard, PermissionsGuard]);
@@ -63,7 +71,7 @@ describe('CouriersController', () => {
     await expect(controller.createCourier(context, body)).resolves.toEqual(
       courier,
     );
-    expect(execute).toHaveBeenCalledWith(TENANT_ID, body);
+    expect(execute).toHaveBeenCalledWith(context, body);
   });
 
   it('maps invalid input to 400 VALIDATION_ERROR with field details', async () => {
@@ -130,6 +138,6 @@ describe('CouriersController', () => {
     await expect(
       controller.createCourier(context, undefined as never),
     ).rejects.toBeInstanceOf(BadRequestException);
-    expect(execute).toHaveBeenCalledWith(TENANT_ID, {});
+    expect(execute).toHaveBeenCalledWith(context, {});
   });
 });

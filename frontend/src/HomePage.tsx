@@ -92,11 +92,8 @@ export default function HomePage() {
           <a href="#contacto" onClick={() => setMenuOpen(false)}>
             Contacto
           </a>
-          <Link to="/login/empresa" onClick={() => setMenuOpen(false)}>
+          <Link to="/login" onClick={() => setMenuOpen(false)}>
             Acceso empresas
-          </Link>
-          <Link to="/registro/empresa" onClick={() => setMenuOpen(false)}>
-            Registrar empresa
           </Link>
         </nav>
 

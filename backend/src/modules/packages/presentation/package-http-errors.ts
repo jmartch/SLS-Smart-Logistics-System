@@ -8,6 +8,8 @@ import {
     type InvalidPackageRegistrationReason,
     type PackageRegistrationField,
 } from '../domain/invalid-package-registration.error';
+import { InvalidPackageTransitionError } from '../domain/invalid-package-transition.error';
+import { PackageNotFoundError } from '../domain/package-errors';
 
 const FIELD_LABELS: Record<PackageRegistrationField, string> = {
     trackingCode: 'El código de seguimiento',
@@ -36,6 +38,18 @@ const REASON_MESSAGES: Record<InvalidPackageRegistrationReason, string> = {
 };
 
 export function handlePackageDomainError(error: unknown): never {
+    if (error instanceof PackageNotFoundError) {
+        throw new NotFoundException({
+            code: error.code,
+            message: error.message,
+        });
+    }
+    if (error instanceof InvalidPackageTransitionError) {
+        throw new ConflictException({
+            code: error.code,
+            message: error.message,
+        });
+    }
     if (error instanceof InvalidPackageRegistrationError) {
         const detail = `${FIELD_LABELS[error.field]} ${REASON_MESSAGES[error.reason]}`;
 

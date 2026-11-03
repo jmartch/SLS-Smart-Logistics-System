@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Optional } from '@nestjs/common';
 import type { Channel, ConsumeMessage } from 'amqplib';
 import type { ConsumerFailureRouterPort } from './consumer-failure-router.port';
 import { RabbitmqConnectionManager } from './rabbitmq-connection';
@@ -26,7 +26,7 @@ export class RabbitmqFailureRouter implements ConsumerFailureRouterPort {
     private readonly connectionManager: RabbitmqConnectionManager,
     private readonly retryPolicy: RetryPolicy,
     private readonly deadLetterRecorder: DeadLetterRecorder,
-    config?: MessagingConfig,
+    @Optional() config?: MessagingConfig,
   ) {
     this.config = config ?? loadMessagingConfig();
   }

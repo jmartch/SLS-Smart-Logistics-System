@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { PrismaModule } from '../../database/prisma.module';
+import { AuthModule } from '../auth/auth.module';
 import { SectorCatalogService } from './application/sector-catalog.service';
 import { ShipmentTypeCatalogService } from './application/shipment-type-catalog.service';
 import { ZoneCatalogService } from './application/zone-catalog.service';
@@ -10,7 +11,7 @@ import { ZonesController } from './presentation/zones.controller';
 import { ShipmentTypesController } from './presentation/shipment-types.controller';
 
 @Module({
-  imports: [PrismaModule],
+  imports: [PrismaModule, AuthModule],
   controllers: [ZonesController, ShipmentTypesController],
   providers: [
     PrismaZoneCatalogAdapter,

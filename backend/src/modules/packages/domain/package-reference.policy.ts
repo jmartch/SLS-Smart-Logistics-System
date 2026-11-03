@@ -1,14 +1,47 @@
-export type PackageReferenceFailure =
-    | 'PACKAGE_SHIPMENT_TYPE_NOT_FOUND'
-    | 'PACKAGE_SHIPMENT_TYPE_INACTIVE'
+export type PackageClassificationReferenceFailure =
     | 'PACKAGE_ZONE_NOT_FOUND'
     | 'PACKAGE_SECTOR_NOT_FOUND'
     | 'PACKAGE_SECTOR_ZONE_MISMATCH';
 
-export interface PackageReferenceSnapshot {
-    readonly shipmentType: { readonly active: boolean } | null;
+export type PackageReferenceFailure =
+    | 'PACKAGE_SHIPMENT_TYPE_NOT_FOUND'
+    | 'PACKAGE_SHIPMENT_TYPE_INACTIVE'
+    | PackageClassificationReferenceFailure;
+
+export interface PackageClassificationReferenceSnapshot {
     readonly zone: { readonly id: string } | null;
     readonly sector: { readonly zoneId: string } | null;
+}
+export interface PackageReferenceSnapshot
+    extends PackageClassificationReferenceSnapshot {
+    readonly shipmentType: { readonly active: boolean } | null;
+}
+
+/**
+ * Política de referencias para clasificación: la zona debe existir y el sector,
+ * si se indica, debe existir y pertenecer a la zona.
+ */
+export function evaluateClassificationReferences(
+    requested: {
+        readonly zoneId: string;
+        readonly sectorId: string | null;
+    },
+    snapshot: PackageClassificationReferenceSnapshot,
+): PackageClassificationReferenceFailure | null {
+    if (!snapshot.zone) {
+        return 'PACKAGE_ZONE_NOT_FOUND';
+    }
+
+    if (requested.sectorId !== null) {
+        if (!snapshot.sector) {
+            return 'PACKAGE_SECTOR_NOT_FOUND';
+        }
+        if (snapshot.sector.zoneId !== requested.zoneId) {
+            return 'PACKAGE_SECTOR_ZONE_MISMATCH';
+        }
+    }
+
+    return null;
 }
 
 /**

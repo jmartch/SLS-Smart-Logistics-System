@@ -9,12 +9,14 @@ import { UpdateEmployeeStatusService } from './application/update-employee-statu
 import { UpdateEmployeeRolesService } from './application/update-employee-roles.service';
 import { UserManagementRepository } from './domain/user-management.repository';
 import { PrismaUserManagementRepository } from './infrastructure/prisma-user-management.repository';
+import { PrismaUserDirectoryAdapter } from './infrastructure/prisma-user-directory.adapter';
 
 @Module({
   // AuthModule supplies AuthGuard, PermissionsGuard and SessionRepository.
   imports: [PrismaModule, AuthModule],
   controllers: [UsersController],
   providers: [
+    PrismaUserDirectoryAdapter,
     {
       provide: UserManagementRepository,
       useClass: PrismaUserManagementRepository,
@@ -25,5 +27,6 @@ import { PrismaUserManagementRepository } from './infrastructure/prisma-user-man
     UpdateEmployeeStatusService,
     UpdateEmployeeRolesService,
   ],
+  exports: [PrismaUserDirectoryAdapter],
 })
 export class UsersModule {}

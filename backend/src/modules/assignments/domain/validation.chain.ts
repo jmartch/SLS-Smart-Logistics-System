@@ -32,11 +32,13 @@ export function buildAssignmentValidationChain(
     return firstHandler;
 }
 
-export function createPrevalidationChain(): AssignmentValidationHandler {
+export function createPrevalidationChain(
+    allowedStates: readonly string[] = ['CLASSIFIED'],
+): AssignmentValidationHandler {
     return buildAssignmentValidationChain([
         new TenantValidationHandler(),
         new DuplicateAssignmentValidationHandler(),
-        new PackageEligibilityValidationHandler(),
+        new PackageEligibilityValidationHandler(allowedStates),
         new CompleteDataValidationHandler(),
         new CoordinateValidationHandler(),
         new NetworkAttachmentValidationHandler(),
@@ -44,12 +46,14 @@ export function createPrevalidationChain(): AssignmentValidationHandler {
     ]);
 }
 
-export function createAssignmentValidationChain(): AssignmentValidationHandler {
+export function createAssignmentValidationChain(
+    allowedStates: readonly string[] = ['CLASSIFIED'],
+): AssignmentValidationHandler {
     return buildAssignmentValidationChain([
         new TenantValidationHandler(),
         new DuplicateAssignmentValidationHandler(),
         new RouteEditabilityValidationHandler(),
-        new PackageEligibilityValidationHandler(),
+        new PackageEligibilityValidationHandler(allowedStates),
         new CompleteDataValidationHandler(),
         new CoordinateValidationHandler(),
         new NetworkAttachmentValidationHandler(),
@@ -58,5 +62,12 @@ export function createAssignmentValidationChain(): AssignmentValidationHandler {
         new WeightCapacityHandler(),
         new VolumeCapacityHandler(),
         new CourierAvailabilityHandler(),
+    ]);
+}
+
+export function createEditableRouteAssignmentChain(): AssignmentValidationHandler {
+    return createAssignmentValidationChain([
+        'CLASSIFIED',
+        'PENDING_ASSIGNMENT',
     ]);
 }

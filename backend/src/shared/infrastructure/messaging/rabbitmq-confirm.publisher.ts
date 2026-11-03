@@ -1,4 +1,8 @@
-import { Injectable, type OnApplicationShutdown } from '@nestjs/common';
+import {
+  Injectable,
+  Optional,
+  type OnApplicationShutdown,
+} from '@nestjs/common';
 import type { ConfirmChannel, Options } from 'amqplib';
 import type { EventEnvelope } from '../../application/messaging/event-envelope';
 import type {
@@ -23,7 +27,7 @@ export class RabbitmqConfirmPublisher
 
   constructor(
     private readonly connectionManager: RabbitmqConnectionManager,
-    config?: MessagingConfig,
+    @Optional() config?: MessagingConfig,
   ) {
     this.config = config ?? loadMessagingConfig();
   }

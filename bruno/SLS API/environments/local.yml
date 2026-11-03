@@ -16,18 +16,39 @@ variables:
     value: b268c5c7-b2b5-411d-b734-07746ae7e6e6
     description: "UUID de tipo de envío de ejemplo"
   - name: routeId
-    value: 30000000-0000-4000-8000-000000000001
-    description: "UUID de ruta de ejemplo para rutas con parámetros"
+    value: ""
+    description: "Copiar el routeId real creado desde Planificación; no hay ruta sembrada"
   - name: stopId
-    value: 40000000-0000-4000-8000-000000000001
+    value: ""
     description: "UUID de parada de ruta de ejemplo"
   - name: packageId
-    value: 50000000-0000-4000-8000-000000000001
+    value: ""
     description: "UUID de paquete de ejemplo"
   - name: depotId
-    value: 60000000-0000-4000-8000-000000000001
+    value: fea3ce3a-46c0-424b-812e-26d690a2eb9b
     description: "UUID de depósito de ejemplo"
   - name: idempotencyKey
     value: 90000000-0000-4000-8000-000000000001
     description: "UUID de idempotencia para comandos que lo exigen (ej. cierre de ruta)"
+  - name: tenantSlug
+    value: demo-barranquilla
+    description: "Slug del tenant determinista de la demo en Barranquilla"
+  - name: userId
+    value: 20000000-0000-4000-8000-000000000001
+    description: "UUID del usuario administrador/coordinador activo del tenant demo"
+  - name: candidateCourierUserId
+    value: 30000000-0000-4000-8000-0000000000a1
+    description: "UUID del usuario activo sin perfil de mensajero para POST /couriers"
+  - name: demoAdminEmail
+    value: admin@demo-baq.co
+    description: "Correo del usuario con permisos MANAGE_TENANT y REGISTER_PACKAGES"
+  - name: demoReceptionEmail
+    value: recepcion@demo-baq.co
+    description: "Correo del usuario con permiso exclusivo REGISTER_PACKAGES"
+  - name: demoPassword
+    value: DemoPassword123!
+    description: "Contraseña determinista de los usuarios de demo"
+  - name: rabbitManagementUrl
+    value: http://localhost:15672/api
+    description: "API HTTP de RabbitMQ Management para evidenciar colas y consumidor activo"
 

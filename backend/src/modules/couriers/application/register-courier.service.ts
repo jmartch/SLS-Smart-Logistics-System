@@ -1,5 +1,7 @@
 import { normalizeCourierUserId } from '../domain/courier-user-id';
 import { isUserEligibleForCourier } from '../domain/courier-user-eligibility.policy';
+import { CourierAlreadyLinkedError } from '../domain/courier-errors';
+import type { CourierContext } from './ports/courier-management.port';
 import type {
   CourierRepositoryPort,
   CreateCourierResult,
@@ -20,23 +22,28 @@ export class RegisterCourierService {
   constructor(private readonly couriers: CourierRepositoryPort) {}
 
   async execute(
-    tenantId: string,
+    context: CourierContext,
     command: RegisterCourierCommand,
   ): Promise<RegisterCourierResult> {
     const userId = normalizeCourierUserId(command.userId);
 
-    // La lectura está acotada al tenant (RLS): un usuario de otra empresa
-    // es indistinguible de uno inexistente.
-    const user = await this.couriers.findUserByTenant(tenantId, userId);
-
-    if (!user) {
-      return { ok: false, code: 'COURIER_USER_NOT_FOUND' };
+    try {
+      return await this.couriers.run(
+        context,
+        async (session): Promise<RegisterCourierResult> => {
+          const user = await session.findUserForUpdate(userId);
+          if (!user) return { ok: false, code: 'COURIER_USER_NOT_FOUND' };
+          if (!isUserEligibleForCourier(user.status))
+            return { ok: false, code: 'COURIER_USER_NOT_ELIGIBLE' };
+          const courier = await session.create(userId);
+          await session.audit(courier.id, 'COURIER_REGISTERED', null, courier);
+          return { ok: true, courier };
+        },
+      );
+    } catch (error) {
+      if (error instanceof CourierAlreadyLinkedError)
+        return { ok: false, code: 'COURIER_USER_ALREADY_LINKED' };
+      throw error;
     }
-
-    if (!isUserEligibleForCourier(user.status)) {
-      return { ok: false, code: 'COURIER_USER_NOT_ELIGIBLE' };
-    }
-
-    return this.couriers.createByTenant(tenantId, { userId });
   }
 }

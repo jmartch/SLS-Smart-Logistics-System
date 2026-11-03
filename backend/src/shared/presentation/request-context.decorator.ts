@@ -54,35 +54,9 @@ export function extractRequestContext(request: any): RequestContext {
             ? rawCorrelationId.trim()
             : randomUUID();
 
-    if (request?.actor) {
-        const tenantContext = getCurrentTenant(request as RequestWithActor);
-        const normalizedActorTenantId = tenantContext.tenantId.trim();
-        if (!isValidTenantId(normalizedActorTenantId)) {
-            throw new UnauthorizedException({
-                code: 'UNAUTHENTICATED',
-                message: 'Missing or invalid tenant context',
-                field: 'tenantId',
-            });
-        }
-
-        const normalizedUserId = tenantContext.userId.trim();
-        return {
-            tenantId: normalizedActorTenantId,
-            userId: normalizedUserId,
-            actorUserId: normalizedUserId,
-            correlationId,
-            permissions: tenantContext.permissions,
-        };
-    }
-
-    const rawTenantId =
-        request?.user?.tenantId ??
-        request?.headers?.['x-tenant-id'] ??
-        request?.headers?.['tenant-id'];
-    const tenantId =
-        typeof rawTenantId === 'string' ? rawTenantId.trim() : '';
-
-    if (!tenantId || !isValidTenantId(tenantId)) {
+    const tenantContext = getCurrentTenant(request as RequestWithActor);
+    const normalizedActorTenantId = tenantContext.tenantId.trim();
+    if (!isValidTenantId(normalizedActorTenantId)) {
         throw new UnauthorizedException({
             code: 'UNAUTHENTICATED',
             message: 'Missing or invalid tenant context',
@@ -90,20 +64,13 @@ export function extractRequestContext(request: any): RequestContext {
         });
     }
 
-    const rawActorUserId =
-        request?.user?.userId ??
-        request?.user?.id ??
-        request?.headers?.['x-user-id'];
-    const actorUserId =
-        typeof rawActorUserId === 'string' && rawActorUserId.trim().length > 0
-            ? rawActorUserId.trim()
-            : 'system-coordinator';
-
+    const normalizedUserId = tenantContext.userId.trim();
     return {
-        tenantId,
-        userId: actorUserId,
-        actorUserId,
+        tenantId: normalizedActorTenantId,
+        userId: normalizedUserId,
+        actorUserId: normalizedUserId,
         correlationId,
+        permissions: tenantContext.permissions,
     };
 }
 

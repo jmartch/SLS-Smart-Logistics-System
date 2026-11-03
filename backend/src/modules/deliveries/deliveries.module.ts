@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { PrismaModule } from '../../database/prisma.module';
+import { AuthModule } from '../auth/auth.module';
 import { PrismaDeliveryUnitOfWork } from './infrastructure/persistence/prisma-delivery-unit-of-work';
 import { LocalEvidenceStorageAdapter } from './infrastructure/storage/local-evidence-storage.adapter';
 import { AuthDeliveryAccessAdapter } from './infrastructure/authorization/auth-delivery-access.adapter';
@@ -14,7 +15,7 @@ import { GetDeliveryManifestUseCase } from './application/use-cases/get-delivery
 import { DeliveriesController } from './presentation/deliveries.controller';
 
 @Module({
-  imports: [PrismaModule],
+  imports: [PrismaModule, AuthModule],
   controllers: [DeliveriesController],
   providers: [
     PrismaDeliveryUnitOfWork,

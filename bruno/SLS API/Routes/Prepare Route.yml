@@ -12,6 +12,8 @@ http:
       value: application/json
     - name: x-tenant-id
       value: "{{tenantId}}"
+    - name: x-user-id
+      value: "{{userId}}"
   body:
     type: json
     data: |-
