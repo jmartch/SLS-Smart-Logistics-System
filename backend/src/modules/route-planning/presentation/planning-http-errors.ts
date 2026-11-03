@@ -30,6 +30,14 @@ export function handlePlanningDomainError(error: unknown): never {
             });
         }
 
+        if (msg.includes('ROUTE_NOT_EDITABLE')) {
+            throw new ConflictException({
+                code: 'ROUTE_NOT_EDITABLE',
+                message:
+                    'La ruta seleccionada ya no es editable (solo las rutas en estado PLANNED pueden replanificarse).',
+            });
+        }
+
         if (msg.includes('already has an active assignment')) {
             throw new ConflictException({
                 code: 'PACKAGE_ALREADY_ASSIGNED',
@@ -46,8 +54,11 @@ export function handlePlanningDomainError(error: unknown): never {
 
         if (
             msg.includes('requestId is required') ||
-            msg.includes('packageIds must be a non-empty array') ||
-            msg.includes('operating window')
+            msg.includes('routeId is required') ||
+            msg.includes('packageIds must') ||
+            msg.includes('Duplicate packageId') ||
+            msg.includes('operating window') ||
+            msg.includes('Invalid zoneId')
         ) {
             throw new BadRequestException({
                 code: 'VALIDATION_ERROR',

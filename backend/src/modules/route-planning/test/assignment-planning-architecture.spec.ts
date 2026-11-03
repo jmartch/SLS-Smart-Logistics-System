@@ -47,7 +47,8 @@ describe('Assignment Planning Architecture Boundaries (CA-07)', () => {
         const appFiles = getTsFiles(applicationDir).filter(
             (file) =>
                 file.includes('plan-and-assign-routes') ||
-                file.includes('planning-assignment'),
+                file.includes('planning-assignment') ||
+                file.includes('get-planning-workspace'),
         );
 
         it.each(

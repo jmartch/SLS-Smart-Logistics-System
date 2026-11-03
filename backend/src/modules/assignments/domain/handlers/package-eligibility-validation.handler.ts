@@ -5,13 +5,22 @@ import type {
 } from '../validation.types';
 
 export class PackageEligibilityValidationHandler extends BaseAssignmentValidationHandler {
+    constructor(
+        private readonly allowedStates: readonly string[] = ['CLASSIFIED'],
+    ) {
+        super();
+    }
+
     override handle(
         context: AssignmentValidationContext,
     ): AssignmentValidationResult {
-        if (context.package.state && context.package.state !== 'CLASSIFIED') {
+        if (
+            context.package.state &&
+            !this.allowedStates.includes(context.package.state)
+        ) {
             return this.reject(
                 'PACKAGE_NOT_ELIGIBLE',
-                `Package must be in CLASSIFIED state for planning assignment, received ${context.package.state}`,
+                `Package must be in ${this.allowedStates.join(' or ')} state for planning assignment, received ${context.package.state}`,
             );
         }
 
