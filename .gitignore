@@ -36,3 +36,6 @@ tmp/
 # Logs
 *.log
 .vscode
+
+/output
+/.obsidian

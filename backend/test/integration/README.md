@@ -21,7 +21,7 @@ make integration-db-down
 
 Los valores admitidos actualmente son `gdb-01`, `gdb-05`, `gdb-06`,
 `geocode-01`, `assign-01`, `route-01`, `delivery-01`, `route-close-01`,
-`rmq-01` y `auth-tenant-01`. Deben ejecutarse secuencialmente porque comparten el servidor y
+`rmq-01`, `registration-01`, `auth-tenant-01` y `demo-01`. Deben ejecutarse secuencialmente porque comparten el servidor y
 las migraciones administran los roles `sls_app` y `sls_provisioning` a nivel de instancia. Los comandos
 directos documentados abajo siguen disponibles cuando se proporciona un
 servidor de pruebas externo.
@@ -224,3 +224,21 @@ El runner compila el backend, crea una base desechable `sls_authtenant01_<uuid>`
 La base se elimina en `finally`, incluso si una prueba falla (`KEEP_AUTHTENANT01_TEST_DB=1` la conserva para diagnóstico deliberado).
 
 
+
+## DEMO-01 — semillas y recorrido actual de la página
+
+```bash
+make integration-test TEST=demo-01
+make integration-db-down
+```
+
+El runner compila el backend, crea `sls_demo01_<uuid>`, aplica migraciones y
+ejecuta `test/demo-seed.e2e-spec.ts` con runtime `sls_app`; elimina la base al
+terminar. La suite rechaza cualquier base que no coincida con ese nombre.
+
+Comprueba paquetes REGISTERED con geocodificación real OSM, flota disponible,
+historial/Outbox de registro, repetición aditiva sin duplicados, clasificación,
+planificación, pendiente real por recursos comprometidos, recuperación manual,
+preparación y 409 al intentar replanificar READY. También prueba permisos,
+reinicio después de operar y limpieza aislada por tenant frente a limpieza global
+explícita. Este runner no limpia datos operativos de la base SLS compartida.

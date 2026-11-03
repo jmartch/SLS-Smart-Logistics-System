@@ -66,9 +66,44 @@ docker compose ps
 docker compose logs -f backend worker
 ```
 
+Los comandos de desarrollo de la API y del worker usan `--no-shell` para que
+Nest gestione directamente el proceso Node durante cada recarga. La imagen
+`node:26-slim` no incluye `ps`, que Nest necesita para detener los procesos hijos
+cuando los inicia mediante una shell. Sin este ajuste pueden quedar servidores
+anteriores ocupando el puerto 3000 (`EADDRINUSE`) y workers duplicados.
+Si ya hay procesos acumulados, aplica el ajuste y ejecuta
+`docker compose restart backend worker` para reiniciar ambos servicios.
+
 Detén los servicios con `docker compose down`. Para eliminar también los volúmenes locales, usa `docker compose down -v`.
 
 ## Primer arranque y semilla determinista de demostración (`demo:seed`)
+
+La semilla prepara tres paquetes **REGISTERED** con direcciones OSM válidas,
+un vehículo y un mensajero libres, usuarios y catálogos. Clasificación,
+planificación, pendientes y preparación se recorren desde la página; no hay rutas
+ni asignaciones preconstruidas. Consulta el [recorrido del demo](docs/demo/mvp-demo.md).
+
+### Disponibilidad y selección automática de recursos
+
+La pantalla de planificación permite seleccionar paquetes, fecha y ventana
+horaria. El backend elige vehículos y mensajeros activos de la misma empresa,
+excluye recursos con rutas en ejecución/interrumpidas o planificadas/preparadas
+que coincidan con la ventana y verifica la capacidad restante por peso y volumen.
+El usuario del mensajero también debe estar activo. No se requiere registrar
+turnos: un recurso activo se considera disponible fuera de esos compromisos.
+Un nuevo trabajador participa después de vincular su usuario elegible a un
+registro de mensajero activo; crear únicamente su cuenta no lo incorpora a la flota.
+
+`POST /api/v1/routes/planning/plan-and-assign` acepta
+`resourceSelection: "AUTOMATIC"` sin listas de recursos. Si se omiten ambas listas,
+la selección también es automática. Los clientes que envían listas explícitas
+mantienen el modo manual; la disponibilidad se vuelve a comprobar en el backend.
+La selección y reserva se ejecutan en una transacción serializable con bloqueos
+y reintentos limitados. Si faltan recursos o capacidad, se guarda
+`PENDING_ASSIGNMENT` con el motivo. Las rutas propuestas siguen sujetas a revisión.
+
+Las tablas de turnos se conservan para mantener los datos existentes, pero no
+condicionan esta disponibilidad. Decisión: [ADR 010](docs/adr/010-automatic-fleet-availability.md).
 
 Después del primer `docker compose up -d --build`, genera el cliente Prisma, aplica las migraciones versionadas y carga la semilla determinista del MVP para Barranquilla:
 
@@ -79,6 +114,21 @@ docker compose exec backend npm run build
 docker compose exec backend npm run demo:seed
 ```
 
+La consulta de planificación solo lee datos: no crea catálogos, vehículos,
+mensajeros, turnos ni coordenadas. Si falta el catálogo geográfico de la demo,
+puedes cargar únicamente el extracto OSM real sin limpiar paquetes,
+rutas, usuarios ni sesiones existentes:
+
+```bash
+docker compose exec backend npm run build
+docker compose exec backend npm run demo:seed:geography
+```
+
+Esta carga usa la conexión administrativa `DATABASE_URL`. La API y el worker
+mantienen acceso de solo lectura a `GeoDataset` y `RoadNode` con `sls_app`.
+Los paquetes sin geocodificación válida se muestran con coordenadas pendientes;
+abrir la pantalla no genera ubicaciones sintéticas.
+
 El comando `npm run demo:seed` ([`backend/prisma/seed-demo.ts`](file:///home/zirox/Documents/GitHub/SLS-Smart-Logistics-System/backend/prisma/seed-demo.ts)) es idempotente y repetible: limpia el estado previo del tenant de demostración y aprovisiona:
 
 - **Tenant:** `Mensajería Barranquilla Demo S.A.S.` (`id`: `10000000-0000-4000-8000-000000000001`, `slug`: `demo-barranquilla`).
@@ -87,7 +137,15 @@ El comando `npm run demo:seed` ([`backend/prisma/seed-demo.ts`](file:///home/zir
   - `recepcion@demo-baq.co` (`RECEPTION` con `REGISTER_PACKAGES`).
   - `mensajero.ruta@demo-baq.co` (`COURIER` con `OPERATE_DELIVERIES`).
   - `mensajero.candidato@demo-baq.co` (usuario activo elegible para `POST /api/v1/couriers`).
-- **Catálogos, flota y ruta en Barranquilla:** zona `NORTH` (`Zona Norte Barranquilla`), sector `N-PRADO` (`El Prado - Alto Prado`), tipo de envío `STANDARD`, vehículo `BAQ101`, mensajero activo, 3 paquetes asignados (`PKG-BAQ-0001..0003`), la ruta `30000000-0000-4000-8000-000000000001` con 3 paradas ordenadas en Barranquilla y el registro DLQ `d1000000-0000-4000-8000-000000000001` para demostrar redrive.
+- **Catálogos y flota:** zona NORTH, sector N-PRADO, tipo STANDARD, depósito OSM, vehículo BAQ101 y un mensajero libres; el usuario candidato todavía no está vinculado.
+- **Paquetes:** `OSM-DEMO-329842F6-1..3`, registrados por los servicios actuales con historial inicial, Outbox, geocodificación MATCHED y conexión vial válida. Se clasifican desde la página.
+- **Sin operaciones anticipadas:** cero rutas, asignaciones, turnos, entregas y DLQ simulada. Los IDs operativos se obtienen de respuestas reales.
+
+`demo:seed` reinicia solamente el tenant demo. `demo:reset` elimina los datos
+operativos locales de todas las empresas y vuelve a preparar el escenario;
+conserva migraciones, permisos y cuentas de plataforma. Detener el worker y
+vaciar las colas locales durante la limpieza, según el [runbook](docs/demo/mvp-demo.md).
+No se requiere volver a ejecutar `demo:prepare:osm` después de `demo:seed`.
 
 ## Colección Bruno (`00 Demo MVP`) y Runbook de Demostración
 
@@ -104,12 +162,13 @@ El comando `npm run demo:seed` ([`backend/prisma/seed-demo.ts`](file:///home/zir
 
 ## Visualización con OpenStreetMap (`RouteMap`) y Alcance
 
-El detalle de ruta en el frontend (`/app/rutas/30000000-0000-4000-8000-000000000001`) integra el componente aislado [`RouteMap`](file:///home/zirox/Documents/GitHub/SLS-Smart-Logistics-System/frontend/src/features/routes/RouteMap.tsx):
+El detalle `/app/rutas/:routeId` consume la ruta real creada desde planificación
+mediante `GET /api/v1/routes/:routeId` y la muestra con
+[`RouteMap`](frontend/src/app/rutas/RouteMap.tsx). No hay una ruta sembrada con UUID fijo ni fallback de fixtures ante un fallo HTTP.
 
-- Renderiza tiles de `https://tile.openstreetmap.org/{z}/{x}/{y}.png` con atribución visible `© OpenStreetMap contributors`.
-- Muestra marcadores numerados (`CircleMarker`) según `stopNumber` coloreados por estado (`PENDING`, `COMPLETED`, `FAILED`), `Polyline` conectando las paradas en orden, ajuste automático de límites (`fitBounds`) y estado vacío cuando la ruta no posee coordenadas válidas (verificable en `/app/rutas/rt-003`).
-- Para rutas con identificador UUID (`30000000-0000-4000-8000-000000000001`), consume preferentemente `GET /api/v1/routes/:id` del backend; si el consumo HTTP falla o se selecciona una ruta de demostración local (`rt-001`, `rt-002`, `rt-003`), utiliza el fixture determinista de Barranquilla indicando explícitamente su origen.
-- **Limitaciones explícitas:** No invoca geocodificación externa (Nominatim), no descarga mapas offline y no realiza seguimiento GPS en tiempo real. La polilínea representa exclusivamente el orden de paradas calculado por el backend, no navegación vial giro a giro. La lista de paradas se mantiene siempre visible debajo del mapa si los tiles externos no cargan.
+- Tiles OpenStreetMap con atribución, marcadores numerados y polilínea del orden de paradas.
+- Lista de paradas disponible aunque fallen los tiles; carga, error y vacío explícitos.
+- Sin GPS ni navegación giro a giro. La geografía local proviene del extracto acotado documentado en [la guía OSM](docs/demo/osm-barranquilla-demo.md).
 
 ## Prisma y Aislamiento Multi-Tenant (Row-Level Security)
 
@@ -138,7 +197,7 @@ docker compose exec -e "GDB_TEST_ADMIN_URL=postgresql://integration_admin:integr
 docker compose -f docker-compose.yml -f docker-compose.integration.yml --profile integration rm -sf integration-postgres
 ```
 
-Suites de integración disponibles: `gdb-01`, `gdb-05`, `gdb-06`, `auth-tenant-01`, `registration-01`, `geocode-01`, `assign-01`, `route-01`, `delivery-01`, `route-close-01` y `rmq-01`.
+Suites de integración disponibles: `demo-01`, `gdb-01`, `gdb-05`, `gdb-06`, `auth-tenant-01`, `registration-01`, `geocode-01`, `assign-01`, `route-01`, `delivery-01`, `route-close-01` y `rmq-01`.
 
 ## Endpoints de registro (`PKG-01` y `VEH-01` — solo registro implementado)
 
