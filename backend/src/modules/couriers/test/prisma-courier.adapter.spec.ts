@@ -1,120 +1,88 @@
-import { Prisma } from '../../../../generated/prisma/client';
 import { PrismaService } from '../../../database/prisma.service';
+import { Prisma } from '../../../../generated/prisma/client';
 import { PrismaCourierAdapter } from '../infrastructure/prisma-courier.adapter';
+import {
+  CourierAlreadyLinkedError,
+  CourierConcurrencyError,
+} from '../domain/courier-errors';
 
-const TENANT_ID = '10000000-0000-4000-8000-000000000001';
-const USER_ID = '30000000-0000-4000-8000-000000000001';
-const COURIER_ID = '40000000-0000-4000-8000-000000000001';
-
-function createFixture() {
-  const executeRawUnsafe = jest.fn().mockResolvedValue(1);
-  const findFirst = jest.fn();
-  const create = jest.fn();
-  const transaction = {
-    $executeRawUnsafe: executeRawUnsafe,
-    user: { findFirst },
-    courier: { create },
+const context = {
+  tenantId: '10000000-0000-4000-8000-000000000001',
+  actorUserId: '20000000-0000-4000-8000-000000000001',
+  correlationId: '30000000-0000-4000-8000-000000000001',
+};
+function fixture() {
+  const tx = {
+    $executeRawUnsafe: jest.fn(),
+    courier: { create: jest.fn() },
+    auditLog: { create: jest.fn() },
   };
-  const prisma = {
-    $transaction: jest.fn(
-      async (callback: (tx: typeof transaction) => Promise<unknown>) =>
-        callback(transaction),
-    ),
-  } as unknown as PrismaService;
-
-  return {
-    findFirst,
-    create,
-    executeRawUnsafe,
-    adapter: new PrismaCourierAdapter(prisma),
-  };
+  const transaction = jest.fn(
+    async (callback: (value: typeof tx) => Promise<unknown>) => callback(tx),
+  );
+  const reader = { findById: jest.fn() };
+  const users = { reader: jest.fn().mockReturnValue(reader) };
+  const adapter = new PrismaCourierAdapter(
+    { $transaction: transaction } as unknown as PrismaService,
+    users,
+  );
+  return { tx, transaction, reader, users, adapter };
 }
-
 describe('PrismaCourierAdapter', () => {
-  describe('findUserByTenant', () => {
-    it('looks the user up inside the tenant session and selects only id and status', async () => {
-      const { findFirst, executeRawUnsafe, adapter } = createFixture();
-      findFirst.mockResolvedValue({ id: USER_ID, status: 'ACTIVE' });
-
-      const result = await adapter.findUserByTenant(TENANT_ID, USER_ID);
-
-      expect(executeRawUnsafe).toHaveBeenCalledWith(
-        `SET LOCAL app.tenant_id = '${TENANT_ID}'`,
-      );
-      expect(findFirst).toHaveBeenCalledWith({
-        where: { tenantId: TENANT_ID, id: USER_ID },
-        select: { id: true, status: true },
-      });
-      expect(result).toEqual({ id: USER_ID, status: 'ACTIVE' });
+  it('uses the users-owned reader in the same serializable tenant transaction', async () => {
+    const { adapter, tx, transaction, reader, users } = fixture();
+    await adapter.run(context, (session) => session.findUserForUpdate('user'));
+    expect(transaction).toHaveBeenCalledWith(expect.any(Function), {
+      isolationLevel: 'Serializable',
     });
-
-    it('returns null when the user is not visible in the tenant', async () => {
-      const { findFirst, adapter } = createFixture();
-      findFirst.mockResolvedValue(null);
-
-      await expect(
-        adapter.findUserByTenant(TENANT_ID, USER_ID),
-      ).resolves.toBeNull();
+    expect(tx.$executeRawUnsafe).toHaveBeenCalledWith(
+      `SET LOCAL app.tenant_id = '${context.tenantId}'`,
+    );
+    expect(users.reader).toHaveBeenCalledWith(tx, context.tenantId);
+    expect(reader.findById).toHaveBeenCalledWith('user', true);
+  });
+  it('persists only minimal status audit data with trusted actor and tenant', async () => {
+    const { adapter, tx } = fixture();
+    await adapter.run(context, (session) =>
+      session.audit('courier', 'COURIER_REGISTERED', null, {
+        userId: 'user',
+        status: 'ACTIVE',
+      }),
+    );
+    expect(tx.auditLog.create).toHaveBeenCalledWith({
+      data: {
+        ...context,
+        entityType: 'Courier',
+        entityId: 'courier',
+        action: 'COURIER_REGISTERED',
+        metadata: { before: null, after: { userId: 'user', status: 'ACTIVE' } },
+      },
     });
   });
-
-  describe('createByTenant', () => {
-    it('creates the courier scoped to the tenant', async () => {
-      const { create, executeRawUnsafe, adapter } = createFixture();
-      const row = {
-        id: COURIER_ID,
-        tenantId: TENANT_ID,
-        userId: USER_ID,
-        status: 'ACTIVE',
-      };
-      create.mockResolvedValue(row);
-
-      const result = await adapter.createByTenant(TENANT_ID, {
-        userId: USER_ID,
-      });
-
-      expect(executeRawUnsafe).toHaveBeenCalledWith(
-        `SET LOCAL app.tenant_id = '${TENANT_ID}'`,
-      );
-      expect(create).toHaveBeenCalledWith(
-        expect.objectContaining({
-          data: { tenantId: TENANT_ID, userId: USER_ID },
-        }),
-      );
-      expect(result).toEqual({ ok: true, courier: row });
-    });
-
-    it('translates P2002 into COURIER_USER_ALREADY_LINKED', async () => {
-      const { create, adapter } = createFixture();
-      create.mockRejectedValue(
-        new Prisma.PrismaClientKnownRequestError(
-          'Unique constraint failed on the fields: (`userId`)',
-          { code: 'P2002', clientVersion: '7.10.0' },
-        ),
-      );
-
-      await expect(
-        adapter.createByTenant(TENANT_ID, { userId: USER_ID }),
-      ).resolves.toEqual({ ok: false, code: 'COURIER_USER_ALREADY_LINKED' });
-    });
-
-    it('propagates any other error unchanged', async () => {
-      const { create, adapter } = createFixture();
-      const failure = new Error('Database server connection lost');
-      create.mockRejectedValue(failure);
-
-      await expect(
-        adapter.createByTenant(TENANT_ID, { userId: USER_ID }),
-      ).rejects.toBe(failure);
-    });
-
-    it('rejects an invalid tenant id before touching the database', async () => {
-      const { create, adapter } = createFixture();
-
-      await expect(
-        adapter.createByTenant('not-a-uuid', { userId: USER_ID }),
-      ).rejects.toThrow();
-      expect(create).not.toHaveBeenCalled();
-    });
+  it('maps a unique conflict without swallowing unrelated errors', async () => {
+    const { adapter, tx } = fixture();
+    tx.courier.create.mockRejectedValueOnce(
+      new Prisma.PrismaClientKnownRequestError('Duplicate user', {
+        code: 'P2002',
+        clientVersion: '7',
+      }),
+    );
+    await expect(
+      adapter.run(context, (session) => session.create('user')),
+    ).rejects.toBeInstanceOf(CourierAlreadyLinkedError);
+    tx.courier.create.mockRejectedValueOnce(new Error('Database unavailable'));
+    await expect(
+      adapter.run(context, (session) => session.create('user')),
+    ).rejects.toThrow('Database unavailable');
+  });
+  it('bounds serialization retries to three attempts', async () => {
+    const { adapter, transaction } = fixture();
+    transaction.mockRejectedValue(
+      Object.assign(new Error('Serialization failure'), { code: 'P2034' }),
+    );
+    await expect(
+      adapter.run(context, () => Promise.resolve(undefined)),
+    ).rejects.toBeInstanceOf(CourierConcurrencyError);
+    expect(transaction).toHaveBeenCalledTimes(3);
   });
 });

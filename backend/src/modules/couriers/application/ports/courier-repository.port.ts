@@ -1,17 +1,10 @@
-export type CourierUserStatus = 'ACTIVE' | 'INACTIVE' | 'SUSPENDED';
-export type CourierStatusValue = 'ACTIVE' | 'INACTIVE';
-
-/** Solo lo necesario para decidir elegibilidad: nunca datos de credenciales. */
-export interface CourierUserSnapshot {
-  readonly id: string;
-  readonly status: CourierUserStatus;
-}
+import type { CourierStatus } from '../../domain/courier-management.policy';
 
 export interface CourierEntry {
   readonly id: string;
   readonly tenantId: string;
   readonly userId: string;
-  readonly status: CourierStatusValue;
+  readonly status: CourierStatus;
 }
 
 export type CreateCourierResult =
@@ -24,14 +17,7 @@ export type CreateCourierResult =
       readonly code: 'COURIER_USER_ALREADY_LINKED';
     };
 
-export interface CourierRepositoryPort {
-  findUserByTenant(
-    tenantId: string,
-    userId: string,
-  ): Promise<CourierUserSnapshot | null>;
-
-  createByTenant(
-    tenantId: string,
-    data: { readonly userId: string },
-  ): Promise<CreateCourierResult>;
-}
+export type CourierRepositoryPort = Pick<
+  import('./courier-management.port').CourierManagementPort,
+  'run'
+>;
