@@ -12,8 +12,10 @@ import {
 import {
   EmployeeAdministrationBusyError,
   EmployeeEmailAlreadyExistsError,
+  type EmployeeAuditEntry,
   type EmployeeRecord,
   type EmployeeStatus,
+  type RoleRecord,
 } from '../domain/employee';
 
 const USER_TENANT_EMAIL_UNIQUE_INDEX = 'User_tenantId_email_key';
@@ -245,6 +247,20 @@ class PrismaUserManagementTx implements UserManagementTx {
 
     return true;
   }
+
+  async recordAudit(entry: EmployeeAuditEntry): Promise<void> {
+    await this.tx.auditLog.create({
+      data: {
+        tenantId: this.tenantId,
+        actorUserId: entry.actorUserId,
+        action: entry.action,
+        entityType: 'User',
+        entityId: entry.targetUserId,
+        metadata: entry.metadata as Prisma.InputJsonObject,
+      },
+      select: { id: true },
+    });
+  }
 }
 
 @Injectable()
@@ -285,6 +301,30 @@ export class PrismaUserManagementRepository extends UserManagementRepository {
         email: user.email,
         status: user.status,
         roleIds: user.userRoles.map((userRole) => userRole.roleId),
+      }));
+    });
+  }
+
+  listRoles(tenantId: string): Promise<readonly RoleRecord[]> {
+    return runWithTenant(this.prisma, tenantId, async (tx) => {
+      const roles = await tx.role.findMany({
+        where: { tenantId },
+        select: {
+          id: true,
+          name: true,
+          rolePermissions: {
+            select: { permission: { select: { code: true } } },
+          },
+        },
+        orderBy: { name: 'asc' },
+      });
+
+      return roles.map((role) => ({
+        id: role.id,
+        name: role.name,
+        permissions: role.rolePermissions
+          .map((rp) => rp.permission.code)
+          .sort(),
       }));
     });
   }

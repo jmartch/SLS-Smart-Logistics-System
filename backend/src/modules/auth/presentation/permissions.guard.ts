@@ -8,7 +8,7 @@ import { Reflector } from '@nestjs/core';
 import {
   getCurrentActor,
   type RequestWithActor,
-} from './current-actor.decorator';
+} from '../../../shared/presentation/request-context.decorator';
 import {
   AUTHENTICATED_ONLY_KEY,
   REQUIRED_PERMISSION_KEY,
@@ -44,10 +44,9 @@ export class PermissionsGuard implements CanActivate {
       context.switchToHttp().getRequest<RequestWithActor>(),
     );
     const targets = [context.getHandler(), context.getClass()];
-    const required = this.reflector.getAllAndOverride<string | undefined>(
-      REQUIRED_PERMISSION_KEY,
-      targets,
-    );
+    const required = this.reflector.getAllAndOverride<
+      string | readonly string[] | undefined
+    >(REQUIRED_PERMISSION_KEY, targets);
 
     if (required === undefined) {
       const authenticatedOnly = this.reflector.getAllAndOverride<
@@ -61,8 +60,17 @@ export class PermissionsGuard implements CanActivate {
       throw permissionDenied();
     }
 
+    const allowedPermissions =
+      typeof required === 'string' ? [required] : required;
+
     // Tenant permissions never apply to platform admins: they have no tenant.
-    if (actor.kind !== 'TENANT_USER' || !actor.permissions.has(required)) {
+    if (
+      actor.kind !== 'TENANT_USER' ||
+      allowedPermissions.length === 0 ||
+      !allowedPermissions.some((permission) =>
+        actor.permissions.has(permission),
+      )
+    ) {
       throw permissionDenied();
     }
 

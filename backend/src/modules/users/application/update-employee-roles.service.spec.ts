@@ -108,6 +108,15 @@ describe('UpdateEmployeeRolesService', () => {
       service.updateRoles(contextFor(TENANT, admin), courier, [adminRole]),
     ).resolves.toEqual({ kind: 'OK' });
     expect(repository.user(courier).roleIds).toEqual([adminRole]);
+    expect(repository.auditEntries).toEqual([
+      {
+        tenantId: TENANT,
+        actorUserId: admin,
+        action: 'EMPLOYEE_ROLES_UPDATED',
+        targetUserId: courier,
+        metadata: { roleIds: [adminRole] },
+      },
+    ]);
   });
 
   it('answers ROLE_NOT_IN_TENANT for a role of another tenant and keeps the roles', async () => {

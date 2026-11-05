@@ -1,0 +1,39 @@
+info:
+  name: Plan and Assign Routes
+  type: http
+  seq: 1
+
+http:
+  method: POST
+  url: "{{baseUrl}}/routes/planning/plan-and-assign"
+  auth: inherit
+  headers:
+    - name: Content-Type
+      value: application/json
+    - name: x-tenant-id
+      value: "{{tenantId}}"
+    - name: Idempotency-Key
+      value: "plan-10000000-0000-4000-8000-000000000001"
+  body:
+    type: json
+    data: |-
+      {
+        "zoneId": "{{zoneId}}",
+        "depotId": "{{depotId}}",
+        "packageIds": [
+          "{{packageId}}"
+        ],
+        "window": {
+          "startAt": "2026-10-07T08:00:00.000Z",
+          "endAt": "2026-10-07T18:00:00.000Z"
+        },
+        "radiusMeters": 2500,
+        "ordering": "nearest-neighbor"
+      }
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+  forwardAuthorizationHeader: false

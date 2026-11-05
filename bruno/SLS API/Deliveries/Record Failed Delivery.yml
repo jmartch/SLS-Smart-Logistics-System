@@ -1,0 +1,30 @@
+info:
+  name: Record Failed Delivery
+  type: http
+  seq: 3
+
+http:
+  method: POST
+  url: "{{baseUrl}}/deliveries/routes/{{routeId}}/stops/{{stopId}}/packages/{{packageId}}/failed-attempts"
+  auth: inherit
+  headers:
+    - name: Content-Type
+      value: application/json
+    - name: x-tenant-id
+      value: "{{tenantId}}"
+    - name: Idempotency-Key
+      value: "failed-10000000-0000-4000-8000-000000000001"
+  body:
+    type: json
+    data: |-
+      {
+        "reasonCode": "RECIPIENT_ABSENT",
+        "notes": "No se encontró a nadie en el domicilio tras reiteradas llamadas"
+      }
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+  forwardAuthorizationHeader: false

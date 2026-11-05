@@ -36,6 +36,8 @@ function createContext(): AssignmentValidationContext {
             recipientAddress: 'Calle 84 # 50-20',
             zoneId: 'zone-north',
             addressId: 'address-1',
+            weightGrams: 10000,
+            volumeCm3: 200000,
             weightKg: 10,
             volumeM3: 0.2,
         },
@@ -43,6 +45,8 @@ function createContext(): AssignmentValidationContext {
             id: 'vehicle-1',
             tenantId: 'tenant-a',
             available: true,
+            remainingWeightGrams: 100000,
+            remainingVolumeCm3: 5000000,
             remainingWeightKg: 100,
             remainingVolumeM3: 5,
         },
@@ -67,15 +71,15 @@ describe('AssignPackageToRouteService', () => {
                 return Promise.resolve(
                     validation.ok
                         ? {
-                              kind: 'ASSIGNED' as const,
-                              assignmentId: 'assignment-1',
-                          }
+                            kind: 'ASSIGNED' as const,
+                            assignmentId: 'assignment-1',
+                        }
                         : {
-                              kind: 'PENDING_ASSIGNMENT' as const,
-                              reason: validation.code,
-                              rejectedBy: validation.handler,
-                              message: validation.message,
-                          },
+                            kind: 'PENDING_ASSIGNMENT' as const,
+                            reason: validation.code,
+                            rejectedBy: validation.handler,
+                            message: validation.message,
+                        },
                 );
             },
         );

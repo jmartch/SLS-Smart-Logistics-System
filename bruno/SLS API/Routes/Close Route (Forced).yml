@@ -1,0 +1,37 @@
+info:
+  name: Close Route (Forced)
+  type: http
+  seq: 8
+
+http:
+  method: POST
+  url: "{{baseUrl}}/routes/{{routeId}}/close"
+  auth: inherit
+  headers:
+    - name: Content-Type
+      value: application/json
+    - name: x-tenant-id
+      value: "{{tenantId}}"
+    - name: Idempotency-Key
+      value: "{{idempotencyKey}}"
+  body:
+    type: json
+    data: |-
+      {
+        "mode": "FORCED",
+        "reasonCode": "VEHICLE_BREAKDOWN",
+        "notes": "Avería mecánica en eje trasero; carga desatendida recibida en depósito",
+        "actualDistanceM": 4120.0,
+        "depotReceipt": {
+          "depotId": "{{depotId}}",
+          "physicalReceiptConfirmed": true,
+          "assignmentIds": []
+        }
+      }
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+  forwardAuthorizationHeader: false

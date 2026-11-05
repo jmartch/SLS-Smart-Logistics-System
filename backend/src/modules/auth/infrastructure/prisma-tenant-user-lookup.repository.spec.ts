@@ -315,7 +315,8 @@ describe('PrismaTenantUserLookupRepository', () => {
         tenantAUserId,
       );
 
-      expect([...permissions].sort()).toEqual(
+      expect(permissions).not.toBeNull();
+      expect([...(permissions ?? [])].sort()).toEqual(
         [sharedPermissionCode, uniquePermissionCode].sort(),
       );
     });

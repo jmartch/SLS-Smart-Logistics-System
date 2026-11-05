@@ -54,7 +54,17 @@ export class UpdateEmployeeStatusService {
           // A user of another tenant is invisible here, so it is NOT_FOUND
           // (and never counted as an admin above).
           const found = await tx.setStatus(employeeId, status);
-          return found ? { kind: 'OK' } : { kind: 'NOT_FOUND' };
+          if (!found) {
+            return { kind: 'NOT_FOUND' };
+          }
+
+          await tx.recordAudit({
+            actorUserId: context.userId,
+            action: 'EMPLOYEE_STATUS_UPDATED',
+            targetUserId: employeeId,
+            metadata: { status },
+          });
+          return { kind: 'OK' };
         },
       );
     } catch (error) {

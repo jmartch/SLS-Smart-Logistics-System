@@ -1,0 +1,19 @@
+info:
+  name: List Sectors
+  type: http
+  seq: 4
+
+http:
+  method: GET
+  url: "{{baseUrl}}/zones/{{zoneId}}/sectors"
+  auth: inherit
+  headers:
+    - name: x-tenant-id
+      value: "{{tenantId}}"
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+  forwardAuthorizationHeader: false

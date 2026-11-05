@@ -3,12 +3,20 @@ import { SetMetadata } from '@nestjs/common';
 export const REQUIRED_PERMISSION_KEY = 'sls:requiredPermission';
 export const AUTHENTICATED_ONLY_KEY = 'sls:authenticatedOnly';
 
-// Declares the tenant permission a route needs. Enforced by PermissionsGuard,
-// which must run after AuthGuard: @UseGuards(AuthGuard, PermissionsGuard).
-// Usable on a controller class (applies to every handler) or on a handler
-// (overrides the class-level value).
-export const RequirePermission = (permission: string) =>
-  SetMetadata(REQUIRED_PERMISSION_KEY, permission);
+// Declares the tenant permission (or any of the listed permissions) a route
+// needs. Enforced by PermissionsGuard, which must run after AuthGuard:
+// @UseGuards(AuthGuard, PermissionsGuard). Usable on a controller class
+// (applies to every handler) or on a handler (overrides the class-level value).
+export const RequirePermission = (
+  permission: string,
+  ...additionalPermissions: string[]
+) =>
+  SetMetadata(
+    REQUIRED_PERMISSION_KEY,
+    additionalPermissions.length === 0
+      ? permission
+      : [permission, ...additionalPermissions],
+  );
 
 // Explicit opt-out for a route behind PermissionsGuard that intentionally
 // needs only an authenticated actor (tenant user or platform admin). Without

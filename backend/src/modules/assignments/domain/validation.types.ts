@@ -2,6 +2,7 @@ export interface AssignmentValidationContext {
     readonly tenantId: string;
     readonly hasDuplicateAssignment: boolean;
     readonly planning: {
+        readonly zoneId?: string;
         readonly datasetId: string;
         readonly profile: 'MOTOR_VEHICLE' | 'MOTORCYCLE' | 'BICYCLE' | 'FOOT';
     };
@@ -12,7 +13,6 @@ export interface AssignmentValidationContext {
         readonly datasetStatus: 'STAGING' | 'READY' | 'FAILED';
         readonly status: 'MATCHED' | 'REVIEW_REQUIRED' | 'NOT_FOUND';
         readonly selectedCandidateId: string | null;
-        // Coordinates projected from the selected candidate, not from Package.
         readonly latitude: number | null;
         readonly longitude: number | null;
     } | null;
@@ -22,7 +22,7 @@ export interface AssignmentValidationContext {
         readonly geocodingCandidateId: string;
         readonly profile: AssignmentValidationContext['planning']['profile'];
         readonly status:
-            'AUTO_ACCEPTED' | 'REVIEW_REQUIRED' | 'APPROVED' | 'REJECTED';
+        'AUTO_ACCEPTED' | 'REVIEW_REQUIRED' | 'APPROVED' | 'REJECTED';
         readonly roadNodeId: string | null;
         readonly roadEdgeId: string | null;
     } | null;
@@ -30,19 +30,24 @@ export interface AssignmentValidationContext {
     readonly package: {
         readonly id: string;
         readonly tenantId: string;
+        readonly state?: string;
         readonly recipientAddress: string;
         readonly addressId: string;
         readonly zoneId: string | null;
-        readonly weightKg: number;
-        readonly volumeM3: number;
+        readonly weightGrams: number;
+        readonly volumeCm3: number;
+        readonly weightKg?: number;
+        readonly volumeM3?: number;
     };
 
     readonly vehicle: {
         readonly id: string;
         readonly tenantId: string;
         readonly available: boolean;
-        readonly remainingWeightKg: number;
-        readonly remainingVolumeM3: number;
+        readonly remainingWeightGrams: number;
+        readonly remainingVolumeCm3: number;
+        readonly remainingWeightKg?: number;
+        readonly remainingVolumeM3?: number;
     } | null;
 
     readonly courier: {
@@ -50,11 +55,23 @@ export interface AssignmentValidationContext {
         readonly tenantId: string;
         readonly available: boolean;
     } | null;
+
+    readonly route?: {
+        readonly id?: string;
+        readonly status?: string;
+    } | null;
+
+    readonly sourceRoute?: {
+        readonly id?: string;
+        readonly status?: string;
+    } | null;
 }
 
 export type AssignmentRejectionCode =
     | 'TENANT_MISMATCH'
     | 'DUPLICATE_ASSIGNMENT'
+    | 'ROUTE_NOT_EDITABLE'
+    | 'PACKAGE_NOT_ELIGIBLE'
     | 'INCOMPLETE_DATA'
     | 'INVALID_COORDINATES'
     | 'GEOCODING_NOT_READY'
@@ -67,11 +84,11 @@ export type AssignmentRejectionCode =
 
 export type AssignmentValidationResult =
     | {
-          readonly ok: true;
-      }
+        readonly ok: true;
+    }
     | {
-          readonly ok: false;
-          readonly code: AssignmentRejectionCode;
-          readonly message: string;
-          readonly handler: string;
-      };
+        readonly ok: false;
+        readonly code: AssignmentRejectionCode;
+        readonly message: string;
+        readonly handler: string;
+    };

@@ -1,0 +1,28 @@
+info:
+  name: Interrupt Route
+  type: http
+  seq: 6
+
+http:
+  method: POST
+  url: "{{baseUrl}}/routes/{{routeId}}/interrupt"
+  auth: inherit
+  headers:
+    - name: Content-Type
+      value: application/json
+    - name: x-tenant-id
+      value: "{{tenantId}}"
+  body:
+    type: json
+    data: |-
+      {
+        "reasonCode": "VEHICLE_BREAKDOWN",
+        "reason": "Falla mecánica en eje trasero sobre vía principal"
+      }
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+  forwardAuthorizationHeader: false

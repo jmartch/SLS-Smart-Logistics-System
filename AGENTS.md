@@ -652,6 +652,19 @@ Tests must demonstrate behavior, not merely execute lines. Use factories/fixture
 - Follow the existing formatter and ESLint configuration.
 - Comments should explain non-obvious decisions or constraints, not restate code.
 
+### File and artifact naming conventions
+
+- **Entity and Value Object classes (rich models with behavior):** use kebab-case (`route.ts`, `route-stop.ts`, `route-closure-summary.ts`, `route-errors.ts`).
+- **Architectural roles and patterns:** use dot notation before the role suffix (`.<role>.ts`):
+  - Type definitions and contracts: `.<entity>.types.ts` (e.g. `route-closure.types.ts`, `package-state.types.ts`)
+  - Domain policies: `.<entity>.policy.ts` (e.g. `route-closure.policy.ts`, `route-manifest-reconciliation.policy.ts`)
+  - Repositories and ports: `.<entity>.repository.ts`, `.<port-name>.port.ts` (e.g. `route.repository.ts`)
+  - Domain events: `.<entity>.event.ts` (e.g. `route-lifecycle.event.ts`)
+  - Application use cases: `.<action>.use-case.ts` (e.g. `prepare-route.use-case.ts`, `close-route.use-case.ts`)
+  - Presentation DTOs: `.<action>.dto.ts` (e.g. `prepare-route.dto.ts`, `close-route.dto.ts`)
+  - Framework modules and controllers: `.<name>.module.ts`, `.<name>.controller.ts` (e.g. `routes.module.ts`, `routes.controller.ts`)
+  - Tests and fixtures: `*.spec.ts`, `*.fixtures.ts` (e.g. `route.spec.ts`, `route-closure.fixtures.ts`)
+
 ## 22. Development commands
 
 Docker Compose is the required execution environment for this repository. Run
@@ -804,8 +817,8 @@ This board reflects the repository state when this file was created. Update stat
 | --------- | -------------------------------------------------------------------- | ----- | ------ | ---------------- | -------------------------------------------------------------------------- |
 | FOUND-01  | Create modular backend skeleton and shared infrastructure boundaries | Juanangel    | TODO   | None             | Modules compile without circular dependencies.                             |
 | DATA-01   | Design Prisma core schema and initial migration                      | Juanangel/Humberto | TODO   | FOUND-01         | Tenant-aware entities, enums, indexes, and histories validate and migrate. |
-| TENANT-01 | Implement tenant context and isolation helpers                       | Juanangel    | TODO   | DATA-01          | All tenant-owned repository operations require trusted tenant context.     |
-| AUTH-01   | Implement authentication, roles, and guards                          | Juanangel    | TODO   | TENANT-01        | Protected routes enforce role and tenant membership.                       |
+| TENANT-01 | Implement tenant context and isolation helpers                       | Juanangel    | DONE   | DATA-01          | All tenant-owned repository operations require trusted tenant context.     |
+| AUTH-01   | Implement authentication, roles, and guards                          | Juanangel    | DONE   | TENANT-01        | Protected routes enforce role and tenant membership.                       |
 | PKG-01    | Implement package registration, dimensions, status, and history      | Vivian    | TODO   | DATA-01, AUTH-01 | Unique package per tenant can be registered and audited.                   |
 | ZONE-01   | Implement zones and optional sectors                                 | Humberto | TODO   | DATA-01          | Tenant zones classify known destinations.                                  |
 | VEH-01    | Implement vehicles, couriers, availability, and capacity             | Vivian | TODO   | DATA-01          | Weight/volume availability is computed in canonical units.                 |
@@ -816,11 +829,11 @@ This board reflects the repository state when this file was created. Update stat
 | -------------- | ---------------------------------------------------------------- | ----- | ------- | ---------------------------------------- | ------------------------------------------------------------------------ |
 | GEO-01         | Implement coordinate parsing, validation, and Haversine          | Humberto    | TODO    | FOUND-01                                 | Known distances and invalid coordinates are covered by tests.            |
 | CLUSTER-01     | Implement deterministic clustering prototype                     | Humberto    | TODO    | GEO-01                                   | Small dataset produces reproducible clusters.                            |
-| SEQ-01         | Implement nearest-neighbor stop ordering                         | Humberto    | TODO    | GEO-01                                   | Every stop is visited once in deterministic order.                       |
+| SEQ-01         | Implement nearest-neighbor stop ordering                         | Humberto    | DONE    | GEO-01                                   | Every stop is visited once in deterministic order.                       |
 | ASSIGN-01      | Integrate clustering, capacity, and Chain into planning use case | Humberto/Vivian | TODO    | CLUSTER-01, SEQ-01, PAT-CHAIN-01, VEH-01 | Valid plans create routes; unresolved packages remain pending.           |
-| ROUTE-01       | Implement route/stop lifecycle and coordinator review            | Humberto    | TODO    | DATA-01, ASSIGN-01                       | Route can move from draft through ready and start.                       |
-| ITER-01        | Implement route-stop Iterator prototype                          | Humberto    | BACKLOG | ROUTE-01                                 | Ordered and pending iterators pass tests.                                |
-| DELIVERY-01    | Implement attempts, delivery, failure, reschedule, and return    | Vivian/Humberto | TODO    | ROUTE-01, PAT-STATE-01                   | Complete route flow records history and valid transitions.               |
+| ROUTE-01       | Implement route/stop lifecycle and coordinator review            | Humberto    | DONE    | DATA-01, ASSIGN-01                       | Route can move from draft through ready and start.                       |
+| ITER-01        | Implement route-stop Iterator prototype                          | Humberto    | DONE    | ROUTE-01                                 | Ordered and pending iterators pass tests.                                |
+| DELIVERY-01    | Implement attempts, delivery, failure, reschedule, and return    | Vivian/Humberto | DONE    | ROUTE-01, PAT-STATE-01                   | Complete route flow records history and valid transitions.               |
 | ROUTE-CLOSE-01 | Implement route closure summary                                  | Humberto    | TODO    | DELIVERY-01                              | Assigned, delivered, failed, rescheduled, and returned counts reconcile. |
 
 ### P1 - notifications and frontend

@@ -181,6 +181,7 @@ describe('PrismaUserManagementRepository', () => {
     if (createdTenantIds.length > 0) {
       const byTenant = { where: { tenantId: { in: createdTenantIds } } };
       await step(() => admin.session.deleteMany(byTenant));
+      await step(() => admin.auditLog.deleteMany(byTenant));
       await step(() => admin.userRole.deleteMany(byTenant));
       await step(() => admin.rolePermission.deleteMany(byTenant));
       await step(() => admin.role.deleteMany(byTenant));
@@ -588,6 +589,67 @@ describe('PrismaUserManagementRepository', () => {
       await expect(
         repository.runExclusive(tenantA, () => Promise.reject(failure)),
       ).rejects.toBe(failure);
+    });
+  });
+
+  describe('listRoles and recordAudit', () => {
+    it('lists only the roles of the requested tenant ordered by name with their permissions', async () => {
+      const rolesA = await repository.listRoles(tenantA);
+
+      expect(rolesA).toEqual([
+        {
+          id: adminRoleA,
+          name: 'Admin',
+          permissions: [MANAGE_EMPLOYEES],
+        },
+        {
+          id: secondAdminRoleA,
+          name: 'Admin 2',
+          permissions: [MANAGE_EMPLOYEES],
+        },
+        {
+          id: courierRoleA,
+          name: 'Courier',
+          permissions: ['OPERATE_DELIVERIES'],
+        },
+      ]);
+      expect(rolesA.some((role) => role.id === adminRoleB)).toBe(false);
+    });
+
+    it('persists recordAudit entries inside runExclusive and rolls them back on failure', async () => {
+      await repository.runExclusive(tenantA, async (tx) => {
+        await tx.recordAudit({
+          actorUserId: adminUserA,
+          action: 'EMPLOYEE_STATUS_UPDATED',
+          targetUserId: courierA,
+          metadata: { status: 'ACTIVE' },
+        });
+      });
+
+      await expect(
+        repository.runExclusive(tenantA, async (tx) => {
+          await tx.recordAudit({
+            actorUserId: adminUserA,
+            action: 'EMPLOYEE_ROLES_UPDATED',
+            targetUserId: courierA,
+            metadata: { roleIds: [adminRoleA] },
+          });
+          throw new Error('abort transaction');
+        }),
+      ).rejects.toThrow('abort transaction');
+
+      const audits = await admin.auditLog.findMany({
+        where: { tenantId: tenantA, entityId: courierA },
+      });
+      expect(audits).toHaveLength(1);
+      expect(audits[0]).toMatchObject({
+        tenantId: tenantA,
+        actorUserId: adminUserA,
+        action: 'EMPLOYEE_STATUS_UPDATED',
+        entityType: 'User',
+        entityId: courierA,
+        metadata: { status: 'ACTIVE' },
+      });
     });
   });
 });

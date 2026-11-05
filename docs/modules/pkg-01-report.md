@@ -1,6 +1,6 @@
 # PKG-01 — Registro, consulta, clasificación e historial de paquetes
 
-Estado: `TODO` para el encargo funcional.
+Estado: `EN PROGRESO`. `POST /packages` implementado y verificado; consulta, clasificación y refactor del paso 0 pendientes.
 
 Plan canónico: [PKG-01](../plans/pkg-01.md). Coordinación: [puntos 1 y 2](../plans/mvp-puntos-1-2.md).
 
@@ -47,6 +47,50 @@ No se consultaron ni modificaron datos, roles ni migraciones de la base comparti
 
 Planificación automática, asignación a ruta, entregas, publicación RabbitMQ y rastreo público UI-04. Reutilizar State y geocodificación existentes; no rehacerlos ni exponer cambio libre de estado. Inbox/notificaciones quedan fuera.
 
+## Avance de implementación — `POST /packages` (2026-10-11)
+
+Rama `feature/package-vehicle-management` (creada desde `origin/develop` con commits `649f34d..6994cb0` y merge `0e95e61`).
+El módulo permanece en estado `EN PROGRESO` (`IN_PROGRESS`): únicamente está terminado el endpoint de
+registro `POST /packages`; la consulta, la clasificación, el historial por HTTP y el refactor del paso 0
+siguen pendientes.
+
+- Objetivo: registro de paquetes. No incluye consulta, clasificación ni historial por HTTP.
+- Autenticación y autorización (`AUTH-01`): protegido con `AuthGuard` y `PermissionsGuard`
+  (`@RequirePermission('REGISTER_PACKAGES')`). `PackagesModule` importa `AuthModule`. El `tenantId`, el
+  usuario autenticado (`actorUserId`) y el `correlationId` se obtienen de la sesión autenticada
+  (`@CurrentContext()`); no se usa `x-tenant-id` como mecanismo de autorización.
+- Contrato: `trackingCode`, `address {text, municipalityCode}`, `shipmentTypeId`, `zoneId?`, `sectorId?`,
+  `weightKg`, `lengthCm`, `widthCm`, `heightCm`, `priority?`, `deadline?`, `serviceDurationSeconds?`.
+  Respuesta `201` con estado `REGISTERED`, volumen calculado y `publicTrackingToken`. Errores `400`,
+  `401` (`SESSION_EXPIRED`), `403` (`PERMISSION_DENIED`), `404` (`PACKAGE_SHIPMENT_TYPE_NOT_FOUND`,
+  `PACKAGE_ZONE_NOT_FOUND`, `PACKAGE_SECTOR_NOT_FOUND`) y `409` (`PACKAGE_TRACKING_CODE_CONFLICT`,
+  `PACKAGE_SHIPMENT_TYPE_INACTIVE`, `PACKAGE_SECTOR_ZONE_MISMATCH`).
+- Archivos nuevos en `backend/src/modules/packages/`: dominio (`package-registration.ts`,
+  `package-measures.ts`, `package-reference.policy.ts`, `invalid-package-registration.error.ts`), aplicación
+  (`register-package.service.ts` y dos puertos), infraestructura (`prisma-package-registration.adapter.ts`,
+  `crypto-public-tracking-token.generator.ts`) y presentación (`packages.controller.ts`, DTO y mapeo de
+  errores). Modificado: `packages.module.ts` (importa `AuthModule` y registra el caso de uso de registro).
+- Atomicidad y outbox: dirección, paquete, historial inicial (`fromState` nulo, `toState` `REGISTERED`,
+  `changedByUserId` con el usuario autenticado de la sesión) y el evento `PackageRegistered` en
+  `OutboxEvent` (`eventType: 'PackageRegistered'`, `producer: 'sls-backend.packages'`, `version: 1`,
+  `correlationId` y payload `{ packageId, toState: 'REGISTERED', changedByUserId }`) se guardan en una
+  misma transacción con `runWithTenant`.
+- Decisiones: se emite `PackageRegistered` conforme al catálogo `event-catalog.ts`; el token público
+  (256 bits) se genera con `node:crypto`; el volumen se calcula en dominio con enteros para coincidir con
+  la restricción de la base; las coordenadas del formulario se ignoran porque `Package` ya no las guarda.
+- Pruebas unitarias: suites del módulo actualizadas para verificar guardas, permisos, `changedByUserId` y
+  creación de `PackageRegistered` en `OutboxEvent`. Regresión unitaria completa verificada mediante Docker
+  Compose (`142 suites / 1234 pruebas` en verde).
+- Integración `registration-01` (`backend/test/registration-endpoints.e2e-spec.ts`, runner
+  `backend/test/integration/registration-01.cjs`): `1 suite y 36 pruebas` pasaron en una base desechable;
+  usa `configureApp(app)`, tenants con `slug`, login por cookie `sls_session`, y verifica `401` sin sesión,
+  `403` sin `REGISTER_PACKAGES`, que un header `x-tenant-id` de otro tenant sea ignorado, persistencia
+  atómica de dirección/paquete/historial (`changedByUserId`)/`OutboxEvent` (`PackageRegistered`), rechazo
+  sin filas parciales y concurrencia.
+- Límites: el paso 0 (refactor de `PrismaPackageLifecycleRepository.transitionAtomically`) sigue
+  pendiente y no se tocó. El registro no pasa por `PackageAggregate`, que hoy solo reconstituye.
+- Pendiente: consulta, clasificación e integración del formulario de frontend con sesión autenticada.
+
 ## Cierre
 
-Implementación no cerrada. Actualizar una sección por cada paso completado, registrando comandos, resultados, límites y commit; enlazar siempre el plan.
+Implementación parcial (`EN PROGRESO`, solo endpoint de registro `POST /packages` terminado); el trabajo restante está en los pendientes de cada avance. Actualizar una sección por cada paso completado, registrando comandos, resultados, límites y commit; enlazar siempre el plan.

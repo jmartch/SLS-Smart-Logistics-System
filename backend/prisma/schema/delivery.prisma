@@ -10,26 +10,54 @@ enum IncidentStatus {
   CLOSED
 }
 
+model DeliveryOperation {
+  id             String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId       String   @db.Uuid
+  requestId      String
+  actorUserId    String   @db.Uuid
+  commandType    String
+  targetId       String   @db.Uuid
+  requestHash    String
+  resultSnapshot Json
+  createdAt      DateTime @default(now())
+
+  tenant    Tenant @relation(fields: [tenantId], references: [id])
+  actorUser User   @relation(fields: [tenantId, actorUserId], references: [tenantId, id], onDelete: Restrict, onUpdate: Cascade)
+
+  @@unique([tenantId, requestId])
+  @@index([tenantId])
+  @@index([tenantId, targetId])
+}
+
 model DeliveryAttempt {
-  id            String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  tenantId      String          @db.Uuid
-  routeStopId   String          @db.Uuid
-  packageId     String          @db.Uuid
-  courierId     String          @db.Uuid
-  attemptNumber Int
-  outcome       DeliveryOutcome
-  notes         String?
-  attemptedAt   DateTime        @default(now())
+  id                String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId          String          @db.Uuid
+  routeStopId       String          @db.Uuid
+  packageId         String          @db.Uuid
+  courierId         String          @db.Uuid
+  routeId           String?         @db.Uuid
+  assignmentId      String?         @db.Uuid
+  attemptNumber     Int
+  outcome           DeliveryOutcome
+  failureReasonCode String?
+  notes             String?
+  latitude          Decimal?        @db.Decimal(10, 6)
+  longitude         Decimal?        @db.Decimal(10, 6)
+  attemptedAt       DateTime        @default(now())
 
   tenant    Tenant             @relation(fields: [tenantId], references: [id])
   routeStop RouteStop          @relation(fields: [tenantId, routeStopId], references: [tenantId, id], onDelete: Restrict, onUpdate: Cascade)
   package   Package            @relation(fields: [tenantId, packageId], references: [tenantId, id], onDelete: Restrict, onUpdate: Cascade)
   courier   Courier            @relation(fields: [tenantId, courierId], references: [tenantId, id], onDelete: Restrict, onUpdate: Cascade)
-  evidence  DeliveryEvidence[]
+  route      Route?             @relation(fields: [tenantId, routeId], references: [tenantId, id], onDelete: Restrict, onUpdate: Cascade)
+  assignment Assignment?        @relation(fields: [tenantId, assignmentId], references: [tenantId, id], onDelete: Restrict, onUpdate: Cascade)
+  evidence   DeliveryEvidence[]
 
   @@unique([tenantId, id])
-  @@unique([routeStopId, attemptNumber])
+  @@unique([tenantId, packageId, attemptNumber])
   @@index([tenantId])
+  @@index([tenantId, routeStopId])
+  @@index([tenantId, routeId, assignmentId, attemptedAt])
 }
 
 model DeliveryEvidence {
@@ -39,6 +67,8 @@ model DeliveryEvidence {
   evidenceType      String
   storageKey        String
   checksum          String
+  byteSize          Int?
+  mimeType          String?
   createdAt         DateTime @default(now())
 
   tenant          Tenant          @relation(fields: [tenantId], references: [id])

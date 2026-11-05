@@ -1,0 +1,31 @@
+info:
+  name: Return Package to Depot
+  type: http
+  seq: 6
+
+http:
+  method: POST
+  url: "{{baseUrl}}/deliveries/packages/{{packageId}}/depot-receptions"
+  auth: inherit
+  headers:
+    - name: Content-Type
+      value: application/json
+    - name: x-tenant-id
+      value: "{{tenantId}}"
+    - name: Idempotency-Key
+      value: "depot-rec-10000000-0000-4000-8000-000000000001"
+  body:
+    type: json
+    data: |-
+      {
+        "routeId": "{{routeId}}",
+        "depotId": "{{depotId}}",
+        "physicalReceiptConfirmed": true
+      }
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+  forwardAuthorizationHeader: false

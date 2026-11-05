@@ -56,6 +56,15 @@ export class CreateEmployeeService {
             passwordHash,
             command.roleIds,
           );
+          await tx.recordAudit({
+            actorUserId: context.userId,
+            action: 'EMPLOYEE_CREATED',
+            targetUserId: employee.id,
+            metadata: {
+              email: employee.email,
+              roleIds: [...employee.roleIds],
+            },
+          });
           return { kind: 'OK', employee };
         },
       );

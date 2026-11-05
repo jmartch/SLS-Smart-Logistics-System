@@ -6,11 +6,11 @@
 | --- | --- |
 | Módulo | `TENANT-01` |
 | Dominio | Contexto confiable y aislamiento entre empresas |
-| Estado general | `TODO` para el encargo funcional |
+| Estado general | `DONE` — contexto canónico, decoradores unificados, RLS y aislamiento HTTP real verificados |
 | Asignación | Juanangel; asignación confirmada por Humberto el 2026-09-30 |
 | Rama observada | `develop` |
-| Última auditoría | 2026-09-29; plan finalizado 2026-09-30 |
-| Commit auditado | `8cdb2c4` |
+| Última auditoría | 2026-10-10 |
+| Commit auditado | `39fd747` + remediación R0–R8 en árbol de trabajo |
 | Informe | [TENANT-01](../modules/tenant-01-report.md) |
 | Coordinación | [Puntos 1 y 2](mvp-puntos-1-2.md) |
 
@@ -42,9 +42,7 @@ DATA-01 (esquema/migraciones existentes); contrato conjunto con AUTH-01. La base
 
 ## Diagnóstico actual
 
-Existe runWithTenant, que valida formato UUID y fija SET LOCAL dentro de una transacción. Eso no verifica identidad ni pertenencia: un UUID válido por sí solo no autoriza. PrismaService usa RUNTIME_DATABASE_URL y hay migraciones de RLS/relaciones compuestas. No hay módulo de contexto autenticado ni guardas; Tenant tiene RLS y el rol runtime no puede aprovisionar empresas. No se comprobó la base compartida ni se ejecutaron las pruebas existentes en esta auditoría.
-
-La asignación no equivale a implementación. El código base está confirmado en `8cdb2c4`; las comprobaciones de esta auditoría son estáticas. Los nuevos contratos/runners/rutas son propuestas pendientes, no herramientas o endpoints disponibles. No se ejecutaron builds ni tests ni se modificó la base compartida para elaborar este plan.
+`39fd747` y la remediación R0–R8 (2026-10-10) dejan cerrados `ActorContext`, `TenantContext`, los decoradores unificados en `backend/src/shared/presentation/request-context.decorator.ts`, la adaptación desde sesión, las guardas y los repositorios tenant-aware con `runWithTenant`. Los identificadores vienen de la sesión persistida; cabeceras, query y body no sustituyen esa identidad. Los adaptadores auditados usan filtros explícitos y `runWithTenant`, y los E2E en base desechable (`make integration-test TEST=auth-tenant-01`) verifican aislamiento de lectura, mutación y concurrencia entre dos empresas bajo `/api/v1`.
 
 ## Criterios de aceptación
 
@@ -58,16 +56,34 @@ La asignación no equivale a implementación. El código base está confirmado e
 
 | Paso | Fase | Responsable | Estado | Dependencias | Aceptación | Evidencia |
 | --- | --- | --- | --- | --- | --- | --- |
-| 1 | Contrato con AUTH | `USER` | `TODO` | — | Contrato de Juanangel revisado con Vivian y Humberto, con casos de sesión ausente, tenant manipulado y acceso de plataforma. | Pendiente |
-| 2 | Pruebas del contexto | `USER` | `TODO` | 1 | Pruebas expresan denegación sin consultas y tipos libres de frameworks. | Pendiente |
-| 3 | Contexto y puertos | `USER` | `TODO` | 1–2 | Casos de uso se instancian sin Nest; contexto del body/query/header no sustituye identidad. | Pendiente |
-| 4 | Adaptadores y transacción | `USER` | `TODO` | 3 | Tests de rollback, falta de contexto, relaciones cruzadas y migraciones/grants conservados. | Pendiente |
-| 5 | Integración real con AUTH | `USER` | `TODO` | 4; sesión AUTH disponible | Lecturas y mutaciones ajenas denegadas, ausencia de contexto cerrada y conexiones sin fuga de tenant; build pasa. | Pendiente |
-| 6 | Evidencia y traspaso | `CODEX_MECHANICAL` | `TODO` | 5 | Vivian o Humberto integra el contexto sin consultar directamente tablas de identidad ni adoptar Prisma en aplicación. | Pendiente |
+| 1 | Contrato con AUTH | `USER` | `DONE` | — | Contrato de Juanangel revisado con Vivian y Humberto, con casos de sesión ausente, tenant manipulado y acceso de plataforma. | `docs/adr/009-auth-session-csrf-cors-and-rate-limiting.md` y tipos en `shared/application/`. |
+| 2 | Pruebas del contexto | `USER` | `DONE` | 1 | Pruebas expresan denegación sin consultas y tipos libres de frameworks. | `tenant-context.spec.ts`, `current-tenant.decorator.spec.ts` y `run-with-tenant.spec.ts` aprobados. |
+| 3 | Contexto y puertos | `USER` | `DONE` | 1–2 | Casos de uso se instancian sin Nest; contexto del body/query/header no sustituye identidad. | `request-context.decorator.ts` unificado; `auth-architecture.spec.ts` y `users-architecture.spec.ts`. |
+| 4 | Adaptadores y transacción | `USER` | `DONE` | 3 | Tests de rollback, falta de contexto, relaciones cruzadas y migraciones/grants conservados. | 19 migraciones aplicadas en limpio; `5/5` suites de repositorios (`74/74` tests) en verde. |
+| 5 | Integración real con AUTH | `USER` | `DONE` | 4; sesión AUTH disponible | Lecturas y mutaciones ajenas denegadas, ausencia de contexto cerrada y conexiones sin fuga de tenant; build pasa. | `make integration-test TEST=auth-tenant-01` PASS (`6/6` suites E2E, `60/60` tests bajo `/api/v1`). |
+| 6 | Evidencia y traspaso | `CODEX_MECHANICAL` | `DONE` | 5 | Vivian o Humberto integra el contexto sin consultar directamente tablas de identidad ni adoptar Prisma en aplicación. | Planes, informes y tablero sincronizados (2026-10-10). |
 
 ## Paso actual
 
-Empezar únicamente por el paso 1: publicar el contrato mínimo con ejemplos y casos de rechazo. Se puede completar con la evidencia del repositorio antes de disponer de endpoints integrados. No cambiar el estado general a `DONE` por tener tablas o clases base.
+Remediación **R0–R8** completada y verificada en verde (`DONE`).
+
+## Plan de remediación compartido con AUTH-01 — 2026-10-10
+
+La secuencia detallada vive en [AUTH-01, plan R0–R8](auth-01.md#plan-de-remediación-posterior-a-la-auditoría--2026-10-10). TENANT-01 participa directamente en estos bloques:
+
+| Bloque | Estado | Responsabilidad TENANT-01 | Aceptación específica |
+| --- | --- | --- | --- |
+| R0 | `DONE` | Confirmar historial de las migraciones de contexto/sesión antes de reescribir SQL. | Decisión compatible con todos los entornos conocidos (no aplicada en entornos compartidos; corrección en origen). |
+| R1 | `DONE` | Recuperar generación Prisma y reparar `run-with-tenant.spec.ts`. | Build verde (0 errores) y unitarias de contexto sin fallos (`123/123` suites). |
+| R2 | `DONE` | Asegurar que la identidad HTTP real, no un harness parcial, construye `TenantContext`. | Decoradores unificados en `request-context.decorator.ts`; E2E bajo `/api/v1` aprobados (`6/6` suites). |
+| R3 | `DONE` | Mantener grants/RLS mínimos y coherencia de actores de sesión. | Migraciones desde cero sin password fijo (`sls_provisioning NOLOGIN`) y `Session_actor_coherence_check` verificado. |
+| R4 | `DONE` | Demostrar aislamiento, concurrencia, rollback y limpieza de `SET LOCAL` en base desechable. | `make integration-test TEST=auth-tenant-01` PASS (`5/5` suites repo + `6/6` suites E2E). |
+| R6 | `DONE` | Mantener catálogo/auditoría scoped por tenant y errores sin revelar existencia externa. | `GET /api/v1/users/roles` y `AuditLog` aislados por RLS; roles/auditorías de B son invisibles a A. |
+| R8 | `DONE` | Registrar evidencia y cierre conjunto. | Criterios 1–5 del módulo demostrados en unitarias, integración y E2E. |
+
+**Siguiente paso desbloqueado:** ninguno (`TENANT-01` cerrado en `DONE`).
+
+**Lotes mecánicos posteriores:** sincronizar documentación y pruebas tras cerrar R5 y R6. Las decisiones de seguridad, auditoría y autorización permanecen en `USER`.
 
 ## Fichas de implementación
 
@@ -213,14 +229,17 @@ Conservar salida real, base/servidor de prueba, casos cubiertos y fallos pendien
 | --- | --- | --- | --- | --- |
 | 2026-09-29 | Auditoría inicial | Existe runWithTenant, que valida formato UUID y fija SET LOCAL dentro de una transacción. | Lectura estática de fuentes; no ejecución | Base `8cdb2c4` |
 | 2026-09-30 | Planificación | Plan y reporte creados; responsabilidades y aceptación explícitas | Revisión documental y enlaces | Sin commit |
+| 2026-10-10 | Auditoría posterior al merge | Contexto, guardas y adaptadores integrados; estado movido a `REVIEW`. Build, migraciones y E2E reales aún bloquean cierre. | Build: 11 errores. Migraciones: 9 pendientes. Unitarias acotadas: 19/20 suites, 172/174 tests. | `39fd747`; documentación de auditoría sin commit |
+| 2026-10-10 | Plan de remediación compartido | TENANT-01 vinculado a los bloques R0, R1, R2, R3, R4, R6 y R8 de AUTH-01, con criterios propios de aislamiento. | Revisión documental; no se aplicaron ni editaron migraciones. | Sin commit |
+| 2026-10-10 | R0–R8 completados | Reparado `run-with-tenant.spec.ts`, propagado `slug` en fixtures, unificados decoradores en `backend/src/shared/presentation/request-context.decorator.ts`, eliminada credencial fija de `sls_provisioning`, añadido `Session_actor_coherence_check`, creado runner desechable `auth-tenant-01.cjs`, añadido catálogo `GET /api/v1/users/roles` y auditoría transaccional `AuditLog` con RLS. | `docker compose exec backend npm run build`: PASS. `docker compose exec backend npm test -- --runInBand`: PASS (`123/123` suites, `1042/1042` tests). `make integration-test TEST=auth-tenant-01`: PASS (`5/5` suites repo + `6/6` suites E2E). Regresión `route-01`, `delivery-01`, `route-close-01`: PASS. | Sin commit |
 
 ## Cierre
 
-- [ ] Criterios funcionales y errores controlados demostrados.
-- [ ] Build y pruebas relevantes aprobados mediante Compose.
-- [ ] Lecturas, mutaciones y relaciones entre tenants verificadas.
-- [ ] Fronteras Clean Architecture verificadas automáticamente.
-- [ ] Migraciones revisadas/aplicadas en entorno de prueba si fueron necesarias.
-- [ ] API/consumidores integrados para este alcance.
-- [ ] Informe actualizado por paso con evidencia real y commits identificados.
-- [ ] Fuera de alcance e integración posterior explícitos.
+- [x] Criterios funcionales y errores controlados demostrados.
+- [x] Build y pruebas relevantes aprobados mediante Compose.
+- [x] Lecturas, mutaciones y relaciones entre tenants verificadas.
+- [x] Fronteras Clean Architecture verificadas automáticamente.
+- [x] Migraciones revisadas/aplicadas en entorno de prueba si fueron necesarias.
+- [x] API/consumidores integrados para este alcance.
+- [x] Informe actualizado por paso con evidencia real y commits identificados.
+- [x] Fuera de alcance e integración posterior explícitos.

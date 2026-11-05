@@ -1,0 +1,39 @@
+info:
+  name: Register Package
+  type: http
+  seq: 1
+
+http:
+  method: POST
+  url: "{{baseUrl}}/packages"
+  auth: inherit
+  headers:
+    - name: Content-Type
+      value: application/json
+  body:
+    type: json
+    data: |-
+      {
+        "trackingCode": "PKG-0001",
+        "address": {
+          "text": "Calle 72 # 45-10",
+          "municipalityCode": "08001"
+        },
+        "shipmentTypeId": "{{shipmentTypeId}}",
+        "zoneId": "{{zoneId}}",
+        "sectorId": "{{sectorId}}",
+        "weightKg": 2.5,
+        "lengthCm": 30,
+        "widthCm": 20,
+        "heightCm": 10,
+        "priority": "NORMAL",
+        "deadline": "2026-10-20T17:00:00Z",
+        "serviceDurationSeconds": 300
+      }
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+  forwardAuthorizationHeader: false

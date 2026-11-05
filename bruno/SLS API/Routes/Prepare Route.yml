@@ -1,0 +1,29 @@
+info:
+  name: Prepare Route
+  type: http
+  seq: 3
+
+http:
+  method: POST
+  url: "{{baseUrl}}/routes/{{routeId}}/prepare"
+  auth: inherit
+  headers:
+    - name: Content-Type
+      value: application/json
+    - name: x-tenant-id
+      value: "{{tenantId}}"
+    - name: x-user-id
+      value: "{{userId}}"
+  body:
+    type: json
+    data: |-
+      {
+        "depotConfirmed": true
+      }
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+  forwardAuthorizationHeader: false

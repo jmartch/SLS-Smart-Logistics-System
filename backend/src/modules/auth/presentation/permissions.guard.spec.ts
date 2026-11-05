@@ -31,6 +31,9 @@ class UndecoratedController {
 
   @RequirePermission('MANAGE_EMPLOYEES')
   guarded(): void {}
+
+  @RequirePermission('COORDINATE_ROUTES', 'OPERATE_DELIVERIES')
+  multiPermission(): void {}
 }
 
 @AuthenticatedOnly()
@@ -104,6 +107,36 @@ describe('PermissionsGuard', () => {
           UndecoratedController,
           'guarded',
           tenantUser(['OPERATE_DELIVERIES']),
+        ),
+      ),
+    );
+  });
+
+  it('lets a tenant user holding any of multiple declared permissions through and rejects others', () => {
+    expect(
+      guard.canActivate(
+        contextFor(
+          UndecoratedController,
+          'multiPermission',
+          tenantUser(['COORDINATE_ROUTES']),
+        ),
+      ),
+    ).toBe(true);
+    expect(
+      guard.canActivate(
+        contextFor(
+          UndecoratedController,
+          'multiPermission',
+          tenantUser(['OPERATE_DELIVERIES']),
+        ),
+      ),
+    ).toBe(true);
+    expectPermissionDenied(() =>
+      guard.canActivate(
+        contextFor(
+          UndecoratedController,
+          'multiPermission',
+          tenantUser(['REGISTER_PACKAGES']),
         ),
       ),
     );
