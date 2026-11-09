@@ -27,7 +27,6 @@ import { gramsToKg, cm3ToM3 } from '../domain/models/clustering-quantities';
 import type {
   ClusteringPackageInput,
   ClusteringVehicleInput,
-  CapacityClusterProposal,
 } from '../domain/models/clustering.types';
 import type { StopCandidateInput } from '../domain/models/stop-ordering.types';
 import {
@@ -243,10 +242,10 @@ export class PlanAndAssignRoutesService implements PlanAndAssignRoutesUseCase {
                 networkAttachment: pkg.networkAttachment
                   ? {
                       tenantId: context.tenantId,
-                      datasetId: command.datasetId,
+                      datasetId: pkg.networkAttachment.datasetId,
                       geocodingCandidateId:
-                        pkg.geocodingCandidate?.candidateId ?? '',
-                      profile: command.profile,
+                        pkg.networkAttachment.geocodingCandidateId,
+                      profile: pkg.networkAttachment.profile,
                       status: pkg.networkAttachment.status,
                       roadNodeId: pkg.networkAttachment.roadNodeId,
                       roadEdgeId: pkg.networkAttachment.roadEdgeId,
@@ -331,6 +330,19 @@ export class PlanAndAssignRoutesService implements PlanAndAssignRoutesUseCase {
               for (const stop of orderedSequence.stops) {
                 const routeStopId = randomUUID();
                 const assignmentId = randomUUID();
+                const stopPkg = snapshot.packages.find(
+                  (p) => p.id === stop.packageId,
+                );
+
+                const attemptId =
+                  stopPkg?.geocodingAttemptId ??
+                  stopPkg?.geocodingCandidate?.attemptId;
+
+                if (!attemptId) {
+                  throw new Error(
+                    `Cannot create planned route stop for package ${stop.packageId} without a valid geocodingAttemptId`,
+                  );
+                }
 
                 stopsToCreate.push({
                   id: routeStopId,
@@ -338,7 +350,7 @@ export class PlanAndAssignRoutesService implements PlanAndAssignRoutesUseCase {
                   sequence: stop.sequence,
                   latitude: stop.coordinates.latitude,
                   longitude: stop.coordinates.longitude,
-                  geocodingAttemptId: null,
+                  geocodingAttemptId: attemptId,
                 });
 
                 assignmentsToCreate.push({
@@ -585,9 +597,9 @@ export class PlanAndAssignRoutesService implements PlanAndAssignRoutesUseCase {
       networkAttachment: pkg.networkAttachment
         ? {
             tenantId,
-            datasetId: command.datasetId,
-            geocodingCandidateId: pkg.geocodingCandidate?.candidateId ?? '',
-            profile: command.profile,
+            datasetId: pkg.networkAttachment.datasetId,
+            geocodingCandidateId: pkg.networkAttachment.geocodingCandidateId,
+            profile: pkg.networkAttachment.profile,
             status: pkg.networkAttachment.status,
             roadNodeId: pkg.networkAttachment.roadNodeId,
             roadEdgeId: pkg.networkAttachment.roadEdgeId,

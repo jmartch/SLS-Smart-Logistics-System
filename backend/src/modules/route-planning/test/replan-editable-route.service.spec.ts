@@ -67,6 +67,7 @@ function createBaseSnapshot(
         addressId: '91000000-0000-4000-8000-000000000002',
         weightGrams: 4000,
         volumeCm3: 15000,
+        geocodingAttemptId: '94000000-0000-4000-8000-000000000002',
         geocodingCandidate: {
           candidateId: '92000000-0000-4000-8000-000000000002',
           latitude: 10.992,
@@ -95,14 +96,19 @@ describe('ReplanEditableRouteService', () => {
   };
 
   it('assigns a PENDING_ASSIGNMENT package to an editable PLANNED route and reorders stop sequences 1..N from the depot', async () => {
+    const updateStopSequences = jest.fn().mockResolvedValue(undefined);
+    const createRouteStops = jest.fn().mockResolvedValue(undefined);
+    const createAssignments = jest.fn().mockResolvedValue(undefined);
+    const updatePackageStates = jest.fn().mockResolvedValue(undefined);
+
     const session: jest.Mocked<EditableRouteReplanSession> = {
       loadEditableRouteSnapshot: jest
         .fn()
         .mockResolvedValue(createBaseSnapshot()),
-      updateStopSequences: jest.fn().mockResolvedValue(undefined),
-      createRouteStops: jest.fn().mockResolvedValue(undefined),
-      createAssignments: jest.fn().mockResolvedValue(undefined),
-      updatePackageStates: jest.fn().mockResolvedValue(undefined),
+      updateStopSequences,
+      createRouteStops,
+      createAssignments,
+      updatePackageStates,
       saveOutboxEvents: jest.fn().mockResolvedValue(undefined),
     };
 
@@ -123,13 +129,12 @@ describe('ReplanEditableRouteService', () => {
     expect(result.routeId).toBe(ROUTE_1);
     expect(result.state).toBe('PLANNED');
     expect(result.stops).toHaveLength(2);
-    // PKG_PENDING (10.992, -74.795) is closer to depot (10.9878, -74.7889) than PKG_EXISTING (11.01, -74.82)
     expect(result.stops[0]?.packageId).toBe(PKG_PENDING);
     expect(result.stops[0]?.sequence).toBe(1);
     expect(result.stops[1]?.packageId).toBe(PKG_EXISTING);
     expect(result.stops[1]?.sequence).toBe(2);
 
-    expect(session.updateStopSequences).toHaveBeenCalledWith(
+    expect(updateStopSequences).toHaveBeenCalledWith(
       ROUTE_1,
       [
         {
@@ -139,9 +144,9 @@ describe('ReplanEditableRouteService', () => {
       ],
       expect.any(Number),
     );
-    expect(session.createRouteStops).toHaveBeenCalledTimes(1);
-    expect(session.createAssignments).toHaveBeenCalledTimes(1);
-    expect(session.updatePackageStates).toHaveBeenCalledWith([
+    expect(createRouteStops).toHaveBeenCalledTimes(1);
+    expect(createAssignments).toHaveBeenCalledTimes(1);
+    expect(updatePackageStates).toHaveBeenCalledWith([
       expect.objectContaining({
         packageId: PKG_PENDING,
         fromState: 'PENDING_ASSIGNMENT',

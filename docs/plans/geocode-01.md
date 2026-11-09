@@ -270,3 +270,8 @@ Las siete suites unitarias y de arquitectura, el build y los seis escenarios e2e
 - [x] Informe actualizado con evidencia vigente.
 - [x] Trabajo fuera de alcance documentado.
 - [x] Estado del plan contrastado con código, pruebas y commits relacionados registrados.
+
+
+## Integración del registro ordinario — PKG-GEO-01
+
+El registro HTTP, la recuperación de direcciones y la aptitud para planificación se conectan en [PKG-GEO-01](pkg-geo-01.md). Consultar su [ADR](../adr/pkg-geo-01.md) y [guía operativa](../geospatial/pkg-geo-01-operation.md); las semillas de demostración no son evidencia de ese flujo. Este alcance no incorpora UI-DELIVERY-01.

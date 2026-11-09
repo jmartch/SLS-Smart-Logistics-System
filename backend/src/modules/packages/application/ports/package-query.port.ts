@@ -19,15 +19,63 @@ export interface PackageHistoryItem {
     readonly createdAt: Date;
 }
 
+import type { PackageGeocodingDiagnostic } from '../../domain/package-geocoding.types';
+import type { PackageStateName } from '../../domain/package-state.types';
+
+export interface GeocodingCandidateDetail {
+    readonly id: string;
+    readonly rank: number;
+    readonly score: number;
+    readonly latitude: number;
+    readonly longitude: number;
+    readonly precision: string;
+    readonly source: string;
+}
+
+export interface PackageAttachmentSnapshot {
+    readonly id: string;
+    readonly datasetId: string;
+    readonly profile: string;
+    readonly status: string;
+    readonly accessDistanceMeters: number;
+}
+
+export interface PackageDetailSnapshot extends PackageListItem {
+    readonly lengthCm: string;
+    readonly widthCm: string;
+    readonly heightCm: string;
+    readonly deadline: Date | null;
+    readonly addressId: string;
+    readonly municipalityCode: string | null;
+    readonly geocodingAttemptId: string | null;
+    readonly geocodingAttempt: {
+        readonly id: string;
+        readonly datasetId: string;
+        readonly selectedCandidateId: string | null;
+        readonly status: string;
+        readonly isDatasetReady: boolean;
+        readonly selectedCandidate: {
+            readonly id: string;
+            readonly networkAttachments: readonly PackageAttachmentSnapshot[];
+        } | null;
+    } | null;
+    readonly latestDiagnosticAuditMetadata: Record<string, unknown> | null;
+    readonly candidates: readonly GeocodingCandidateDetail[];
+    readonly history: readonly PackageHistoryItem[];
+}
+
 export interface PackageDetail extends PackageListItem {
     readonly lengthCm: string;
     readonly widthCm: string;
     readonly heightCm: string;
     readonly deadline: Date | null;
+    readonly addressId: string;
+    readonly municipalityCode?: string | null;
+    readonly geocodingAttemptId?: string | null;
+    readonly geocoding?: PackageGeocodingDiagnostic | null;
+    readonly candidates?: readonly GeocodingCandidateDetail[];
     readonly history: readonly PackageHistoryItem[];
 }
-
-import type { PackageStateName } from '../../domain/package-state.types';
 
 export interface PackageListFilter {
     readonly state?: PackageStateName;
@@ -41,5 +89,5 @@ export abstract class PackageQueryPort {
     abstract findByTenantAndId(
         tenantId: string,
         packageId: string,
-    ): Promise<PackageDetail | null>;
+    ): Promise<PackageDetailSnapshot | null>;
 }

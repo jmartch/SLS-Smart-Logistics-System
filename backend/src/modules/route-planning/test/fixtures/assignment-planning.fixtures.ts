@@ -49,6 +49,7 @@ export function createPlanningPackage(
     addressId: `addr-${id}`,
     weightGrams: 2000,
     volumeCm3: 5000,
+    geocodingAttemptId: `att-${id}`,
     geocodingCandidate: {
       candidateId: `cand-${id}`,
       latitude: 10.9878,
@@ -56,11 +57,15 @@ export function createPlanningPackage(
       datasetId: DEFAULT_DATASET_ID,
       datasetStatus: 'READY',
       status: 'MATCHED',
+      attemptId: `att-${id}`,
     },
     networkAttachment: {
       status: 'AUTO_ACCEPTED',
       roadNodeId: `node-${id}`,
       roadEdgeId: null,
+      datasetId: DEFAULT_DATASET_ID,
+      profile: 'MOTOR_VEHICLE',
+      geocodingCandidateId: `cand-${id}`,
     },
     ...overrides,
   };
@@ -153,67 +158,87 @@ export class InMemoryPlanningAssignmentUnitOfWork implements PlanningAssignmentU
     const initialCompletedRequests = new Map(this.completedRequests);
 
     const session: PlanningAssignmentSession = {
-      claimRequest: async (requestId, command) => {
+      claimRequest: (requestId, command) => {
+        void command;
         if (this.completedRequests.has(requestId)) {
-          return {
+          return Promise.resolve({
             status: 'COMPLETED',
             existingResult: this.completedRequests.get(requestId)!,
-          };
+          });
         }
-        return { status: 'NEW' };
+        return Promise.resolve({ status: 'NEW' });
       },
 
-      loadSnapshot: async () => {
-        return this.snapshot;
+      loadSnapshot: () => {
+        return Promise.resolve(this.snapshot);
       },
 
-      createRoute: async (route) => {
+      createRoute: (route) => {
         if (this.failurePoint === 'createRoute') {
-          throw new Error('Induced failure in createRoute');
+          return Promise.reject(new Error('Induced failure in createRoute'));
         }
         this.routes.push(route);
+        return Promise.resolve();
       },
 
-      createRouteStops: async (stops) => {
+      createRouteStops: (stops) => {
         if (this.failurePoint === 'createRouteStops') {
-          throw new Error('Induced failure in createRouteStops');
+          return Promise.reject(
+            new Error('Induced failure in createRouteStops'),
+          );
         }
         this.stops.push(...stops);
+        return Promise.resolve();
       },
 
-      createAssignments: async (assignments) => {
+      createAssignments: (assignments) => {
         if (this.failurePoint === 'createAssignments') {
-          throw new Error('Induced failure in createAssignments');
+          return Promise.reject(
+            new Error('Induced failure in createAssignments'),
+          );
         }
         this.assignments.push(...assignments);
+        return Promise.resolve();
       },
 
-      updatePackageStates: async (updates) => {
+      updatePackageStates: (updates) => {
         if (this.failurePoint === 'updatePackageStates') {
-          throw new Error('Induced failure in updatePackageStates');
+          return Promise.reject(
+            new Error('Induced failure in updatePackageStates'),
+          );
         }
         this.packageUpdates.push(...updates);
+        return Promise.resolve();
       },
 
-      savePlanningResults: async (results) => {
+      savePlanningResults: (results) => {
         if (this.failurePoint === 'savePlanningResults') {
-          throw new Error('Induced failure in savePlanningResults');
+          return Promise.reject(
+            new Error('Induced failure in savePlanningResults'),
+          );
         }
         this.results.push(...results);
+        return Promise.resolve();
       },
 
-      saveOutboxEvents: async (events) => {
+      saveOutboxEvents: (events) => {
         if (this.failurePoint === 'saveOutboxEvents') {
-          throw new Error('Induced failure in saveOutboxEvents');
+          return Promise.reject(
+            new Error('Induced failure in saveOutboxEvents'),
+          );
         }
         this.outboxEvents.push(...events);
+        return Promise.resolve();
       },
 
-      completeRequest: async (requestId, result) => {
+      completeRequest: (requestId, result) => {
         if (this.failurePoint === 'completeRequest') {
-          throw new Error('Induced failure in completeRequest');
+          return Promise.reject(
+            new Error('Induced failure in completeRequest'),
+          );
         }
         this.completedRequests.set(requestId, result);
+        return Promise.resolve();
       },
     };
 

@@ -65,6 +65,10 @@ export interface PlanningWorkspacePackage {
   readonly weightKg: string
   readonly volumeM3: string
   readonly hasReadyCoordinates: boolean
+  readonly isGeocodingReady?: boolean
+  readonly geocodingStatus?: string | null
+  readonly networkAttachmentStatus?: string | null
+  readonly unsuitabilityReason?: string | null
   readonly lastPendingReasonCode?: string | null
   readonly lastStateChangedAt?: string | null
 }
@@ -208,15 +212,47 @@ export function formatPendingReasonLabel(reasonCode?: string | null): string {
   return PENDING_REASON_LABELS[reasonCode] ?? reasonCode
 }
 
+export const UNSUITABILITY_REASON_LABELS: Record<string, string> = {
+  NO_GEOCODING_ATTEMPT: "Sin intento de geocodificación",
+  MISSING_GEOCODING_ATTEMPT: "Sin intento de geocodificación asociado",
+  UNSUPPORTED_ADDRESS_FORMAT: "Formato de dirección no reconocido",
+  NOT_FOUND: "Dirección no encontrada en el catálogo",
+  REVIEW_REQUIRED: "Candidatos ambiguos requieren revisión manual",
+  AMBIGUOUS_GEOCODING: "Candidatos ambiguos pendientes de aprobación",
+  DATASET_NOT_READY: "Catálogo geográfico del municipio no listo",
+  DATASET_MISMATCH: "El dataset no coincide con la cobertura requerida",
+  STALE_ROAD_NETWORK_DATASET: "Catálogo vial desactualizado respecto a la selección",
+  ROAD_NETWORK_DATASET_NOT_READY: "El dataset de red vial no está listo",
+  NO_ROAD_NETWORK_ATTACHMENT: "Sin anclaje a la red vial para el perfil solicitado",
+  MISSING_NETWORK_ATTACHMENT: "Sin anclaje a la red vial registrado",
+  ATTACHMENT_NOT_ACCEPTED: "El anclaje a la red vial no ha sido aprobado",
+  NETWORK_ATTACHMENT_NOT_READY: "Anclaje vial fuera del radio de tolerancia",
+  ATTACHMENT_DISTANCE_EXCEEDED: "Distancia al eje vial excede el umbral permitido",
+  UNVERIFIED_DIRECTED_REACHABILITY: "Transitabilidad dirigida no confirmada",
+}
+
+export function formatUnsuitabilityReason(reason?: string | null): string {
+  if (!reason) return "No apto para planificación"
+  return UNSUITABILITY_REASON_LABELS[reason] ?? reason
+}
+
+export function isPlanningPackageEligible(pkg: PlanningWorkspacePackage): boolean {
+  return pkg.isGeocodingReady === true
+}
+
 export async function getPlanningWorkspace(params?: {
   readonly zoneId?: string
   readonly startAt?: string
   readonly endAt?: string
+  readonly datasetId?: string
+  readonly profile?: "MOTOR_VEHICLE" | "MOTORCYCLE" | "BICYCLE" | "FOOT"
 }): Promise<PlanningWorkspaceSnapshot> {
   const query = new URLSearchParams()
   if (params?.zoneId) query.set("zoneId", params.zoneId)
   if (params?.startAt) query.set("startAt", params.startAt)
   if (params?.endAt) query.set("endAt", params.endAt)
+  if (params?.datasetId) query.set("datasetId", params.datasetId)
+  if (params?.profile) query.set("profile", params.profile)
   const suffix = query.toString() ? `?${query.toString()}` : ""
 
   return apiFetch<PlanningWorkspaceSnapshot>(
