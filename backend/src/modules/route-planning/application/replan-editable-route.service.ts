@@ -114,9 +114,13 @@ export class ReplanEditableRouteService implements ReplanEditableRouteUseCase {
           networkAttachment: pkg.networkAttachment
             ? {
                 tenantId: context.tenantId,
-                datasetId: snapshot.datasetId,
-                geocodingCandidateId: pkg.geocodingCandidate?.candidateId ?? '',
-                profile: 'MOTOR_VEHICLE',
+                datasetId:
+                  pkg.networkAttachment.datasetId ?? snapshot.datasetId,
+                geocodingCandidateId:
+                  pkg.networkAttachment.geocodingCandidateId ??
+                  pkg.geocodingCandidate?.candidateId ??
+                  '',
+                profile: pkg.networkAttachment.profile ?? 'MOTOR_VEHICLE',
                 status: pkg.networkAttachment.status,
                 roadNodeId: pkg.networkAttachment.roadNodeId,
                 roadEdgeId: pkg.networkAttachment.roadEdgeId,
@@ -271,6 +275,18 @@ export class ReplanEditableRouteService implements ReplanEditableRouteUseCase {
         } else {
           const routeStopId = randomUUID();
           const assignmentId = randomUUID();
+          const pkgSnapshot = requestedPackages.find(
+            (p) => p.id === stop.packageId,
+          );
+          const attemptId =
+            pkgSnapshot?.geocodingAttemptId ??
+            pkgSnapshot?.geocodingCandidate?.attemptId;
+
+          if (!attemptId) {
+            throw new Error(
+              `Cannot create replanned route stop for package ${stop.packageId} without a valid geocodingAttemptId`,
+            );
+          }
 
           stopsToCreate.push({
             id: routeStopId,
@@ -278,7 +294,7 @@ export class ReplanEditableRouteService implements ReplanEditableRouteUseCase {
             sequence: stop.sequence,
             latitude: stop.coordinates.latitude,
             longitude: stop.coordinates.longitude,
-            geocodingAttemptId: null,
+            geocodingAttemptId: attemptId,
           });
 
           assignmentsToCreate.push({

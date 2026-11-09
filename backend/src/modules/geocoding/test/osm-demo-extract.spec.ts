@@ -75,7 +75,7 @@ describe('buildOsmDemoRows', () => {
           expect(edge.distanceM).toBeGreaterThan(100);
           expect(edge.durationS).toBeGreaterThan(0);
         }
-        if (tags.oneway === '-1')
+        if ('oneway' in tags && tags.oneway === '-1')
           expect(result.edges[0].points[0]).toEqual([-74.8, 11.001]);
       },
     );

@@ -1,0 +1,43 @@
+services:
+  integration-postgres:
+    image: postgis/postgis:17-3.6-alpine
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_DB=postgres
+    tmpfs:
+      - /var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 2s
+      timeout: 3s
+      retries: 15
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    image: sls-pkg-geo-01-backend:latest
+    depends_on:
+      integration-postgres:
+        condition: service_healthy
+    environment:
+      - NODE_ENV=test
+      - GDB_TEST_ADMIN_URL=postgresql://postgres:postgres@integration-postgres:5432/postgres
+    volumes:
+      - ./backend/package.json:/app/package.json:ro
+      - ./backend/src:/app/src:ro
+      - ./backend/test:/app/test:ro
+      - ./backend/prisma:/app/prisma:ro
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    image: sls-pkg-geo-01-frontend:latest
+    environment:
+      - NODE_ENV=test
+    volumes:
+      - ./frontend/package.json:/app/package.json
+      - ./frontend/package-lock.json:/app/package-lock.json
+      - ./frontend/src:/app/src

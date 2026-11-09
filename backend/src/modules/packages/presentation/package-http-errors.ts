@@ -9,7 +9,17 @@ import {
     type PackageRegistrationField,
 } from '../domain/invalid-package-registration.error';
 import { InvalidPackageTransitionError } from '../domain/invalid-package-transition.error';
-import { PackageNotFoundError } from '../domain/package-errors';
+import {
+    PackageActiveAssignmentConflictError,
+    PackageGeocodingCandidateNotFoundError,
+    PackageGeocodingReferenceMismatchError,
+    PackageGeocodingValidationError,
+    PackageHistoricalAttemptLockedError,
+    PackageNotFoundError,
+    PackageOperationCorruptedError,
+    PackageOperationIdConflictError,
+    PackageStateConflictError,
+} from '../domain/package-errors';
 
 const FIELD_LABELS: Record<PackageRegistrationField, string> = {
     trackingCode: 'El código de seguimiento',
@@ -44,10 +54,31 @@ export function handlePackageDomainError(error: unknown): never {
             message: error.message,
         });
     }
-    if (error instanceof InvalidPackageTransitionError) {
+    if (error instanceof PackageGeocodingCandidateNotFoundError) {
+        throw new NotFoundException({
+            code: error.code,
+            message: error.message,
+        });
+    }
+    if (
+        error instanceof PackageStateConflictError ||
+        error instanceof PackageActiveAssignmentConflictError ||
+        error instanceof PackageGeocodingReferenceMismatchError ||
+        error instanceof PackageHistoricalAttemptLockedError ||
+        error instanceof PackageOperationIdConflictError ||
+        error instanceof PackageOperationCorruptedError ||
+        error instanceof InvalidPackageTransitionError
+    ) {
         throw new ConflictException({
             code: error.code,
             message: error.message,
+        });
+    }
+    if (error instanceof PackageGeocodingValidationError) {
+        throw new BadRequestException({
+            code: error.code,
+            message: error.message,
+            fields: error.field ? { [error.field]: error.message } : undefined,
         });
     }
     if (error instanceof InvalidPackageRegistrationError) {

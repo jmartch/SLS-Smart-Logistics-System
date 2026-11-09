@@ -34,7 +34,9 @@ describe('PrismaPlanningWorkspaceQueryAdapter', () => {
       async (_, tenantId, hasCatalog, expectedDatasetCount) => {
         // Arrange
         const tx = {
-          $executeRaw: jest.fn().mockResolvedValue(1),
+          $executeRaw: jest
+            .fn<Promise<number>, [TemplateStringsArray, ...unknown[]]>()
+            .mockResolvedValue(1),
           $queryRaw: jest.fn().mockResolvedValue([]),
           zone: { findMany: jest.fn().mockResolvedValue([]) },
           geoDataset: {
@@ -76,8 +78,8 @@ describe('PrismaPlanningWorkspaceQueryAdapter', () => {
           },
         };
         const prisma = {
-          $transaction: jest.fn(async (cb: (client: unknown) => unknown) =>
-            cb(tx),
+          $transaction: jest.fn((cb: (client: unknown) => unknown) =>
+            Promise.resolve(cb(tx)),
           ),
         } as unknown as PrismaService;
         const adapter = new PrismaPlanningWorkspaceQueryAdapter(prisma);
@@ -88,9 +90,10 @@ describe('PrismaPlanningWorkspaceQueryAdapter', () => {
         // Assert
         expect(result.datasets).toHaveLength(expectedDatasetCount);
         expect(result.candidatePackages[0].hasReadyCoordinates).toBe(false);
+        const tenantFilter: unknown = expect.objectContaining({ tenantId });
         expect(tx.package.findMany).toHaveBeenCalledWith(
           expect.objectContaining({
-            where: expect.objectContaining({ tenantId }),
+            where: tenantFilter,
           }),
         );
         expect(tx.geoDataset.upsert).not.toHaveBeenCalled();
@@ -108,7 +111,9 @@ describe('PrismaPlanningWorkspaceQueryAdapter', () => {
 
   it('loads only tenant-scoped ACTIVE resources, computes window eligibility, and returns PLANNED editable routes with remaining capacity', async () => {
     const tx = {
-      $executeRaw: jest.fn().mockResolvedValue(1),
+      $executeRaw: jest
+        .fn<Promise<number>, [TemplateStringsArray, ...unknown[]]>()
+        .mockResolvedValue(1),
       $queryRaw: jest
         .fn()
         .mockResolvedValueOnce([
@@ -250,7 +255,9 @@ describe('PrismaPlanningWorkspaceQueryAdapter', () => {
     };
 
     const prisma = {
-      $transaction: jest.fn(async (cb: (client: unknown) => unknown) => cb(tx)),
+      $transaction: jest.fn((cb: (client: unknown) => unknown) =>
+        Promise.resolve(cb(tx)),
+      ),
     } as unknown as PrismaService;
 
     const adapter = new PrismaPlanningWorkspaceQueryAdapter(prisma);
@@ -339,9 +346,17 @@ describe('PrismaPlanningWorkspaceQueryAdapter', () => {
         sectorId: null,
         sectorName: null,
         address: 'Cra 53 # 82-10',
+        municipalityCode: undefined,
         weightKg: '4.25',
         volumeM3: '0.015',
         hasReadyCoordinates: true,
+        rawGeocoding: {
+          attemptDatasetId: undefined,
+          attemptStatus: 'MATCHED',
+          isDatasetReady: true,
+          networkAttachments: [],
+          selectedCandidateId: '99000000-0000-4000-8000-000000000001',
+        },
         lastPendingReasonCode: null,
         lastStateChangedAt: null,
       },
