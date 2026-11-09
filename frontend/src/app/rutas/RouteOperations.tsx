@@ -6,16 +6,19 @@ import {
   Route,
   XCircle,
 } from "lucide-react"
+import { useState } from "react"
 import { Link } from "react-router"
+import { RouteClosureForm } from "./RouteClosureForm"
 import {
   cancelRoute,
   interruptRoute,
   prepareRoute,
   startRoute,
+  type CloseRouteResult,
   type RouteDetailResult,
 } from "./routesApi"
 
-interface RouteOperationsProps {
+export interface RouteOperationsProps {
   readonly route: RouteDetailResult
   readonly permissions: readonly string[]
   readonly actionBusy: string | null
@@ -28,6 +31,8 @@ interface RouteOperationsProps {
     fn: () => Promise<unknown>,
     successMessage: string,
   ) => Promise<void>
+  readonly onClosureSuccess: (result: CloseRouteResult) => void
+  readonly closureConfirmed?: boolean
 }
 
 export function RouteOperations({
@@ -36,9 +41,24 @@ export function RouteOperations({
   actionBusy,
   actionFeedback,
   runAction,
+  onClosureSuccess,
+  closureConfirmed = false,
 }: RouteOperationsProps) {
+  const [showClosureForm, setShowClosureForm] = useState(false)
   const canCoordinate = permissions.includes("COORDINATE_ROUTES")
   const canExecute = canCoordinate || permissions.includes("OPERATE_DELIVERIES")
+
+  const isEligibleForClosure =
+    !closureConfirmed &&
+    route.state !== "COMPLETED" &&
+    (route.state === "IN_PROGRESS" || route.state === "INTERRUPTED") &&
+    canCoordinate
+
+  const handleClosureSuccess = (result: CloseRouteResult) => {
+    setShowClosureForm(false)
+    onClosureSuccess(result)
+  }
+
   return (
     <div className="dashboard-panel">
       <div className="panel-heading">
@@ -57,13 +77,22 @@ export function RouteOperations({
       </div>
 
       <div style={{ display: "grid", gap: "0.6rem" }}>
-        {!canCoordinate && route.state === "PLANNED" && (
+        {(route.state === "COMPLETED" || closureConfirmed) && (
           <p role="status">
-            El coordinador debe preparar esta ruta. Cuando esté lista, podrás
-            iniciarla desde aquí.
+            Esta ruta está completada. Las operaciones del ciclo de vida han
+            finalizado.
           </p>
         )}
-        {!canExecute && (
+        {route.state !== "COMPLETED" &&
+          !closureConfirmed &&
+          !canCoordinate &&
+          route.state === "PLANNED" && (
+            <p role="status">
+              El coordinador debe preparar esta ruta. Cuando esté lista, podrás
+              iniciarla desde aquí.
+            </p>
+          )}
+        {route.state !== "COMPLETED" && !closureConfirmed && !canExecute && (
           <p role="status">Tienes acceso de consulta a esta ruta.</p>
         )}
         {actionFeedback && (
@@ -82,7 +111,7 @@ export function RouteOperations({
           </div>
         )}
 
-        {canCoordinate && route.state === "PLANNED" && (
+        {canCoordinate && !closureConfirmed && route.state === "PLANNED" && (
           <>
             <button
               type="button"
@@ -127,11 +156,11 @@ export function RouteOperations({
           </>
         )}
 
-        {canExecute && route.state === "READY" && (
+        {canExecute && !closureConfirmed && route.state === "READY" && (
           <button
             type="button"
             className="form-submit"
-            disabled={Boolean(actionBusy)}
+            disabled={Boolean(actionBusy) || showClosureForm}
             onClick={() =>
               void runAction(
                 "start",
@@ -150,10 +179,10 @@ export function RouteOperations({
           </button>
         )}
 
-        {canExecute && route.state === "IN_PROGRESS" && (
+        {canExecute && !closureConfirmed && route.state === "IN_PROGRESS" && (
           <button
             type="button"
-            disabled={Boolean(actionBusy)}
+            disabled={Boolean(actionBusy) || showClosureForm}
             onClick={() =>
               void runAction(
                 "interrupt",
@@ -191,11 +220,37 @@ export function RouteOperations({
           </button>
         )}
 
+        {isEligibleForClosure && (
+          <button
+            type="button"
+            disabled={Boolean(actionBusy) || showClosureForm}
+            onClick={() => setShowClosureForm(true)}
+            style={{
+              width: "100%",
+              display: "inline-flex",
+              alignItems: "center",
+              justifyContent: "center",
+              gap: "0.45rem",
+              padding: "0.65rem 1rem",
+              borderRadius: "999px",
+              border: "1px solid var(--navy)",
+              background: "var(--navy)",
+              color: "white",
+              fontSize: "0.78rem",
+              fontWeight: 700,
+              cursor: "pointer",
+            }}
+          >
+            <CheckCircle2 size={15} /> Cerrar ruta
+          </button>
+        )}
+
         {canCoordinate &&
+          !closureConfirmed &&
           (route.state === "PLANNED" || route.state === "READY") && (
             <button
               type="button"
-              disabled={Boolean(actionBusy)}
+              disabled={Boolean(actionBusy) || showClosureForm}
               onClick={() =>
                 void runAction(
                   "cancel",
@@ -232,6 +287,15 @@ export function RouteOperations({
               Cancelar ruta
             </button>
           )}
+
+        {isEligibleForClosure && showClosureForm && (
+          <RouteClosureForm
+            key={route.id}
+            route={route}
+            onSuccess={handleClosureSuccess}
+            onCancel={() => setShowClosureForm(false)}
+          />
+        )}
       </div>
     </div>
   )

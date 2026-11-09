@@ -1,8 +1,9 @@
 import { AlertCircle, ArrowLeft, Loader2, MapPin } from "lucide-react"
-import { useEffect, useState } from "react"
+import { useCallback, useEffect, useRef, useState } from "react"
 import { Link, useParams } from "react-router"
 import { useAuth } from "../../../auth"
 import { RouteOperations } from "../RouteOperations"
+import { RouteSummaryPanel } from "../RouteSummaryPanel"
 import { EmptyState } from "../../../shared/ui/EmptyState"
 import {
   ROUTE_STATUS_COLOR,
@@ -14,10 +15,17 @@ import {
 } from "../constants"
 import { RouteMap } from "../RouteMap"
 import {
+  handleClosureSuccessState,
+  handleRefreshFailureState,
+  type RouteDetailClosureState,
+} from "../routeClosureState"
+import {
   getRouteDetail,
   getRouteSummary,
   mapRouteDetailStopsToMapStops,
+  type CloseRouteResult,
   type RouteDetailResult,
+  type RouteSummaryResult,
 } from "../routesApi"
 
 export function RouteDetailPage() {
@@ -30,13 +38,59 @@ function RouteDetailView({ routeId }: { readonly routeId: string }) {
   const [route, setRoute] = useState<RouteDetailResult | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [refreshError, setRefreshError] = useState<string | null>(null)
   const [reloadCount, setReloadCount] = useState(0)
   const [actionBusy, setActionBusy] = useState<string | null>(null)
   const [actionFeedback, setActionFeedback] = useState<{
     readonly kind: "success" | "error"
     readonly message: string
   } | null>(null)
-  const [summary, setSummary] = useState<Record<string, unknown> | null>(null)
+  const [summary, setSummary] = useState<RouteSummaryResult | null>(null)
+  const [loadingSummary, setLoadingSummary] = useState(false)
+  const [summaryError, setSummaryError] = useState<string | null>(null)
+  const [closureConfirmed, setClosureConfirmed] = useState(false)
+
+  const routeRef = useRef<RouteDetailResult | null>(route)
+  const closureStateRef = useRef<RouteDetailClosureState>({
+    route,
+    closureConfirmed,
+    refreshError,
+    summary,
+    actionFeedback,
+  })
+
+  useEffect(() => {
+    routeRef.current = route
+    closureStateRef.current = {
+      route,
+      closureConfirmed,
+      refreshError,
+      summary,
+      actionFeedback,
+    }
+  }, [route, closureConfirmed, refreshError, summary, actionFeedback])
+
+  const fetchSummary = useCallback(() => {
+    if (!routeId) return
+    setLoadingSummary(true)
+    setSummaryError(null)
+
+    void getRouteSummary(routeId)
+      .then((sum) => {
+        setSummary(sum)
+      })
+      .catch((err: unknown) => {
+        setSummary(null)
+        setSummaryError(
+          err instanceof Error
+            ? err.message
+            : "No fue posible consultar el resumen de la ruta.",
+        )
+      })
+      .finally(() => {
+        setLoadingSummary(false)
+      })
+  }, [routeId])
 
   useEffect(() => {
     let active = true
@@ -46,26 +100,30 @@ function RouteDetailView({ routeId }: { readonly routeId: string }) {
         if (!active) return
         setRoute(detail)
         setError(null)
+        setRefreshError(null)
         if (detail.state === "COMPLETED") {
-          void getRouteSummary(routeId)
-            .then((sum) => {
-              if (active) setSummary(sum)
-            })
-            .catch(() => {
-              if (active) setSummary(null)
-            })
+          setClosureConfirmed(true)
+          fetchSummary()
         } else {
           setSummary(null)
+          setSummaryError(null)
         }
       })
       .catch((err: unknown) => {
         if (!active) return
-        setRoute(null)
-        setError(
+        const msg =
           err instanceof Error
             ? err.message
-            : "No fue posible consultar el detalle de la ruta.",
-        )
+            : "No fue posible consultar el detalle de la ruta."
+        if (routeRef.current) {
+          const updated = handleRefreshFailureState(
+            closureStateRef.current,
+            msg,
+          )
+          setRefreshError(updated.refreshError)
+        } else {
+          setError(msg)
+        }
       })
       .finally(() => {
         if (active) {
@@ -76,11 +134,28 @@ function RouteDetailView({ routeId }: { readonly routeId: string }) {
     return () => {
       active = false
     }
-  }, [routeId, reloadCount])
+  }, [routeId, reloadCount, fetchSummary])
 
   const handleRetry = () => {
-    setLoading(true)
+    setLoading(!routeRef.current)
     setError(null)
+    setRefreshError(null)
+    setReloadCount((current) => current + 1)
+  }
+
+  const handleClosureSuccess = (result: CloseRouteResult) => {
+    const updated = handleClosureSuccessState(
+      closureStateRef.current,
+      result,
+    )
+    setClosureConfirmed(updated.closureConfirmed)
+    setRoute(updated.route)
+    if (updated.summary) {
+      setSummary(updated.summary)
+    }
+    setRefreshError(updated.refreshError)
+    setActionFeedback(updated.actionFeedback)
+    fetchSummary()
     setReloadCount((current) => current + 1)
   }
 
@@ -261,6 +336,49 @@ function RouteDetailView({ routeId }: { readonly routeId: string }) {
           {ROUTE_STATUS_LABELS[route.state] ?? route.state}
         </span>
       </div>
+
+      {refreshError && (
+        <div
+          role="alert"
+          style={{
+            padding: "0.75rem 1rem",
+            marginBottom: "1rem",
+            background: "#fff3f3",
+            border: "1px solid #f5c2c7",
+            borderRadius: "var(--radius-sm)",
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            gap: "0.75rem",
+          }}
+        >
+          <span
+            style={{
+              color: "#c0392b",
+              fontSize: "0.85rem",
+              fontWeight: 600,
+            }}
+          >
+            {refreshError}
+          </span>
+          <button
+            type="button"
+            onClick={handleRetry}
+            style={{
+              padding: "0.35rem 0.75rem",
+              background: "white",
+              border: "1px solid #f5c2c7",
+              borderRadius: "var(--radius-sm)",
+              color: "#c0392b",
+              fontSize: "0.8rem",
+              fontWeight: 700,
+              cursor: "pointer",
+            }}
+          >
+            Reintentar lectura
+          </button>
+        </div>
+      )}
 
       <div
         style={{
@@ -449,11 +567,37 @@ function RouteDetailView({ routeId }: { readonly routeId: string }) {
                         {stop.longitude.toFixed(4)})
                       </span>
                     </div>
-                    <span
-                      className={`status ${STOP_COLOR[stop.state] ?? "status--active"}`}
+                    <div
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: "0.5rem",
+                      }}
                     >
-                      {STOP_LABEL[stop.state] ?? stop.state}
-                    </span>
+                      <span
+                        className={`status ${STOP_COLOR[stop.state] ?? "status--active"}`}
+                      >
+                        {STOP_LABEL[stop.state] ?? stop.state}
+                      </span>
+                      <Link
+                        to={`/app/mi-ruta/paradas/${stop.id}?routeId=${route.id}`}
+                        style={{
+                          display: "inline-flex",
+                          alignItems: "center",
+                          gap: "0.3rem",
+                          padding: "0.35rem 0.65rem",
+                          borderRadius: "999px",
+                          background: "white",
+                          border: "1px solid var(--border)",
+                          color: "var(--navy)",
+                          fontSize: "0.72rem",
+                          fontWeight: 700,
+                          textDecoration: "none",
+                        }}
+                      >
+                        Ver parada
+                      </Link>
+                    </div>
                   </div>
                 ))}
               </div>
@@ -581,38 +725,68 @@ function RouteDetailView({ routeId }: { readonly routeId: string }) {
             actionBusy={actionBusy}
             actionFeedback={actionFeedback}
             runAction={runAction}
+            onClosureSuccess={handleClosureSuccess}
+            closureConfirmed={closureConfirmed}
           />
 
-          {summary && (
-            <div className="dashboard-panel">
-              <div className="panel-heading">
-                <div>
-                  <span
-                    style={{
-                      color: "var(--text-muted)",
-                      fontSize: "0.65rem",
-                      fontWeight: 600,
-                    }}
-                  >
-                    GET /api/v1/routes/:id/summary
-                  </span>
-                  <h2>Resumen de cierre</h2>
-                </div>
-              </div>
-              <pre
+          {loadingSummary && (
+            <div
+              className="dashboard-panel"
+              style={{ padding: "1.2rem", textAlign: "center" }}
+            >
+              <Loader2
+                size={24}
+                className="spin"
+                style={{ margin: "0 auto 0.5rem" }}
+              />
+              <p
                 style={{
                   margin: 0,
-                  padding: "0.75rem",
-                  background: "var(--surface-muted)",
-                  borderRadius: "var(--radius-sm)",
-                  fontSize: "0.68rem",
-                  overflowX: "auto",
+                  fontSize: "0.8rem",
+                  color: "var(--text-muted)",
                 }}
               >
-                {JSON.stringify(summary, null, 2)}
-              </pre>
+                Consultando resumen oficial de cierre...
+              </p>
             </div>
           )}
+
+          {summaryError && (
+            <div
+              role="alert"
+              className="dashboard-panel"
+              style={{
+                border: "1px solid #ffccc7",
+                background: "#fff1f0",
+                padding: "1rem",
+              }}
+            >
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "0.5rem",
+                  color: "#cf1322",
+                  marginBottom: "0.6rem",
+                  fontSize: "0.82rem",
+                  fontWeight: 600,
+                }}
+              >
+                <AlertCircle size={18} style={{ flexShrink: 0 }} />
+                <span>{summaryError}</span>
+              </div>
+              <button
+                type="button"
+                className="form-submit"
+                onClick={fetchSummary}
+                style={{ fontSize: "0.78rem", padding: "0.5rem 1rem" }}
+              >
+                Reintentar consulta de resumen
+              </button>
+            </div>
+          )}
+
+          {summary && <RouteSummaryPanel summary={summary} />}
         </div>
       </div>
     </>

@@ -21,6 +21,7 @@ function renderActions(state: RouteState, permissions: readonly string[]) {
         actionBusy={null}
         actionFeedback={null}
         runAction={async () => {}}
+        onClosureSuccess={() => {}}
       />
     </MemoryRouter>,
   )
@@ -62,12 +63,68 @@ describe("RouteOperations", () => {
       expect(html).toContain("Cancelar ruta")
     })
 
+    it("offers closing the route when in progress or interrupted", () => {
+      const htmlInProgress = renderActions("IN_PROGRESS", ["COORDINATE_ROUTES"])
+      expect(htmlInProgress).toContain("Cerrar ruta")
+
+      const htmlInterrupted = renderActions("INTERRUPTED", [
+        "COORDINATE_ROUTES",
+      ])
+      expect(htmlInterrupted).toContain("Cerrar ruta")
+    })
+
     it("does not grant coordination actions based only on an administration permission", () => {
       const html = renderActions("PLANNED", ["MANAGE_TENANT"])
 
       expect(html).not.toContain("Preparar ruta (congelar manifiesto)")
       expect(html).not.toContain("Cancelar ruta")
       expect(html).toContain("Tienes acceso de consulta")
+    })
+
+    it("hides mutation forms and shows completed message when route is COMPLETED", () => {
+      const html = renderActions("COMPLETED", [
+        "COORDINATE_ROUTES",
+        "OPERATE_DELIVERIES",
+      ])
+
+      expect(html).toContain(
+        "Esta ruta está completada. Las operaciones del ciclo de vida han finalizado.",
+      )
+      expect(html).not.toContain("Iniciar ruta")
+      expect(html).not.toContain("Interrumpir ruta")
+      expect(html).not.toContain("Cancelar ruta")
+      expect(html).not.toContain("Cerrar ruta")
+    })
+
+    it("hides interrupt, close buttons and form when closureConfirmed is true even if state is IN_PROGRESS", () => {
+      const route: RouteDetailResult = {
+        id: "route-1",
+        tenantId: "tenant-1",
+        vehicleId: "vehicle-1",
+        courierId: "courier-1",
+        state: "IN_PROGRESS",
+        stops: [],
+      }
+      const html = renderToStaticMarkup(
+        <MemoryRouter>
+          <RouteOperations
+            route={route}
+            permissions={["COORDINATE_ROUTES", "OPERATE_DELIVERIES"]}
+            actionBusy={null}
+            actionFeedback={null}
+            runAction={async () => {}}
+            onClosureSuccess={() => {}}
+            closureConfirmed={true}
+          />
+        </MemoryRouter>,
+      )
+
+      expect(html).toContain(
+        "Esta ruta está completada. Las operaciones del ciclo de vida han finalizado.",
+      )
+      expect(html).not.toContain("Interrumpir ruta")
+      expect(html).not.toContain("Cerrar ruta")
+      expect(html).not.toContain('role="dialog"')
     })
   })
 })
