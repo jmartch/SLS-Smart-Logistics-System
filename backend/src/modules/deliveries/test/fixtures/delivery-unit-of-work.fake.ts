@@ -7,6 +7,7 @@ import type { RouteStop } from '../../../routes/domain/route-stop';
 import type {
   AuditEntry,
   DeliveryAttemptRecord,
+  DeliveryManifestPackage,
   DeliveryOperationRecord,
   DeliverySession,
   DeliveryUnitOfWork,
@@ -104,6 +105,21 @@ export class FakeDeliverySession implements DeliverySession {
 
   async getStopActivePackageIds(stopId: string): Promise<readonly string[]> {
     return this.stopPackages.get(stopId) ?? [];
+  }
+
+  async getStopManifestPackages(stopId: string): Promise<readonly DeliveryManifestPackage[]> {
+    const ids = this.stopPackages.get(stopId) ?? [];
+    return [...this.assignments.entries()]
+      .filter(([, assignment]) => ids.includes(assignment.packageId))
+      .map(([id, assignment]) => ({
+        assignmentId: id,
+        packageId: assignment.packageId,
+        trackingCode: assignment.packageId,
+        state: this.packages.get(assignment.packageId)!.state,
+        assignmentState: assignment.status,
+        outcome: null,
+        receiptConfirmed: false,
+      }));
   }
 
   async savePackage(pkg: PackageAggregate): Promise<void> {

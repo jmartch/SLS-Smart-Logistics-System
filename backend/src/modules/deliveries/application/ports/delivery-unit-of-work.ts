@@ -70,6 +70,16 @@ export interface AuditEntry {
   readonly details?: Record<string, unknown>;
 }
 
+export interface DeliveryManifestPackage {
+  readonly assignmentId: string;
+  readonly packageId: string;
+  readonly trackingCode: string;
+  readonly state: PackageAggregate['state'];
+  readonly assignmentState: 'ACTIVE' | 'ENDED';
+  readonly outcome: string | null;
+  readonly receiptConfirmed: boolean;
+}
+
 export interface DeliverySession {
   readonly tenantId: string;
 
@@ -90,6 +100,7 @@ export interface DeliverySession {
     packageId: string,
   ): Promise<DeliveryAttemptRecord | null>;
   getStopActivePackageIds(stopId: string): Promise<readonly string[]>;
+  getStopManifestPackages(stopId: string): Promise<readonly DeliveryManifestPackage[]>;
 
   savePackage(pkg: PackageAggregate): Promise<void>;
   updateStopActualTimes(

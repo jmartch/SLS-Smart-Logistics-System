@@ -10,6 +10,7 @@ import { RoutePersistenceMapper } from '../../../routes/infrastructure/persisten
 import type {
   AuditEntry,
   DeliveryAttemptRecord,
+  DeliveryManifestPackage,
   DeliveryOperationRecord,
   DeliverySession,
   DeliveryUnitOfWork,
@@ -233,6 +234,34 @@ export class PrismaDeliverySession implements DeliverySession {
       orderBy: { packageId: 'asc' },
     });
     return assignments.map((a) => a.packageId);
+  }
+
+  async getStopManifestPackages(stopId: string): Promise<readonly DeliveryManifestPackage[]> {
+    const assignments = await this.tx.assignment.findMany({
+      where: {
+        tenantId: this.tenantId,
+        routeStopId: stopId,
+        status: { in: ['ACTIVE', 'ENDED'] },
+      },
+      select: {
+        id: true,
+        packageId: true,
+        status: true,
+        routeOutcome: true,
+        receivedAtDepotId: true,
+        package: { select: { trackingCode: true, state: true } },
+      },
+      orderBy: { id: 'asc' },
+    });
+    return assignments.map((assignment) => ({
+      assignmentId: assignment.id,
+      packageId: assignment.packageId,
+      trackingCode: assignment.package.trackingCode,
+      state: assignment.package.state,
+      assignmentState: assignment.status === 'ACTIVE' ? 'ACTIVE' : 'ENDED',
+      outcome: assignment.routeOutcome,
+      receiptConfirmed: assignment.receivedAtDepotId !== null,
+    }));
   }
 
   async savePackage(pkg: PackageAggregate): Promise<void> {
