@@ -26,7 +26,7 @@ export const RouteState = {
   CANCELLED: "CANCELLED",
 } as const
 
-export type RouteState = (typeof RouteState)[keyof typeof RouteState]
+export type RouteState = typeof RouteState[keyof typeof RouteState]
 
 export const RouteStopState = {
   PENDING: "PENDING",
@@ -34,8 +34,7 @@ export const RouteStopState = {
   FAILED: "FAILED",
 } as const
 
-export type RouteStopState =
-  (typeof RouteStopState)[keyof typeof RouteStopState]
+export type RouteStopState = typeof RouteStopState[keyof typeof RouteStopState]
 
 export function isRouteState(value: unknown): value is RouteState {
   return (
@@ -209,7 +208,9 @@ function validateRouteSummaryItem(raw: unknown): RouteSummaryItemResult {
     typeof stopCount !== "number" ||
     !Number.isFinite(stopCount)
   ) {
-    throw new Error("El resumen de ruta recibido no cumple el contrato esperado.")
+    throw new Error(
+      "El resumen de ruta recibido no cumple el contrato esperado.",
+    )
   }
 
   return {
@@ -237,7 +238,16 @@ function validateRouteDetailStop(raw: unknown): RouteDetailStopResult {
     throw new Error("Parada de ruta inválida en la respuesta del servidor.")
   }
 
-  const { id, stopNumber, latitude, longitude, state, packageId, trackingCode, address } = raw
+  const {
+    id,
+    stopNumber,
+    latitude,
+    longitude,
+    state,
+    packageId,
+    trackingCode,
+    address,
+  } = raw
 
   if (
     typeof id !== "string" ||
@@ -283,7 +293,9 @@ function validatePaginatedRoutesResult(raw: unknown): PaginatedRoutesResult {
     typeof total !== "number" ||
     !Number.isFinite(total)
   ) {
-    throw new Error("La respuesta paginada de rutas no tiene la estructura esperada.")
+    throw new Error(
+      "La respuesta paginada de rutas no tiene la estructura esperada.",
+    )
   }
 
   return {
@@ -336,7 +348,9 @@ function validateRouteDetailResult(raw: unknown): RouteDetailResult {
     !isNullableString(zoneName) ||
     !Array.isArray(stops)
   ) {
-    throw new Error("El detalle de ruta recibido no cumple el contrato esperado.")
+    throw new Error(
+      "El detalle de ruta recibido no cumple el contrato esperado.",
+    )
   }
 
   return {
@@ -412,7 +426,12 @@ export function mapRouteDetailStopsToMapStops(
       latitude: stop.latitude,
       longitude: stop.longitude,
       state: stop.state,
-      ...(stop.trackingCode ? { label: `Guía ${stop.trackingCode}`, trackingCode: stop.trackingCode } : {}),
+      ...(stop.trackingCode
+        ? {
+            label: `Guía ${stop.trackingCode}`,
+            trackingCode: stop.trackingCode,
+          }
+        : {}),
       ...(stop.address ? { address: stop.address } : {}),
     }))
     .sort((a, b) => a.stopNumber - b.stopNumber)
@@ -471,10 +490,183 @@ export async function interruptRoute(
   )
 }
 
+function assertValidUuid(value: string, fieldName: string): void {
+  const normalized = value.trim()
+  const uuidRegex =
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+  if (!uuidRegex.test(normalized)) {
+    throw new Error(`El campo '${fieldName}' debe ser un UUID válido.`)
+  }
+}
+
+export const RouteClosureMode = {
+  REGULAR: "REGULAR",
+  FORCED: "FORCED",
+} as const
+
+export type RouteClosureMode = typeof RouteClosureMode[keyof typeof RouteClosureMode]
+
+export const RouteManifestOutcome = {
+  DELIVERED: "DELIVERED",
+  FAILED: "FAILED",
+  RESCHEDULED: "RESCHEDULED",
+  RETURNED: "RETURNED",
+  PENDING: "PENDING",
+} as const
+
+export type RouteManifestOutcome = typeof RouteManifestOutcome[keyof typeof RouteManifestOutcome]
+
+export const RouteClosureDisposition = {
+  VISITED: "VISITED",
+  PARTIALLY_VISITED: "PARTIALLY_VISITED",
+  NOT_VISITED: "NOT_VISITED",
+} as const
+
+export type RouteClosureDisposition = typeof RouteClosureDisposition[keyof typeof RouteClosureDisposition]
+
+export interface DepotReceiptInput {
+  readonly depotId: string
+  readonly physicalReceiptConfirmed: boolean
+  readonly assignmentIds: readonly string[]
+}
+
+export interface CloseRouteCommandInput {
+  readonly mode: RouteClosureMode
+  readonly reasonCode?: string
+  readonly notes?: string
+  readonly actualDistanceM?: number
+  readonly depotReceipt?: DepotReceiptInput
+}
+
+export interface RouteManifestSummaryMember {
+  readonly assignmentId: string
+  readonly packageId: string
+  readonly routeStopId: string
+  readonly outcome: RouteManifestOutcome
+  readonly failureReasonCode?: string | null
+  readonly receiptConfirmed: boolean
+  readonly depotId?: string | null
+}
+
+export interface RouteStopSummaryDetail {
+  readonly routeStopId: string
+  readonly stopNumber: number
+  readonly stopState: string
+  readonly disposition: RouteClosureDisposition
+}
+
+export interface RouteFailureReasonSummary {
+  readonly reasonCode: string
+  readonly count: number
+}
+
+export interface RouteIncidentSummaryDetail {
+  readonly incidentId: string
+  readonly type: string
+  readonly status: string
+  readonly reportedAt: string
+  readonly description?: string | null
+}
+
+export interface RouteSummaryResult {
+  readonly [key: string]: unknown
+  readonly schemaVersion: number
+  readonly closureId: string
+  readonly tenantId: string
+  readonly routeId: string
+  readonly mode: RouteClosureMode
+  readonly actorUserId: string
+  readonly correlationId?: string | null
+  readonly reasonCode?: string | null
+  readonly notes?: string | null
+  readonly startedAt: string
+  readonly completedAt: string
+  readonly actualDurationMs: number
+  readonly actualDurationS: number
+  readonly totalAssigned: number
+  readonly deliveredCount: number
+  readonly failedCount: number
+  readonly rescheduledCount: number
+  readonly returnedCount: number
+  readonly pendingCount: number
+  readonly deliveryEffectivenessRatio: number
+  readonly plannedDistanceM: number
+  readonly actualDistanceM: number | null
+  readonly distanceDeltaM: number | null
+  readonly distanceRatio: number | null
+  readonly members: readonly RouteManifestSummaryMember[]
+  readonly stops: readonly RouteStopSummaryDetail[]
+  readonly failureReasons: readonly RouteFailureReasonSummary[]
+  readonly incidents: readonly RouteIncidentSummaryDetail[]
+}
+
+export interface CloseRouteResult {
+  readonly routeId: string
+  readonly closureId: string
+  readonly state: "COMPLETED"
+  readonly completedAt: string
+  readonly summary: RouteSummaryResult
+  readonly replayed: boolean
+}
+
+export async function closeRoute(
+  routeId: string,
+  input: CloseRouteCommandInput,
+  idempotencyKey: string,
+): Promise<CloseRouteResult> {
+  assertValidUuid(routeId, "routeId")
+  assertValidUuid(idempotencyKey, "idempotencyKey")
+
+  if (
+    input.mode !== RouteClosureMode.REGULAR &&
+    input.mode !== RouteClosureMode.FORCED
+  ) {
+    throw new Error("El modo de cierre debe ser 'REGULAR' o 'FORCED'.")
+  }
+
+  if (input.mode === RouteClosureMode.FORCED) {
+    if (!input.reasonCode || !input.reasonCode.trim()) {
+      throw new Error(
+        "El motivo 'reasonCode' es obligatorio para cierre forzado.",
+      )
+    }
+    if (!input.notes || !input.notes.trim()) {
+      throw new Error(
+        "Las observaciones 'notes' son obligatorias para cierre forzado.",
+      )
+    }
+  }
+
+  if (input.depotReceipt) {
+    assertValidUuid(input.depotReceipt.depotId, "depotReceipt.depotId")
+    if (typeof input.depotReceipt.physicalReceiptConfirmed !== "boolean") {
+      throw new Error("El campo 'physicalReceiptConfirmed' debe ser booleano.")
+    }
+    if (!Array.isArray(input.depotReceipt.assignmentIds)) {
+      throw new Error("El campo 'assignmentIds' debe ser una lista de UUIDs.")
+    }
+    for (const assignmentId of input.depotReceipt.assignmentIds) {
+      assertValidUuid(assignmentId, "depotReceipt.assignmentIds")
+    }
+  }
+
+  return apiFetch<CloseRouteResult>(
+    `/routes/${encodeURIComponent(routeId.trim())}/close`,
+    {
+      method: "POST",
+      headers: {
+        "Idempotency-Key": idempotencyKey.trim(),
+      },
+      body: JSON.stringify(input),
+    },
+  )
+}
+
 export async function getRouteSummary(
   routeId: string,
-): Promise<Record<string, unknown>> {
-  return apiFetch<Record<string, unknown>>(
+): Promise<RouteSummaryResult> {
+  assertValidUuid(routeId, "routeId")
+  return apiFetch<RouteSummaryResult>(
     `/routes/${encodeURIComponent(routeId.trim())}/summary`,
     {
       method: "GET",

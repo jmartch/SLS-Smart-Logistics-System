@@ -1,11 +1,19 @@
+import type { Server } from 'node:http';
 import { randomUUID } from 'node:crypto';
-import { INestApplication, VersioningType } from '@nestjs/common';
+import {
+  ExecutionContext,
+  INestApplication,
+  UnauthorizedException,
+  VersioningType,
+} from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import request from 'supertest';
 import { App } from 'supertest/types';
 import { PrismaPg } from '@prisma/adapter-pg';
 import { PrismaClient } from '../generated/prisma/client';
 import { AppModule } from '../src/app.module';
+import { AuthGuard } from '../src/modules/auth/presentation/auth.guard';
+import type { RequestWithActor } from '../src/shared/presentation/request-context.decorator';
 import {
   seedRouteCloseEnvironment,
   cleanRouteCloseEnvironment,
@@ -14,9 +22,13 @@ import {
   type RouteCloseEnvironment,
 } from './fixtures/route-close-lifecycle.fixtures';
 
+interface HttpTestRequest extends RequestWithActor {
+  headers: Record<string, string | undefined>;
+}
+
 describe('Route Closure HTTP API E2E (/api/v1/routes/:id/close & summary)', () => {
-  let app: INestApplication<App>;
-  let server: any;
+  let app: INestApplication<Server>;
+  let server: Server;
 
   const admin = new PrismaClient({
     adapter: new PrismaPg({ connectionString: process.env.DATABASE_URL }),
@@ -43,7 +55,40 @@ describe('Route Closure HTTP API E2E (/api/v1/routes/:id/close & summary)', () =
 
     const moduleFixture: TestingModule = await Test.createTestingModule({
       imports: [AppModule],
-    }).compile();
+    })
+      .overrideGuard(AuthGuard)
+      .useValue({
+        canActivate: (context: ExecutionContext): boolean => {
+          const req = context.switchToHttp().getRequest<HttpTestRequest>();
+          const tenantId = req.headers['x-tenant-id'];
+          const userId = req.headers['x-user-id'];
+          if (!tenantId) {
+            throw new UnauthorizedException({
+              code: 'UNAUTHENTICATED',
+              message: 'Missing x-tenant-id header',
+            });
+          }
+          const permissions = new Set<string>();
+          if (userId === env.userCoordAId || userId === env.userCoordBId) {
+            permissions.add('COORDINATE_ROUTES');
+            permissions.add('OPERATE_DELIVERIES');
+          } else if (
+            userId === env.courierUser1Id ||
+            userId === env.courierUser2Id ||
+            userId === env.courierUserBId
+          ) {
+            permissions.add('OPERATE_DELIVERIES');
+          }
+          req.actor = {
+            kind: 'TENANT_USER',
+            tenantId,
+            userId: userId ?? 'anonymous',
+            permissions,
+          };
+          return true;
+        },
+      })
+      .compile();
 
     app = moduleFixture.createNestApplication();
     app.setGlobalPrefix('api');
@@ -100,10 +145,9 @@ describe('Route Closure HTTP API E2E (/api/v1/routes/:id/close & summary)', () =
         .send({ mode: 'REGULAR' });
 
       expect(response.status).toBe(400);
-      expect(response.body).toMatchObject({
-        code: 'VALIDATION_ERROR',
-      });
-      expect(response.body.message).toContain('Idempotency-Key');
+      const body = response.body as { code?: string; message?: string };
+      expect(body.code).toBe('VALIDATION_ERROR');
+      expect(body.message).toContain('Idempotency-Key');
     });
 
     it('rejects request when mode is FORCED without reasonCode or notes (CA-10)', async () => {
@@ -120,19 +164,18 @@ describe('Route Closure HTTP API E2E (/api/v1/routes/:id/close & summary)', () =
       });
     });
 
-    it('rejects forbidden actors such as couriers (CA-01)', async () => {
-      const fixture = await createAllDeliveredRegularRoute(admin, env);
-
+    it('rejects forbidden actors such as couriers before input validation (CA-01)', async () => {
       const response = await request(server)
-        .post(`/api/v1/routes/${fixture.routeId}/close`)
+        .post('/api/v1/routes/not-a-valid-uuid/close')
         .set('x-tenant-id', env.tenantAId)
-        .set('x-user-id', env.courierUser1Id) // Courier role
-        .set('idempotency-key', randomUUID())
-        .send({ mode: 'REGULAR' });
+        .set('x-user-id', env.courierUser1Id)
+        .send({ invalid: 'payload' });
 
       expect(response.status).toBe(403);
       expect(response.body).toMatchObject({
-        code: 'FORBIDDEN',
+        error: {
+          code: 'PERMISSION_DENIED',
+        },
       });
     });
 
@@ -183,20 +226,16 @@ describe('Route Closure HTTP API E2E (/api/v1/routes/:id/close & summary)', () =
           actualDistanceM: 5240,
         });
 
-      if (response1.status !== 200) {
-        console.error('response1 error payload:', response1.status, response1.body);
-      }
-
       expect(response1.status).toBe(200);
       expect(response1.body).toMatchObject({
         routeId: fixture.routeId,
         state: 'COMPLETED',
         replayed: false,
-      });
-      expect(response1.body.summary).toMatchObject({
-        totalAssigned: 3,
-        deliveredCount: 3,
-        failedCount: 0,
+        summary: {
+          totalAssigned: 3,
+          deliveredCount: 3,
+          failedCount: 0,
+        },
       });
 
       // Second call: exact replay

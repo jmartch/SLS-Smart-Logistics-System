@@ -7,6 +7,7 @@ import type { RouteStop } from '../../../routes/domain/route-stop';
 import type {
   AuditEntry,
   DeliveryAttemptRecord,
+  DeliveryManifestPackage,
   DeliveryOperationRecord,
   DeliverySession,
   DeliveryUnitOfWork,
@@ -22,18 +23,25 @@ import type {
   StoredEvidenceDescriptor,
 } from '../../application/ports/evidence-storage.port';
 
+export interface FakeAssignmentRecord {
+  readonly packageId: string;
+  readonly routeId: string;
+  readonly routeStopId?: string;
+  status: 'ACTIVE' | 'ENDED';
+  routeOutcome?: string | null;
+  receivedAtDepotId?: string | null;
+  readonly trackingCode?: string;
+}
+
 export class FakeDeliverySession implements DeliverySession {
   readonly operations = new Map<string, DeliveryOperationRecord>();
   readonly routes = new Map<string, Route>();
   readonly stops = new Map<string, RouteStop>();
   readonly packages = new Map<string, PackageAggregate>();
-  readonly assignments = new Map<
-    string,
-    { packageId: string; routeId: string; status: 'ACTIVE' | 'ENDED' }
-  >();
-  readonly stopPackages = new Map<string, string[]>(); // stopId -> packageIds
+  readonly assignments = new Map<string, FakeAssignmentRecord>();
+  readonly stopPackages = new Map<string, string[]>();
   readonly attempts: DeliveryAttemptRecord[] = [];
-  readonly evidences = new Map<string, StoredEvidenceDescriptor[]>(); // attemptId -> descriptors
+  readonly evidences = new Map<string, StoredEvidenceDescriptor[]>();
   readonly windows: DeliveryWindowRecord[] = [];
   readonly incidents: IncidentRecord[] = [];
   readonly audits: AuditEntry[] = [];
@@ -106,6 +114,41 @@ export class FakeDeliverySession implements DeliverySession {
     return this.stopPackages.get(stopId) ?? [];
   }
 
+  async getStopManifestPackages(
+    stopId: string,
+  ): Promise<readonly DeliveryManifestPackage[]> {
+    return [...this.assignments.entries()]
+      .filter(
+        ([, assignment]) =>
+          assignment.routeStopId === stopId &&
+          (assignment.status === 'ACTIVE' || assignment.status === 'ENDED'),
+      )
+      .map(([id, assignment]) => {
+        const pkg = this.packages.get(assignment.packageId);
+        if (!pkg) {
+          throw new Error(
+            `Package '${assignment.packageId}' not found in FakeDeliverySession for assignment '${id}'`,
+          );
+        }
+        if (!assignment.trackingCode) {
+          throw new Error(
+            `Tracking code must be modeled explicitly in fixtures for assignment '${id}'`,
+          );
+        }
+        return {
+          assignmentId: id,
+          packageId: assignment.packageId,
+          trackingCode: assignment.trackingCode,
+          state: pkg.state,
+          assignmentState: assignment.status,
+          outcome: assignment.routeOutcome ?? null,
+          receiptConfirmed:
+            assignment.receivedAtDepotId !== null &&
+            assignment.receivedAtDepotId !== undefined,
+        };
+      });
+  }
+
   async savePackage(pkg: PackageAggregate): Promise<void> {
     this.packages.set(pkg.id, pkg);
   }
@@ -115,14 +158,24 @@ export class FakeDeliverySession implements DeliverySession {
     _actualArrivalAt?: Date,
     _actualServiceEndAt?: Date,
     _state?: 'COMPLETED' | 'FAILED',
-  ): Promise<void> {
-    // Registrado en memoria para pruebas
-  }
+  ): Promise<void> {}
 
-  async endAssignment(assignmentId: string, _reason: string): Promise<void> {
+  async endAssignment(
+    assignmentId: string,
+    reason: string,
+    routeOutcome?:
+      'DELIVERED' | 'FAILED' | 'RESCHEDULED' | 'RETURNED' | 'PENDING',
+  ): Promise<void> {
     const assign = this.assignments.get(assignmentId);
     if (assign) {
       assign.status = 'ENDED';
+      assign.routeOutcome =
+        routeOutcome ??
+        (['DELIVERED', 'FAILED', 'RESCHEDULED', 'RETURNED', 'PENDING'].includes(
+          reason,
+        )
+          ? reason
+          : (assign.routeOutcome ?? null));
     }
   }
 

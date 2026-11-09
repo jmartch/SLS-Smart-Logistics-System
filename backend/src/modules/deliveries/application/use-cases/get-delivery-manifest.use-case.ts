@@ -3,7 +3,7 @@ import {
   DeliveryNotFoundError,
 } from '../../domain/delivery-errors';
 import type { DeliveryAccessPort } from '../ports/delivery-access.port';
-import type { DeliveryUnitOfWork } from '../ports/delivery-unit-of-work';
+import type { DeliveryManifestPackage, DeliveryUnitOfWork } from '../ports/delivery-unit-of-work';
 
 export interface GetDeliveryManifestQuery {
   readonly tenantId: string;
@@ -19,10 +19,12 @@ export interface StopManifestEntry {
   readonly latitude: number;
   readonly longitude: number;
   readonly packageIds: readonly string[];
+  readonly packages: readonly DeliveryManifestPackage[];
 }
 
 export interface GetDeliveryManifestResult {
   readonly routeId: string;
+  readonly routeState: string;
   readonly view: 'all' | 'pending' | 'failed';
   readonly stops: readonly StopManifestEntry[];
 }
@@ -68,7 +70,8 @@ export class GetDeliveryManifestUseCase {
       while (iterator.hasNext()) {
         const stop = iterator.next();
         if (stop) {
-          const packageIds = await session.getStopActivePackageIds(stop.id);
+          const packages = await session.getStopManifestPackages(stop.id);
+          const packageIds = [...new Set(packages.map((pkg) => pkg.packageId))];
           stops.push({
             stopId: stop.id,
             stopNumber: stop.stopNumber,
@@ -76,12 +79,14 @@ export class GetDeliveryManifestUseCase {
             latitude: stop.latitude,
             longitude: stop.longitude,
             packageIds,
+            packages,
           });
         }
       }
 
       return {
         routeId,
+        routeState: route.state,
         view,
         stops,
       };

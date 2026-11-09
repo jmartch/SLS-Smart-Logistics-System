@@ -129,7 +129,9 @@ export async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> 
 
   try {
     const headers = new Headers(init?.headers);
-    if (init?.body && !headers.has('Content-Type')) {
+    if (init?.body instanceof FormData) {
+      headers.delete('Content-Type');
+    } else if (init?.body && !headers.has('Content-Type')) {
       headers.set('Content-Type', 'application/json');
     }
 

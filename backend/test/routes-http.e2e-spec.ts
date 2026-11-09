@@ -1,11 +1,19 @@
+import type { Server } from 'node:http';
 import { randomUUID } from 'node:crypto';
-import { INestApplication, VersioningType } from '@nestjs/common';
+import {
+  ExecutionContext,
+  INestApplication,
+  UnauthorizedException,
+  VersioningType,
+} from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import request from 'supertest';
 import { App } from 'supertest/types';
 import { PrismaPg } from '@prisma/adapter-pg';
 import { PrismaClient } from '../generated/prisma/client';
 import { AppModule } from '../src/app.module';
+import { AuthGuard } from '../src/modules/auth/presentation/auth.guard';
+import type { RequestWithActor } from '../src/shared/presentation/request-context.decorator';
 import {
   cleanRouteLifecycleEnvironment,
   createRouteWithStopsAndPackages,
@@ -13,9 +21,13 @@ import {
   type RouteLifecycleEnvironment,
 } from './fixtures/route-lifecycle.fixtures';
 
+interface HttpTestRequest extends RequestWithActor {
+  headers: Record<string, string | undefined>;
+}
+
 describe('Routes HTTP API E2E (/api/v1/routes)', () => {
-  let app: INestApplication<App>;
-  let server: any;
+  let app: INestApplication<Server>;
+  let server: Server;
 
   const admin = new PrismaClient({
     adapter: new PrismaPg({ connectionString: process.env.DATABASE_URL }),
@@ -42,7 +54,40 @@ describe('Routes HTTP API E2E (/api/v1/routes)', () => {
 
     const moduleFixture: TestingModule = await Test.createTestingModule({
       imports: [AppModule],
-    }).compile();
+    })
+      .overrideGuard(AuthGuard)
+      .useValue({
+        canActivate: (context: ExecutionContext): boolean => {
+          const req = context.switchToHttp().getRequest<HttpTestRequest>();
+          const tenantId = req.headers['x-tenant-id'];
+          const userId = req.headers['x-user-id'];
+          if (!tenantId) {
+            throw new UnauthorizedException({
+              code: 'UNAUTHENTICATED',
+              message: 'Missing x-tenant-id header',
+            });
+          }
+          const permissions = new Set<string>();
+          if (userId === env.userCoordAId) {
+            permissions.add('COORDINATE_ROUTES');
+            permissions.add('OPERATE_DELIVERIES');
+          } else if (
+            userId === env.courierUser1Id ||
+            userId === env.courierUser2Id ||
+            userId === env.courierUserBId
+          ) {
+            permissions.add('OPERATE_DELIVERIES');
+          }
+          req.actor = {
+            kind: 'TENANT_USER',
+            tenantId,
+            userId: userId ?? 'anonymous',
+            permissions,
+          };
+          return true;
+        },
+      })
+      .compile();
 
     app = moduleFixture.createNestApplication();
     app.setGlobalPrefix('api');
@@ -111,7 +156,7 @@ describe('Routes HTTP API E2E (/api/v1/routes)', () => {
       // Assert
       expect(responseA.status).toBe(200);
       expect(responseA.body.items).toBeDefined();
-      const idsA = responseA.body.items.map((r: any) => r.id);
+      const idsA = responseA.body.items.map((r: { id: string }) => r.id);
       expect(idsA).toContain(routeA.routeId);
       expect(idsA).not.toContain(routeB.routeId);
     });
@@ -123,7 +168,7 @@ describe('Routes HTTP API E2E (/api/v1/routes)', () => {
         .set('x-user-id', env.userCoordAId);
 
       expect(response.status).toBe(200);
-      expect(response.body.items.every((r: any) => r.state === 'PLANNED')).toBe(
+      expect(response.body.items.every((r: { state: string }) => r.state === 'PLANNED')).toBe(
         true,
       );
     });

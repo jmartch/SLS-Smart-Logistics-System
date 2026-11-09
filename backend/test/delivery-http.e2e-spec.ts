@@ -1,13 +1,21 @@
+import type { Server } from 'node:http';
 import { randomUUID } from 'node:crypto';
 import * as fs from 'node:fs';
 import * as os from 'node:os';
-import { INestApplication, VersioningType } from '@nestjs/common';
+import {
+  ExecutionContext,
+  INestApplication,
+  UnauthorizedException,
+  VersioningType,
+} from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import request from 'supertest';
 import { App } from 'supertest/types';
 import { PrismaPg } from '@prisma/adapter-pg';
 import { PrismaClient } from '../generated/prisma/client';
 import { AppModule } from '../src/app.module';
+import { AuthGuard } from '../src/modules/auth/presentation/auth.guard';
+import type { RequestWithActor } from '../src/shared/presentation/request-context.decorator';
 import {
   cleanDeliveryLifecycleEnvironment,
   createDeliveryRouteWithMultiPackageStops,
@@ -16,9 +24,13 @@ import {
   type DeliveryRouteFixture,
 } from './fixtures/delivery-lifecycle.fixtures';
 
+interface HttpTestRequest extends RequestWithActor {
+  headers: Record<string, string | undefined>;
+}
+
 describe('Deliveries HTTP API E2E (/api/v1/deliveries)', () => {
-  let app: INestApplication<App>;
-  let server: any;
+  let app: INestApplication<Server>;
+  let server: Server;
   let storageDir: string;
 
   const admin = new PrismaClient({
@@ -53,7 +65,41 @@ describe('Deliveries HTTP API E2E (/api/v1/deliveries)', () => {
 
     const moduleFixture: TestingModule = await Test.createTestingModule({
       imports: [AppModule],
-    }).compile();
+    })
+      .overrideGuard(AuthGuard)
+      .useValue({
+        canActivate: (context: ExecutionContext): boolean => {
+          const req = context.switchToHttp().getRequest<HttpTestRequest>();
+          const tenantId = req.headers['x-tenant-id'];
+          const userId = req.headers['x-user-id'];
+          if (!tenantId) {
+            throw new UnauthorizedException({
+              code: 'UNAUTHENTICATED',
+              message: 'Missing x-tenant-id header',
+            });
+          }
+          const permissions = new Set<string>();
+          if (userId === env.userCoordAId) {
+            permissions.add('COORDINATE_ROUTES');
+            permissions.add('OPERATE_DELIVERIES');
+            permissions.add('REGISTER_PACKAGES');
+          } else if (
+            userId === env.courierUser1Id ||
+            userId === env.courierUser2Id ||
+            userId === env.courierUserBId
+          ) {
+            permissions.add('OPERATE_DELIVERIES');
+          }
+          req.actor = {
+            kind: 'TENANT_USER',
+            tenantId,
+            userId: userId ?? 'anonymous',
+            permissions,
+          };
+          return true;
+        },
+      })
+      .compile();
 
     app = moduleFixture.createNestApplication();
     app.setGlobalPrefix('api');

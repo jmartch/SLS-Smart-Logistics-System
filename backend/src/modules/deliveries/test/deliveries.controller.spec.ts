@@ -649,11 +649,11 @@ describe('DeliveriesController', () => {
 
   describe('getDeliveryManifest', () => {
     it('executes query with view parameter and returns stops manifest', async () => {
-      // Arrange
       const { controller, getDeliveryManifestUseCase } = createTestContext();
       const context = createRequestContext();
       const expectedResult = {
         routeId: ROUTE_ID,
+        routeState: 'IN_PROGRESS',
         view: 'pending' as const,
         stops: [
           {
@@ -663,19 +663,28 @@ describe('DeliveriesController', () => {
             latitude: 10.9878,
             longitude: -74.7889,
             packageIds: [PACKAGE_ID],
+            packages: [
+              {
+                assignmentId: 'assign-1',
+                packageId: PACKAGE_ID,
+                trackingCode: 'TRK-001',
+                state: 'OUT_FOR_DELIVERY' as const,
+                assignmentState: 'ACTIVE' as const,
+                outcome: null,
+                receiptConfirmed: false,
+              },
+            ],
           },
         ],
       };
       getDeliveryManifestUseCase.execute.mockResolvedValue(expectedResult);
 
-      // Act
       const result = await controller.getDeliveryManifest(
         context,
         ROUTE_ID,
         'pending',
       );
 
-      // Assert
       expect(result).toBe(expectedResult);
       expect(getDeliveryManifestUseCase.execute).toHaveBeenCalledWith({
         tenantId: TENANT_ID,
@@ -686,24 +695,22 @@ describe('DeliveriesController', () => {
     });
 
     it('defaults to view "all" when view query parameter is omitted or unrecognized', async () => {
-      // Arrange
       const { controller, getDeliveryManifestUseCase } = createTestContext();
       const context = createRequestContext();
       const expectedResult = {
         routeId: ROUTE_ID,
+        routeState: 'IN_PROGRESS',
         view: 'all' as const,
         stops: [],
       };
       getDeliveryManifestUseCase.execute.mockResolvedValue(expectedResult);
 
-      // Act
       const result = await controller.getDeliveryManifest(
         context,
         ROUTE_ID,
         undefined,
       );
 
-      // Assert
       expect(result).toBe(expectedResult);
       expect(getDeliveryManifestUseCase.execute).toHaveBeenCalledWith({
         tenantId: TENANT_ID,
