@@ -908,7 +908,6 @@ describe('Delivery Exceptions and Manifest Queries', () => {
 
   describe('GetDeliveryManifestUseCase', () => {
     it('returns all stops in delivery sequence using the Route iterator', async () => {
-      // Arrange
       const { session, getManifestUseCase } = createTestContext();
       const stop1 = createStopFixture(1, {
         id: 'stop-1',
@@ -925,11 +924,57 @@ describe('Delivery Exceptions and Manifest Queries', () => {
       const route = createRouteFixture([stop1, stop2, stop3]);
 
       session.routes.set(route.id, route);
-      session.stopPackages.set('stop-1', ['pkg-1']);
-      session.stopPackages.set('stop-2', ['pkg-2', 'pkg-3']);
-      session.stopPackages.set('stop-3', ['pkg-4']);
+      session.packages.set('pkg-1', createPackageFixture('pkg-1', 'DELIVERED'));
+      session.packages.set(
+        'pkg-2',
+        createPackageFixture('pkg-2', 'OUT_FOR_DELIVERY'),
+      );
+      session.packages.set(
+        'pkg-3',
+        createPackageFixture('pkg-3', 'IN_TRANSIT'),
+      );
+      session.packages.set(
+        'pkg-4',
+        createPackageFixture('pkg-4', 'DELIVERY_FAILED'),
+      );
 
-      // Act
+      session.assignments.set('assign-1', {
+        packageId: 'pkg-1',
+        routeId: route.id,
+        routeStopId: 'stop-1',
+        status: 'ENDED',
+        routeOutcome: 'DELIVERED',
+        receivedAtDepotId: null,
+        trackingCode: 'TRK-001',
+      });
+      session.assignments.set('assign-2', {
+        packageId: 'pkg-2',
+        routeId: route.id,
+        routeStopId: 'stop-2',
+        status: 'ACTIVE',
+        routeOutcome: null,
+        receivedAtDepotId: null,
+        trackingCode: 'TRK-002',
+      });
+      session.assignments.set('assign-3', {
+        packageId: 'pkg-3',
+        routeId: route.id,
+        routeStopId: 'stop-2',
+        status: 'ACTIVE',
+        routeOutcome: null,
+        receivedAtDepotId: null,
+        trackingCode: 'TRK-003',
+      });
+      session.assignments.set('assign-4', {
+        packageId: 'pkg-4',
+        routeId: route.id,
+        routeStopId: 'stop-3',
+        status: 'ENDED',
+        routeOutcome: 'FAILED',
+        receivedAtDepotId: 'depot-1',
+        trackingCode: 'TRK-004',
+      });
+
       const result = await getManifestUseCase.execute({
         tenantId: TENANT_ID,
         actorUserId: ACTOR_USER_ID,
@@ -937,20 +982,92 @@ describe('Delivery Exceptions and Manifest Queries', () => {
         view: 'all',
       });
 
-      // Assert
       expect(result.routeId).toBe(route.id);
+      expect(result.routeState).toBe(RouteState.IN_PROGRESS);
       expect(result.view).toBe('all');
       expect(result.stops).toHaveLength(3);
       expect(result.stops[0]?.stopId).toBe('stop-1');
       expect(result.stops[0]?.packageIds).toEqual(['pkg-1']);
+      expect(result.stops[0]?.packages).toHaveLength(1);
+      expect(result.stops[0]?.packages[0]).toEqual({
+        assignmentId: 'assign-1',
+        packageId: 'pkg-1',
+        trackingCode: 'TRK-001',
+        state: 'DELIVERED',
+        assignmentState: 'ENDED',
+        outcome: 'DELIVERED',
+        receiptConfirmed: false,
+      });
       expect(result.stops[1]?.stopId).toBe('stop-2');
       expect(result.stops[1]?.packageIds).toEqual(['pkg-2', 'pkg-3']);
+      expect(result.stops[1]?.packages).toHaveLength(2);
       expect(result.stops[2]?.stopId).toBe('stop-3');
       expect(result.stops[2]?.packageIds).toEqual(['pkg-4']);
+      expect(result.stops[2]?.packages[0]?.receiptConfirmed).toBe(true);
+    });
+
+    it('isolates stop manifests when the same package has assignments in two different stops', async () => {
+      const { session, getManifestUseCase } = createTestContext();
+      const stop1 = createStopFixture(1, {
+        id: 'stop-1',
+        state: RouteStopState.FAILED,
+      });
+      const stop2 = createStopFixture(2, {
+        id: 'stop-2',
+        state: RouteStopState.PENDING,
+      });
+      const route = createRouteFixture([stop1, stop2]);
+
+      session.routes.set(route.id, route);
+      session.packages.set(
+        'pkg-shared',
+        createPackageFixture('pkg-shared', 'OUT_FOR_DELIVERY'),
+      );
+      session.stopPackages.set('stop-1', ['pkg-shared']);
+      session.stopPackages.set('stop-2', ['pkg-shared']);
+
+      session.assignments.set('assign-stop-1-ended', {
+        packageId: 'pkg-shared',
+        routeId: route.id,
+        routeStopId: 'stop-1',
+        status: 'ENDED',
+        routeOutcome: 'FAILED',
+        receivedAtDepotId: null,
+        trackingCode: 'TRK-SHARED-1',
+      });
+      session.assignments.set('assign-stop-2-active', {
+        packageId: 'pkg-shared',
+        routeId: route.id,
+        routeStopId: 'stop-2',
+        status: 'ACTIVE',
+        routeOutcome: null,
+        receivedAtDepotId: null,
+        trackingCode: 'TRK-SHARED-1',
+      });
+
+      const result = await getManifestUseCase.execute({
+        tenantId: TENANT_ID,
+        actorUserId: ACTOR_USER_ID,
+        routeId: route.id,
+        view: 'all',
+      });
+
+      expect(result.stops[0]?.stopId).toBe('stop-1');
+      expect(result.stops[0]?.packages).toHaveLength(1);
+      expect(result.stops[0]?.packages[0]?.assignmentId).toBe(
+        'assign-stop-1-ended',
+      );
+      expect(result.stops[0]?.packages[0]?.outcome).toBe('FAILED');
+
+      expect(result.stops[1]?.stopId).toBe('stop-2');
+      expect(result.stops[1]?.packages).toHaveLength(1);
+      expect(result.stops[1]?.packages[0]?.assignmentId).toBe(
+        'assign-stop-2-active',
+      );
+      expect(result.stops[1]?.packages[0]?.outcome).toBeNull();
     });
 
     it('returns only pending stops using the Route pending iterator', async () => {
-      // Arrange
       const { session, getManifestUseCase } = createTestContext();
       const stop1 = createStopFixture(1, {
         id: 'stop-1',
@@ -967,9 +1084,20 @@ describe('Delivery Exceptions and Manifest Queries', () => {
       const route = createRouteFixture([stop1, stop2, stop3]);
 
       session.routes.set(route.id, route);
-      session.stopPackages.set('stop-2', ['pkg-2']);
+      session.packages.set(
+        'pkg-2',
+        createPackageFixture('pkg-2', 'IN_TRANSIT'),
+      );
+      session.assignments.set('assign-2', {
+        packageId: 'pkg-2',
+        routeId: route.id,
+        routeStopId: 'stop-2',
+        status: 'ACTIVE',
+        routeOutcome: null,
+        receivedAtDepotId: null,
+        trackingCode: 'TRK-002',
+      });
 
-      // Act
       const result = await getManifestUseCase.execute({
         tenantId: TENANT_ID,
         actorUserId: ACTOR_USER_ID,
@@ -977,15 +1105,16 @@ describe('Delivery Exceptions and Manifest Queries', () => {
         view: 'pending',
       });
 
-      // Assert
+      expect(result.routeState).toBe(RouteState.IN_PROGRESS);
       expect(result.view).toBe('pending');
       expect(result.stops).toHaveLength(1);
       expect(result.stops[0]?.stopId).toBe('stop-2');
       expect(result.stops[0]?.state).toBe('PENDING');
+      expect(result.stops[0]?.packageIds).toEqual(['pkg-2']);
+      expect(result.stops[0]?.packages[0]?.assignmentId).toBe('assign-2');
     });
 
     it('returns only failed stops using the Route failed iterator', async () => {
-      // Arrange
       const { session, getManifestUseCase } = createTestContext();
       const stop1 = createStopFixture(1, {
         id: 'stop-1',
@@ -1002,9 +1131,20 @@ describe('Delivery Exceptions and Manifest Queries', () => {
       const route = createRouteFixture([stop1, stop2, stop3]);
 
       session.routes.set(route.id, route);
-      session.stopPackages.set('stop-3', ['pkg-4']);
+      session.packages.set(
+        'pkg-4',
+        createPackageFixture('pkg-4', 'DELIVERY_FAILED'),
+      );
+      session.assignments.set('assign-4', {
+        packageId: 'pkg-4',
+        routeId: route.id,
+        routeStopId: 'stop-3',
+        status: 'ENDED',
+        routeOutcome: 'FAILED',
+        receivedAtDepotId: null,
+        trackingCode: 'TRK-004',
+      });
 
-      // Act
       const result = await getManifestUseCase.execute({
         tenantId: TENANT_ID,
         actorUserId: ACTOR_USER_ID,
@@ -1012,21 +1152,21 @@ describe('Delivery Exceptions and Manifest Queries', () => {
         view: 'failed',
       });
 
-      // Assert
+      expect(result.routeState).toBe(RouteState.IN_PROGRESS);
       expect(result.view).toBe('failed');
       expect(result.stops).toHaveLength(1);
       expect(result.stops[0]?.stopId).toBe('stop-3');
       expect(result.stops[0]?.state).toBe('FAILED');
+      expect(result.stops[0]?.packageIds).toEqual(['pkg-4']);
+      expect(result.stops[0]?.packages[0]?.outcome).toBe('FAILED');
     });
 
     it('rejects query when actor is not authorized to view route delivery manifest', async () => {
-      // Arrange
       const { session, accessPort, getManifestUseCase } = createTestContext();
       const route = createRouteFixture([]);
       session.routes.set(route.id, route);
       accessPort.allowViewDeliveries = false;
 
-      // Act
       const executeForbidden = getManifestUseCase.execute({
         tenantId: TENANT_ID,
         actorUserId: 'unauthorized-user',
@@ -1034,15 +1174,38 @@ describe('Delivery Exceptions and Manifest Queries', () => {
         view: 'all',
       });
 
-      // Assert
       await expect(executeForbidden).rejects.toThrow(DeliveryForbiddenError);
     });
 
-    it('rejects query when route does not exist or belongs to another tenant', async () => {
-      // Arrange
+    it('rejects query when route belongs to another tenant', async () => {
+      const { session, getManifestUseCase } = createTestContext();
+      session.routes.set(
+        'other-tenant-route',
+        new Route({
+          id: 'other-tenant-route',
+          tenantId: 'different-tenant',
+          planningRequestId: 'plan-1',
+          vehicleId: 'vehicle-1',
+          courierId: COURIER_ID,
+          state: RouteState.IN_PROGRESS,
+          plannedAt: new Date('2026-10-06T08:00:00.000Z'),
+          stops: [],
+        }),
+      );
+
+      const executeNotFound = getManifestUseCase.execute({
+        tenantId: TENANT_ID,
+        actorUserId: ACTOR_USER_ID,
+        routeId: 'other-tenant-route',
+        view: 'all',
+      });
+
+      await expect(executeNotFound).rejects.toThrow(DeliveryNotFoundError);
+    });
+
+    it('rejects query when route does not exist', async () => {
       const { getManifestUseCase } = createTestContext();
 
-      // Act
       const executeNotFound = getManifestUseCase.execute({
         tenantId: TENANT_ID,
         actorUserId: ACTOR_USER_ID,
@@ -1050,8 +1213,32 @@ describe('Delivery Exceptions and Manifest Queries', () => {
         view: 'all',
       });
 
-      // Assert
       await expect(executeNotFound).rejects.toThrow(DeliveryNotFoundError);
+    });
+
+    it('fails when assignment references a missing package in session', async () => {
+      const { session, getManifestUseCase } = createTestContext();
+      const stop = createStopFixture(1, { id: 'stop-orphan' });
+      const route = createRouteFixture([stop]);
+      session.routes.set(route.id, route);
+      session.assignments.set('assign-orphan', {
+        packageId: 'missing-pkg-id',
+        routeId: route.id,
+        routeStopId: 'stop-orphan',
+        status: 'ACTIVE',
+        trackingCode: 'TRK-ORPHAN',
+      });
+
+      const executeOrphan = getManifestUseCase.execute({
+        tenantId: TENANT_ID,
+        actorUserId: ACTOR_USER_ID,
+        routeId: route.id,
+        view: 'all',
+      });
+
+      await expect(executeOrphan).rejects.toThrow(
+        "Package 'missing-pkg-id' not found in FakeDeliverySession for assignment 'assign-orphan'",
+      );
     });
   });
 });

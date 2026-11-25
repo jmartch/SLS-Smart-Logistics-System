@@ -2,17 +2,14 @@ import { Injectable } from '@nestjs/common';
 import {
   AssignmentStatus,
   AssignmentType,
-  PackageState,
   PlanningPackageOutcome,
   Prisma,
-  RoadProfile,
   RoutePlanningRequestStatus,
   RouteState,
   RouteStopState,
   OutboxEventStatus,
 } from '../../../../generated/prisma/client';
 import { PrismaService } from '../../../database/prisma.service';
-import type { PackageStateName } from '../../packages/domain/package-state.types';
 import type {
   CreateAssignmentData,
   CreateOutboxEventData,
@@ -67,7 +64,7 @@ function isCommandEqual(a: unknown, b: PlanAndAssignRoutesCommand): boolean {
   const arrayEq = (arr1: unknown, arr2: readonly string[]) => {
     if (!Array.isArray(arr1)) return false;
     if (arr1.length !== arr2.length) return false;
-    const s1 = [...arr1].sort();
+    const s1 = (arr1 as string[]).slice().sort();
     const s2 = [...arr2].sort();
     return s1.every((val, idx) => val === s2[idx]);
   };
@@ -343,6 +340,9 @@ export class PrismaPlanningAssignmentSession implements PlanningAssignmentSessio
         status: 'AUTO_ACCEPTED' | 'REVIEW_REQUIRED' | 'APPROVED' | 'REJECTED';
         roadNodeId: string | null;
         roadEdgeId: string | null;
+        datasetId: string;
+        profile: 'MOTOR_VEHICLE' | 'MOTORCYCLE' | 'BICYCLE' | 'FOOT';
+        geocodingCandidateId: string;
       }
     >();
     if (candidateIds.length > 0) {
@@ -350,22 +350,27 @@ export class PrismaPlanningAssignmentSession implements PlanningAssignmentSessio
         where: {
           tenantId: this.context.tenantId,
           geocodingCandidateId: { in: candidateIds },
-          profile: command.profile as RoadProfile,
         },
         select: {
           geocodingCandidateId: true,
+          datasetId: true,
+          profile: true,
           status: true,
           roadNodeId: true,
           roadEdgeId: true,
         },
       });
       for (const a of attachments) {
-        attachmentMap.set(a.geocodingCandidateId, {
-          status: a.status as
-            'AUTO_ACCEPTED' | 'REVIEW_REQUIRED' | 'APPROVED' | 'REJECTED',
-          roadNodeId: a.roadNodeId,
-          roadEdgeId: a.roadEdgeId,
-        });
+        if (!command.profile || a.profile === command.profile) {
+          attachmentMap.set(a.geocodingCandidateId, {
+            status: a.status,
+            roadNodeId: a.roadNodeId,
+            roadEdgeId: a.roadEdgeId,
+            datasetId: a.datasetId,
+            profile: a.profile,
+            geocodingCandidateId: a.geocodingCandidateId,
+          });
+        }
       }
     }
 
@@ -380,11 +385,12 @@ export class PrismaPlanningAssignmentSession implements PlanningAssignmentSessio
       return {
         id: p.id,
         tenantId: p.tenantId,
-        state: p.state as PackageStateName,
+        state: p.state,
         zoneId: p.zoneId,
         addressId: p.addressId,
         weightGrams: Math.round(p.weightKg.toNumber() * 1000),
         volumeCm3: Math.round(p.volumeM3.toNumber() * 1000000),
+        geocodingAttemptId: p.geocodingAttemptId,
         geocodingCandidate:
           attempt && candidateId && coords
             ? {
@@ -392,10 +398,9 @@ export class PrismaPlanningAssignmentSession implements PlanningAssignmentSessio
                 latitude: coords.latitude,
                 longitude: coords.longitude,
                 datasetId: attempt.datasetId,
-                datasetStatus: attempt.dataset.status as
-                  'STAGING' | 'READY' | 'FAILED',
-                status: attempt.status as
-                  'MATCHED' | 'REVIEW_REQUIRED' | 'NOT_FOUND',
+                datasetStatus: attempt.dataset.status,
+                status: attempt.status,
+                attemptId: attempt.id,
               }
             : null,
         networkAttachment: attachment,
@@ -628,8 +633,8 @@ export class PrismaPlanningAssignmentSession implements PlanningAssignmentSessio
         data: {
           tenantId: this.context.tenantId,
           packageId: update.packageId,
-          fromState: update.fromState as PackageState,
-          toState: update.toState as PackageState,
+          fromState: update.fromState,
+          toState: update.toState,
           reasonCode: update.reasonCode ?? null,
           changedByUserId: update.changedByUserId,
         },
@@ -750,8 +755,6 @@ export class PrismaPlanningAssignmentUnitOfWork implements PlanningAssignmentUni
         };
       };
     } | null;
-    // Raw locking queries can wrap PostgreSQL serialization/deadlock errors
-    // as P2010 instead of the transaction-level P2034.
     const cause = failure?.meta?.driverAdapterError?.cause;
     return [
       failure?.code,

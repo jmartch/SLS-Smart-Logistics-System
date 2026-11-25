@@ -14,6 +14,7 @@ export interface PlanningPackageSnapshot {
   readonly addressId: string;
   readonly weightGrams: number;
   readonly volumeCm3: number;
+  readonly geocodingAttemptId?: string | null;
   readonly geocodingCandidate: Readonly<{
     candidateId: string;
     latitude: number;
@@ -21,11 +22,15 @@ export interface PlanningPackageSnapshot {
     datasetId: string;
     datasetStatus: 'STAGING' | 'READY' | 'FAILED';
     status: 'MATCHED' | 'REVIEW_REQUIRED' | 'NOT_FOUND';
+    attemptId?: string | null;
   }> | null;
   readonly networkAttachment: Readonly<{
     status: 'AUTO_ACCEPTED' | 'REVIEW_REQUIRED' | 'APPROVED' | 'REJECTED';
     roadNodeId: string | null;
     roadEdgeId: string | null;
+    datasetId: string;
+    profile: 'MOTOR_VEHICLE' | 'MOTORCYCLE' | 'BICYCLE' | 'FOOT';
+    geocodingCandidateId: string;
   }> | null;
 }
 

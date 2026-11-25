@@ -33,6 +33,7 @@
     "test:gdb-05": "npm run build && node test/integration/gdb-05.cjs",
     "test:gdb-06": "npm run build && node test/integration/gdb-06.cjs",
     "test:geocode-01": "npm run build && node test/integration/geocode-01.cjs",
+    "test:pkg-geo-01": "npm run build && node test/integration/pkg-geo-01.cjs",
     "test:assign-01": "npm run build && node test/integration/assign-01.cjs",
     "test:route-01": "npm run build && node test/integration/route-01.cjs",
     "test:delivery-01": "npm run build && node test/integration/delivery-01.cjs",

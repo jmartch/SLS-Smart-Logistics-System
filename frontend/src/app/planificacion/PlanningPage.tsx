@@ -7,7 +7,7 @@ import {
   Route,
   Truck,
 } from "lucide-react"
-import { useCallback, useEffect, useMemo, useState } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { Link } from "react-router"
 import { EmptyState } from "../../shared/ui/EmptyState"
 import { formatShortEntityId } from "../rutas/constants"
@@ -15,7 +15,9 @@ import {
   PLANNING_PACKAGE_STATE_COLOR,
   PLANNING_PACKAGE_STATE_LABELS,
   formatPendingReasonLabel,
+  formatUnsuitabilityReason,
   getPlanningWorkspace,
+  isPlanningPackageEligible,
   planAndAssignRoutes,
   replanEditableRoute,
   type PackagePlanningOutcome,
@@ -66,6 +68,9 @@ export function PlanningPage() {
   const [selectedZoneId, setSelectedZoneId] = useState<string>("")
   const [selectedDepotId, setSelectedDepotId] = useState<string>("")
   const [selectedDatasetId, setSelectedDatasetId] = useState<string>("")
+  const [selectedProfile, setSelectedProfile] = useState<
+    "MOTOR_VEHICLE" | "MOTORCYCLE" | "BICYCLE" | "FOOT"
+  >("MOTOR_VEHICLE")
   const [selectedEditableRouteId, setSelectedEditableRouteId] =
     useState<string>("")
   const [selectedPackageIds, setSelectedPackageIds] = useState<string[]>([])
@@ -83,13 +88,34 @@ export function PlanningPage() {
     readonly outcomes: readonly PackagePlanningOutcome[]
   } | null>(null)
 
+  const requestSeqRef = useRef(0)
+
   const windowRange = useMemo(
     () => buildShiftWindow(date, shift),
     [date, shift],
   )
 
+  const filteredPackages = useMemo(() => {
+    if (!workspace) return []
+    if (!selectedZoneId) return workspace.candidatePackages
+    return workspace.candidatePackages.filter(
+      (pkg) => pkg.zoneId === selectedZoneId,
+    )
+  }, [workspace, selectedZoneId])
+
+  const eligiblePackages = useMemo(() => {
+    return filteredPackages.filter(isPlanningPackageEligible)
+  }, [filteredPackages])
+
+  const initialSelectionDoneRef = useRef(false)
+
   const loadWorkspace = useCallback(
-    async (zoneFilter?: string) => {
+    async (
+      zoneFilter?: string,
+      datasetFilter?: string,
+      profileFilter?: "MOTOR_VEHICLE" | "MOTORCYCLE" | "BICYCLE" | "FOOT",
+    ) => {
+      const seq = ++requestSeqRef.current
       setLoadingWorkspace(true)
       setWorkspaceError(null)
       try {
@@ -97,7 +123,10 @@ export function PlanningPage() {
           zoneId: zoneFilter || undefined,
           startAt: windowRange.startAt,
           endAt: windowRange.endAt,
+          datasetId: datasetFilter || undefined,
+          profile: profileFilter || "MOTOR_VEHICLE",
         })
+        if (seq !== requestSeqRef.current) return
         setWorkspace(snap)
 
         const defaultZone =
@@ -112,9 +141,11 @@ export function PlanningPage() {
             : (snap.depots[0]?.id ?? ""),
         )
         setSelectedDatasetId((prev) =>
-          prev && snap.datasets.some((d) => d.id === prev)
-            ? prev
-            : (snap.datasets[0]?.id ?? ""),
+          datasetFilter && snap.datasets.some((d) => d.id === datasetFilter)
+            ? datasetFilter
+            : prev && snap.datasets.some((d) => d.id === prev)
+              ? prev
+              : (snap.datasets[0]?.id ?? ""),
         )
         setSelectedEditableRouteId((prev) =>
           prev && snap.editableRoutes.some((r) => r.id === prev)
@@ -122,44 +153,53 @@ export function PlanningPage() {
             : (snap.editableRoutes[0]?.id ?? ""),
         )
 
-        const zonePackages = snap.candidatePackages.filter(
-          (p) => !defaultZone || p.zoneId === defaultZone,
-        )
-        setSelectedPackageIds(zonePackages.map((p) => p.id))
+        setSelectedPackageIds((prev) => {
+          const eligibleIds = new Set(
+            snap.candidatePackages
+              .filter((p) => (!defaultZone || p.zoneId === defaultZone) && isPlanningPackageEligible(p))
+              .map((p) => p.id),
+          )
+          if (!initialSelectionDoneRef.current) {
+            initialSelectionDoneRef.current = true
+            return Array.from(eligibleIds)
+          }
+          return prev.filter((id) => eligibleIds.has(id))
+        })
       } catch (err: unknown) {
+        if (seq !== requestSeqRef.current) return
         setWorkspaceError(
           err instanceof Error
             ? err.message
             : "No fue posible cargar el espacio de planificación.",
         )
       } finally {
-        setLoadingWorkspace(false)
+        if (seq === requestSeqRef.current) {
+          setLoadingWorkspace(false)
+        }
       }
     },
     [windowRange.endAt, windowRange.startAt],
   )
 
   useEffect(() => {
-    void loadWorkspace(selectedZoneId || undefined)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [windowRange.startAt, windowRange.endAt])
-
-  const filteredPackages = useMemo(() => {
-    if (!workspace) return []
-    if (!selectedZoneId) return workspace.candidatePackages
-    return workspace.candidatePackages.filter(
-      (pkg) => pkg.zoneId === selectedZoneId,
-    )
-  }, [workspace, selectedZoneId])
+    void loadWorkspace(selectedZoneId || undefined, selectedDatasetId || undefined, selectedProfile)
+  }, [loadWorkspace, selectedDatasetId, selectedProfile, selectedZoneId])
 
   const handleZoneChange = (newZoneId: string) => {
+    setSelectedPackageIds([])
     setSelectedZoneId(newZoneId)
-    if (workspace) {
-      const matching = workspace.candidatePackages
-        .filter((p) => !newZoneId || p.zoneId === newZoneId)
-        .map((p) => p.id)
-      setSelectedPackageIds(matching)
-    }
+  }
+
+  const handleDatasetChange = (newDatasetId: string) => {
+    setSelectedPackageIds([])
+    setSelectedDatasetId(newDatasetId)
+  }
+
+  const handleProfileChange = (
+    newProfile: "MOTOR_VEHICLE" | "MOTORCYCLE" | "BICYCLE" | "FOOT",
+  ) => {
+    setSelectedPackageIds([])
+    setSelectedProfile(newProfile)
   }
 
   const togglePackage = (pkgId: string) => {
@@ -168,6 +208,18 @@ export function PlanningPage() {
         ? prev.filter((id) => id !== pkgId)
         : [...prev, pkgId],
     )
+  }
+
+  const toggleSelectAll = () => {
+    const allSelected =
+      eligiblePackages.length > 0 &&
+      eligiblePackages.every((p) => selectedPackageIds.includes(p.id))
+
+    if (allSelected) {
+      setSelectedPackageIds([])
+    } else {
+      setSelectedPackageIds(eligiblePackages.map((p) => p.id))
+    }
   }
 
   const handlePlan = async () => {
@@ -183,8 +235,11 @@ export function PlanningPage() {
             "Selecciona una ruta en estado Planificada (PLANNED) para replanificar.",
           )
         }
+        const validPackageIds = selectedPackageIds.filter((id) =>
+          eligiblePackages.some((p) => p.id === id),
+        )
         const res = await replanEditableRoute(selectedEditableRouteId, {
-          packageIds: selectedPackageIds,
+          packageIds: validPackageIds,
           ordering,
         })
         setExecutionSummary({
@@ -202,19 +257,22 @@ export function PlanningPage() {
         if (!selectedDatasetId) {
           throw new Error("No hay un dataset vial READY disponible.")
         }
-        if (selectedPackageIds.length === 0) {
+        const validPackageIds = selectedPackageIds.filter((id) =>
+          eligiblePackages.some((p) => p.id === id),
+        )
+        if (validPackageIds.length === 0) {
           throw new Error(
-            "Selecciona al menos un paquete candidato para planificar.",
+            "Selecciona al menos un paquete candidato apto para planificar.",
           )
         }
         const res = await planAndAssignRoutes({
           requestId: generateRequestId(),
           zoneId: selectedZoneId,
-          packageIds: selectedPackageIds,
+          packageIds: validPackageIds,
           resourceSelection: "AUTOMATIC",
           depotId: selectedDepotId,
           datasetId: selectedDatasetId,
-          profile: "MOTOR_VEHICLE",
+          profile: selectedProfile,
           window: windowRange,
           radiusMeters,
           ordering,
@@ -230,7 +288,7 @@ export function PlanningPage() {
         })
       }
 
-      await loadWorkspace(selectedZoneId || undefined)
+      await loadWorkspace(selectedZoneId || undefined, selectedDatasetId, selectedProfile)
     } catch (err: unknown) {
       setSubmitError(
         err instanceof Error
@@ -420,13 +478,35 @@ export function PlanningPage() {
                   <select
                     id="planning-dataset"
                     value={selectedDatasetId}
-                    onChange={(e) => setSelectedDatasetId(e.target.value)}
+                    onChange={(e) => handleDatasetChange(e.target.value)}
                   >
                     {workspace?.datasets.map((ds) => (
                       <option key={ds.id} value={ds.id}>
                         {ds.name} ({ds.sourceType})
                       </option>
                     ))}
+                  </select>
+                </div>
+
+                <div className="field">
+                  <label htmlFor="planning-profile">Perfil de transitabilidad</label>
+                  <select
+                    id="planning-profile"
+                    value={selectedProfile}
+                    onChange={(e) =>
+                      handleProfileChange(
+                        e.target.value as
+                          | "MOTOR_VEHICLE"
+                          | "MOTORCYCLE"
+                          | "BICYCLE"
+                          | "FOOT",
+                      )
+                    }
+                  >
+                    <option value="MOTOR_VEHICLE">Vehículo a motor</option>
+                    <option value="MOTORCYCLE">Motocicleta</option>
+                    <option value="BICYCLE">Bicicleta</option>
+                    <option value="FOOT">A pie</option>
                   </select>
                 </div>
 
@@ -485,8 +565,7 @@ export function PlanningPage() {
               <div>
                 <strong>Paquetes seleccionados</strong>
                 <p>
-                  {selectedPackageIds.length} de {filteredPackages.length}{" "}
-                  paquetes candidatos seleccionados.
+                  {selectedPackageIds.length} seleccionados de {eligiblePackages.length} aptos ({filteredPackages.length} en zona).
                 </p>
               </div>
             </div>
@@ -622,56 +701,109 @@ export function PlanningPage() {
                 <div
                   className="company-table__head"
                   style={{
-                    gridTemplateColumns: "0.35fr 1.1fr 1.4fr 0.9fr 0.8fr 0.9fr",
+                    gridTemplateColumns: "0.35fr 1.1fr 1.4fr 0.9fr 0.8fr 1.3fr",
                   }}
                 >
-                  <span>Sel.</span>
+                  <span>
+                    <input
+                      type="checkbox"
+                      aria-label="Seleccionar todos los paquetes aptos"
+                      checked={
+                        eligiblePackages.length > 0 &&
+                        eligiblePackages.every((p) =>
+                          selectedPackageIds.includes(p.id),
+                        )
+                      }
+                      onChange={toggleSelectAll}
+                      disabled={eligiblePackages.length === 0}
+                    />
+                  </span>
                   <span>Guía</span>
                   <span>Dirección</span>
                   <span>Zona / Sector</span>
                   <span>Peso / Vol.</span>
-                  <span>Estado</span>
+                  <span>Estado y Aptitud</span>
                 </div>
-                {filteredPackages.map((p) => (
-                  <div
-                    key={p.id}
-                    className="company-table__row"
-                    style={{
-                      gridTemplateColumns:
-                        "0.35fr 1.1fr 1.4fr 0.9fr 0.8fr 0.9fr",
-                    }}
-                  >
-                    <span>
-                      <input
-                        type="checkbox"
-                        aria-label={`Seleccionar ${p.trackingCode}`}
-                        checked={selectedPackageIds.includes(p.id)}
-                        onChange={() => togglePackage(p.id)}
-                      />
-                    </span>
-                    <strong>{p.trackingCode}</strong>
-                    <span>{p.address}</span>
-                    <span>
-                      {p.zoneName ?? "Sin zona"}
-                      {p.sectorName ? ` · ${p.sectorName}` : ""}
-                    </span>
-                    <span>
-                      {p.weightKg} kg · {p.volumeM3} m³
-                    </span>
-                    <span>
-                      <span
-                        className={`status ${PLANNING_PACKAGE_STATE_COLOR[p.state]}`}
-                        title={
-                          p.lastPendingReasonCode
-                            ? formatPendingReasonLabel(p.lastPendingReasonCode)
-                            : undefined
-                        }
-                      >
-                        {PLANNING_PACKAGE_STATE_LABELS[p.state]}
+                {filteredPackages.map((p) => {
+                  const isEligible = isPlanningPackageEligible(p)
+                  return (
+                    <div
+                      key={p.id}
+                      className="company-table__row"
+                      style={{
+                        gridTemplateColumns:
+                          "0.35fr 1.1fr 1.4fr 0.9fr 0.8fr 1.3fr",
+                        opacity: isEligible ? 1 : 0.75,
+                      }}
+                    >
+                      <span>
+                        <input
+                          type="checkbox"
+                          aria-label={`Seleccionar ${p.trackingCode}`}
+                          checked={selectedPackageIds.includes(p.id)}
+                          onChange={() => togglePackage(p.id)}
+                          disabled={!isEligible}
+                          title={
+                            !isEligible
+                              ? formatUnsuitabilityReason(p.unsuitabilityReason)
+                              : undefined
+                          }
+                        />
                       </span>
-                    </span>
-                  </div>
-                ))}
+                      <strong>{p.trackingCode}</strong>
+                      <span>{p.address}</span>
+                      <span>
+                        {p.zoneName ?? "Sin zona"}
+                        {p.sectorName ? ` · ${p.sectorName}` : ""}
+                      </span>
+                      <span>
+                        {p.weightKg} kg · {p.volumeM3} m³
+                      </span>
+                      <span
+                        style={{
+                          display: "inline-flex",
+                          alignItems: "center",
+                          gap: "0.35rem",
+                          flexWrap: "wrap",
+                        }}
+                      >
+                        <span
+                          className={`status ${PLANNING_PACKAGE_STATE_COLOR[p.state]}`}
+                          title={
+                            p.lastPendingReasonCode
+                              ? formatPendingReasonLabel(p.lastPendingReasonCode)
+                              : undefined
+                          }
+                        >
+                          {PLANNING_PACKAGE_STATE_LABELS[p.state]}
+                        </span>
+                        {!isEligible && (
+                          <span
+                            className="status status--warn"
+                            title={p.unsuitabilityReason ?? undefined}
+                            style={{ fontSize: "0.68rem" }}
+                          >
+                            {formatUnsuitabilityReason(p.unsuitabilityReason)}
+                          </span>
+                        )}
+                        {!isEligible && (
+                          <Link
+                            to={`/app/paquetes/${p.id}`}
+                            style={{
+                              fontSize: "0.72rem",
+                              color: "var(--blue)",
+                              fontWeight: 700,
+                              textDecoration: "underline",
+                            }}
+                            title="Resolver geocodificación y anclaje vial"
+                          >
+                            Resolver
+                          </Link>
+                        )}
+                      </span>
+                    </div>
+                  )
+                })}
               </div>
             )}
           </div>

@@ -20,7 +20,7 @@ make integration-db-down
 ```
 
 Los valores admitidos actualmente son `gdb-01`, `gdb-05`, `gdb-06`,
-`geocode-01`, `assign-01`, `route-01`, `delivery-01`, `route-close-01`,
+`geocode-01`, `pkg-geo-01`, `assign-01`, `route-01`, `delivery-01`, `route-close-01`,
 `rmq-01`, `registration-01`, `auth-tenant-01` y `demo-01`. Deben ejecutarse secuencialmente porque comparten el servidor y
 las migraciones administran los roles `sls_app` y `sls_provisioning` a nivel de instancia. Los comandos
 directos documentados abajo siguen disponibles cuando se proporciona un

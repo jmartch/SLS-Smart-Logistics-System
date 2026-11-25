@@ -7,6 +7,8 @@ export interface PlanningWorkspaceQuery {
   readonly tenantId: string;
   readonly zoneId?: string;
   readonly window?: PlanningWorkspaceWindow;
+  readonly datasetId?: string;
+  readonly profile?: 'MOTOR_VEHICLE' | 'MOTORCYCLE' | 'BICYCLE' | 'FOOT';
 }
 
 export interface PlanningWorkspaceZone {
@@ -56,6 +58,22 @@ export interface PlanningWorkspaceCourier {
   readonly isEligible: boolean;
 }
 
+export interface CandidatePackageRawAttachment {
+  readonly id: string;
+  readonly datasetId: string;
+  readonly profile: 'MOTOR_VEHICLE' | 'MOTORCYCLE' | 'BICYCLE' | 'FOOT';
+  readonly status: string;
+  readonly accessDistanceMeters: number;
+}
+
+export interface CandidatePackageRawGeocoding {
+  readonly attemptStatus: string | null;
+  readonly attemptDatasetId: string | null;
+  readonly isDatasetReady: boolean;
+  readonly selectedCandidateId: string | null;
+  readonly networkAttachments: readonly CandidatePackageRawAttachment[];
+}
+
 export interface PlanningWorkspacePackage {
   readonly id: string;
   readonly trackingCode: string;
@@ -66,11 +84,17 @@ export interface PlanningWorkspacePackage {
   readonly sectorId: string | null;
   readonly sectorName: string | null;
   readonly address: string;
+  readonly municipalityCode?: string | null;
   readonly weightKg: string;
   readonly volumeM3: string;
   readonly hasReadyCoordinates: boolean;
+  readonly isGeocodingReady?: boolean;
+  readonly geocodingStatus?: string | null;
+  readonly networkAttachmentStatus?: string | null;
+  readonly unsuitabilityReason?: string | null;
   readonly lastPendingReasonCode?: string | null;
   readonly lastStateChangedAt?: string | null;
+  readonly rawGeocoding?: CandidatePackageRawGeocoding | null;
 }
 
 export interface PlanningWorkspaceEditableRoute {

@@ -4,6 +4,9 @@ import type {
 } from '../../domain/package-registration';
 import type { PackageReferenceSnapshot } from '../../domain/package-reference.policy';
 
+export type { PackagePriorityName, PackageRegistrationData };
+export type { PackageReferenceSnapshot };
+
 export interface PackageReferenceQuery {
     readonly shipmentTypeId: string;
     readonly zoneId: string | null;
@@ -46,10 +49,6 @@ export interface PackageRegistrationPort {
         query: PackageReferenceQuery,
     ): Promise<PackageReferenceSnapshot>;
 
-    /**
-     * Persiste de forma atómica: dirección, paquete (estado REGISTERED),
-     * historial inicial y evento PackageRegistered en outbox. Todo o nada.
-     */
     registerByTenant(
         context: PackageRegistrationContext,
         data: PackageRegistrationData,

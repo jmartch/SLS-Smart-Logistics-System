@@ -256,14 +256,31 @@ export class PrismaPlanningWorkspaceQueryAdapter extends PlanningWorkspaceQueryP
         },
         orderBy: { trackingCode: 'asc' },
         include: {
-          address: { select: { originalText: true } },
+          address: { select: { originalText: true, municipalityCode: true } },
           zone: { select: { name: true } },
           sector: { select: { name: true } },
           geocodingAttempt: {
             select: {
               status: true,
+              datasetId: true,
               selectedCandidateId: true,
-              dataset: { select: { status: true } },
+              dataset: { select: { id: true, status: true } },
+              selectedCandidate: {
+                select: {
+                  id: true,
+                  networkAttachments: {
+                    select: {
+                      id: true,
+                      datasetId: true,
+                      profile: true,
+                      status: true,
+                      accessDistanceM: true,
+                      roadNodeId: true,
+                      roadEdgeId: true,
+                    },
+                  },
+                },
+              },
             },
           },
           statusHistory: {
@@ -300,6 +317,32 @@ export class PrismaPlanningWorkspaceQueryAdapter extends PlanningWorkspaceQueryP
             latestPlanningResult?.createdAt?.toISOString() ??
             null;
 
+          const hasReadyCoordinates = Boolean(
+            pkg.geocodingAttempt?.selectedCandidateId &&
+            pkg.geocodingAttempt.status === 'MATCHED' &&
+            pkg.geocodingAttempt.dataset.status === 'READY',
+          );
+
+          const candidate = pkg.geocodingAttempt?.selectedCandidate;
+          const rawAttachments = candidate?.networkAttachments ?? [];
+          const mappedAttachments = rawAttachments.map((a) => ({
+            id: a.id,
+            datasetId: a.datasetId,
+            profile: a.profile,
+            status: a.status,
+            accessDistanceMeters: Number(a.accessDistanceM),
+          }));
+
+          const rawGeocoding = pkg.geocodingAttempt
+            ? {
+                attemptStatus: pkg.geocodingAttempt.status,
+                attemptDatasetId: pkg.geocodingAttempt.datasetId,
+                isDatasetReady: pkg.geocodingAttempt.dataset.status === 'READY',
+                selectedCandidateId: pkg.geocodingAttempt.selectedCandidateId,
+                networkAttachments: mappedAttachments,
+              }
+            : null;
+
           return {
             id: pkg.id,
             trackingCode: pkg.trackingCode,
@@ -310,13 +353,11 @@ export class PrismaPlanningWorkspaceQueryAdapter extends PlanningWorkspaceQueryP
             sectorId: pkg.sectorId,
             sectorName: pkg.sector?.name ?? null,
             address: pkg.address.originalText,
+            municipalityCode: pkg.address.municipalityCode,
             weightKg: String(pkg.weightKg),
             volumeM3: String(pkg.volumeM3),
-            hasReadyCoordinates: Boolean(
-              pkg.geocodingAttempt?.selectedCandidateId &&
-              pkg.geocodingAttempt.status === 'MATCHED' &&
-              pkg.geocodingAttempt.dataset.status === 'READY',
-            ),
+            hasReadyCoordinates,
+            rawGeocoding,
             lastPendingReasonCode,
             lastStateChangedAt,
           };

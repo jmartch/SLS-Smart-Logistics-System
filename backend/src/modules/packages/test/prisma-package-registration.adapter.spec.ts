@@ -298,4 +298,66 @@ describe('PrismaPackageRegistrationAdapter', () => {
             ).rejects.toBe(failure);
         });
     });
+
+    describe('registerInTx', () => {
+        it('returns PACKAGE_TRACKING_CODE_CONFLICT when P2002 target targets trackingCode', async () => {
+            const f = createFixture();
+            const tx = {
+                address: {
+                    create: jest.fn().mockResolvedValue({ id: ADDRESS_ID }),
+                },
+                package: {
+                    create: jest.fn().mockRejectedValue(
+                        new Prisma.PrismaClientKnownRequestError(
+                            'Unique constraint failed',
+                            {
+                                code: 'P2002',
+                                clientVersion: '7.10.0',
+                                meta: { target: ['tenantId', 'trackingCode'] },
+                            },
+                        ),
+                    ),
+                },
+                packageStatusHistory: { create: jest.fn() },
+                outboxEvent: { create: jest.fn() },
+            } as unknown as Prisma.TransactionClient;
+
+            const res = await f.adapter.registerInTx(
+                tx,
+                context,
+                data,
+                'token-123',
+            );
+            expect(res).toEqual({
+                ok: false,
+                code: 'PACKAGE_TRACKING_CODE_CONFLICT',
+            });
+        });
+
+        it('rethrows P2002 when target targets publicTrackingToken', async () => {
+            const f = createFixture();
+            const tokenConflict = new Prisma.PrismaClientKnownRequestError(
+                'Unique constraint failed',
+                {
+                    code: 'P2002',
+                    clientVersion: '7.10.0',
+                    meta: { target: ['publicTrackingToken'] },
+                },
+            );
+            const tx = {
+                address: {
+                    create: jest.fn().mockResolvedValue({ id: ADDRESS_ID }),
+                },
+                package: {
+                    create: jest.fn().mockRejectedValue(tokenConflict),
+                },
+                packageStatusHistory: { create: jest.fn() },
+                outboxEvent: { create: jest.fn() },
+            } as unknown as Prisma.TransactionClient;
+
+            await expect(
+                f.adapter.registerInTx(tx, context, data, 'colliding-token'),
+            ).rejects.toBe(tokenConflict);
+        });
+    });
 });

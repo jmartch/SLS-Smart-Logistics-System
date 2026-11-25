@@ -23,6 +23,7 @@ import { EditableRouteReplanUnitOfWork } from './application/ports/replan-editab
 import { PrismaPlanningAssignmentUnitOfWork } from './infrastructure/prisma-planning-assignment-unit-of-work';
 import { PrismaEditableRouteReplanUnitOfWork } from './infrastructure/prisma-editable-route-replan.uow';
 import { PrismaPlanningWorkspaceQueryAdapter } from './infrastructure/prisma-planning-workspace-query.adapter';
+import { PackageGeocodingConfigAdapter } from '../../config/package-geocoding.config';
 
 import { RoutePlanningController } from './presentation/route-planning.controller';
 
@@ -98,11 +99,7 @@ import { RoutePlanningController } from './presentation/route-planning.controlle
         clusterService: ClusterPackagesService,
         orderStopsService: OrderRouteStopsService,
       ) =>
-        new PlanAndAssignRoutesService(
-          uow,
-          clusterService,
-          orderStopsService,
-        ),
+        new PlanAndAssignRoutesService(uow, clusterService, orderStopsService),
       inject: [
         PrismaPlanningAssignmentUnitOfWork,
         ClusterPackagesService,
@@ -117,11 +114,14 @@ import { RoutePlanningController } from './presentation/route-planning.controlle
       ) => new ReplanEditableRouteService(uow, orderStopsService),
       inject: [EditableRouteReplanUnitOfWork, OrderRouteStopsService],
     },
+    PackageGeocodingConfigAdapter,
     {
       provide: GetPlanningWorkspaceService,
-      useFactory: (workspaceQuery: PlanningWorkspaceQueryPort) =>
-        new GetPlanningWorkspaceService(workspaceQuery),
-      inject: [PlanningWorkspaceQueryPort],
+      useFactory: (
+        workspaceQuery: PlanningWorkspaceQueryPort,
+        configPort: PackageGeocodingConfigAdapter,
+      ) => new GetPlanningWorkspaceService(workspaceQuery, configPort),
+      inject: [PlanningWorkspaceQueryPort, PackageGeocodingConfigAdapter],
     },
   ],
   exports: [

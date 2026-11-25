@@ -26,9 +26,14 @@ import BarcodeScanner from "../components/BarcodeScanner"
 import "../components/packages.css"
 import {
   EMPTY_REGISTER_PACKAGE_FORM,
+  GEOCODING_STATUS_COLORS,
+  GEOCODING_STATUS_LABELS,
+  GEOCODING_STATUS_MESSAGES,
   PACKAGE_PRIORITIES,
   PACKAGE_PRIORITY_LABELS,
+  ROAD_PROFILE_LABELS,
   type CatalogOption,
+  type PackageGeocodingDiagnostic,
   type PackagePriority,
   type RegisterPackageFormErrors,
   type RegisterPackageFormValues,
@@ -66,6 +71,7 @@ export function NewPackagePage() {
   const [submitted, setSubmitted] = useState(false)
   const [registeredId, setRegisteredId] = useState("")
   const [registeredTrackingCode, setRegisteredTrackingCode] = useState("")
+  const [registeredGeocoding, setRegisteredGeocoding] = useState<PackageGeocodingDiagnostic | null>(null)
   const [loading, setLoading] = useState(false)
   const [scanningCamera, setScanningCamera] = useState(false)
   const [qrNotice, setQrNotice] = useState<string | null>(null)
@@ -296,6 +302,7 @@ export function NewPackagePage() {
       }
       setRegisteredId(res.id)
       setRegisteredTrackingCode(res.trackingCode || finalCode)
+      setRegisteredGeocoding(res.geocoding ?? null)
       setSubmitted(true)
     } catch (err) {
       if (err instanceof ApiError && err.status === 409) {
@@ -320,6 +327,8 @@ export function NewPackagePage() {
   const resetForNextPackage = () => {
     setSubmitted(false)
     setRegisteredId("")
+    setRegisteredTrackingCode("")
+    setRegisteredGeocoding(null)
     setQrNotice(null)
     setQrError(null)
     setSubmitError(null)
@@ -341,16 +350,60 @@ export function NewPackagePage() {
   })()
 
   if (submitted) {
+    const isEligible = registeredGeocoding?.eligibility === "ELIGIBLE"
+    const status = registeredGeocoding?.status
+    const statusLabel = status ? GEOCODING_STATUS_LABELS[status] : "Pendiente de diagnóstico"
+    const statusMsg = status ? GEOCODING_STATUS_MESSAGES[status] : "Diagnóstico geoespacial no disponible."
+    const profileLabel = registeredGeocoding?.profile ? ROAD_PROFILE_LABELS[registeredGeocoding.profile] : null
+
     return (
-      <div className="success-state" style={{ paddingTop: "3rem" }}>
+      <div className="success-state" style={{ paddingTop: "2rem", maxWidth: "680px", margin: "0 auto" }}>
         <span><Check size={32} /></span>
-        <h2>Paquete registrado</h2>
+        <h2>Paquete recibido en bodega</h2>
         <p>
-          Se registró la guía <strong>{registeredTrackingCode}</strong>. El paquete quedó en estado{" "}
-          <strong>REGISTERED</strong>{" "}
-          {"(persistido en PostgreSQL + evento Outbox PackageRegistered)"} y está listo para clasificación.
+          Se registró la recepción física de la guía <strong>{registeredTrackingCode}</strong> en estado <strong>REGISTERED</strong>.
         </p>
-        <div style={{ display: "flex", gap: "1rem", flexWrap: "wrap", justifyContent: "center", marginTop: "0.5rem" }}>
+
+        <div
+          style={{
+            margin: "1.5rem 0",
+            padding: "1rem 1.25rem",
+            borderRadius: "var(--radius-sm, 8px)",
+            textAlign: "left",
+            background: isEligible ? "rgba(16, 185, 129, 0.08)" : "rgba(245, 158, 11, 0.08)",
+            border: `1px solid ${isEligible ? "rgba(16, 185, 129, 0.3)" : "rgba(245, 158, 11, 0.3)"}`,
+          }}
+        >
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "0.5rem", flexWrap: "wrap", marginBottom: "0.5rem" }}>
+            <span style={{ fontSize: "0.75rem", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em", color: "var(--text-muted)" }}>
+              Diagnóstico de geocodificación y anclaje vial
+            </span>
+            <div style={{ display: "flex", gap: "0.4rem" }}>
+              <span className={`status ${status ? GEOCODING_STATUS_COLORS[status] : "status--muted"}`}>
+                {statusLabel}
+              </span>
+              <span className={`status ${isEligible ? "status--ok" : "status--warn"}`}>
+                {isEligible ? "Apto para rutas (ELIGIBLE)" : "No apto para rutas (INELIGIBLE)"}
+              </span>
+            </div>
+          </div>
+
+          <p style={{ margin: "0.3rem 0 0.5rem", fontSize: "0.85rem", color: "var(--navy)" }}>
+            {statusMsg}
+          </p>
+
+          {isEligible ? (
+            <p style={{ margin: 0, fontSize: "0.78rem", color: "var(--text-muted)" }}>
+              El paquete cuenta con coordenadas validadas y anclaje a red vial ({profileLabel ?? "vehicular"}). Quedará disponible para planificar una vez clasificado en zona.
+            </p>
+          ) : (
+            <div style={{ margin: 0, fontSize: "0.78rem", color: "#b45309", background: "rgba(245, 158, 11, 0.12)", padding: "0.5rem 0.75rem", borderRadius: "4px" }}>
+              <strong>Importante:</strong> La recepción fue exitosa, pero este envío <em>no se podrá incluir en rutas automáticas de reparto</em> hasta resolver su ubicación geográfica o corregir su dirección.
+            </div>
+          )}
+        </div>
+
+        <div style={{ display: "flex", gap: "1rem", flexWrap: "wrap", justifyContent: "center", marginTop: "1rem" }}>
           <button className="form-submit" onClick={resetForNextPackage} style={{ minWidth: 180 }}>
             <PackagePlus size={17} /> Registrar otro
           </button>
@@ -359,12 +412,12 @@ export function NewPackagePage() {
               type="button"
               className="form-submit"
               onClick={() => navigate(`/app/paquetes/${registeredId}`)}
-              style={{ background: "var(--navy)", minWidth: 180 }}
+              style={{ background: isEligible ? "var(--navy)" : "#d97706", minWidth: 200 }}
             >
-              <ArrowRight size={17} /> Ver detalle del paquete
+              <ArrowRight size={17} /> {isEligible ? "Ver detalle del paquete" : "Resolver ubicación del paquete"}
             </button>
           )}
-          <Link to="/app/paquetes" className="form-submit" style={{ textDecoration: "none", background: "#334155", minWidth: 180 }}>
+          <Link to="/app/paquetes" className="form-submit" style={{ textDecoration: "none", background: "#334155", minWidth: 160 }}>
             <Package size={17} /> Ver listado
           </Link>
         </div>

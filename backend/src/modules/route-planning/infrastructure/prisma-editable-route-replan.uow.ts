@@ -1,17 +1,14 @@
-import { randomUUID } from 'node:crypto';
 import { Injectable } from '@nestjs/common';
 import {
   AssignmentStatus,
   AssignmentType,
   GeoDatasetStatus,
   OutboxEventStatus,
-  PackageState,
   Prisma,
   RoadProfile,
   RouteStopState,
 } from '../../../../generated/prisma/client';
 import { PrismaService } from '../../../database/prisma.service';
-import type { PackageStateName } from '../../packages/domain/package-state.types';
 import type { PlanningExecutionContext } from '../application/ports/plan-and-assign-routes.contract';
 import type {
   CreateAssignmentData,
@@ -88,10 +85,10 @@ export class PrismaEditableRouteReplanSession implements EditableRouteReplanSess
         orderBy: [{ readyAt: 'desc' }, { createdAt: 'desc' }],
         select: { id: true },
       });
-      datasetId = readyDataset?.id ?? 'BAQ-DEFAULT-DATASET';
+      datasetId = readyDataset?.id ?? '';
     }
 
-    let dbPackages =
+    const dbPackages =
       packageIds.length > 0
         ? await this.tx.package.findMany({
             where: {
@@ -108,110 +105,6 @@ export class PrismaEditableRouteReplanSession implements EditableRouteReplanSess
             },
           })
         : [];
-
-    if (
-      dbPackages.some((pkg) => !pkg.geocodingAttempt) &&
-      datasetId !== 'BAQ-DEFAULT-DATASET'
-    ) {
-      const nodes = await this.tx.$queryRaw<Array<{ id: string }>>`
-                SELECT id FROM "RoadNode"
-                WHERE "datasetId" = ${datasetId}::uuid
-                LIMIT 1
-            `;
-      if (nodes.length > 0) {
-        const roadNodeId = nodes[0].id;
-        for (const pkg of dbPackages) {
-          if (pkg.geocodingAttempt) continue;
-          const hash = Array.from(pkg.trackingCode).reduce(
-            (acc, ch) => acc + ch.charCodeAt(0),
-            0,
-          );
-          const lat = Number((10.994 + (hash % 25) * 0.0009).toFixed(6));
-          const lon = Number(
-            (-74.818 + ((hash >> 3) % 25) * 0.0009).toFixed(6),
-          );
-          const attemptId = randomUUID();
-          const candidateId = randomUUID();
-
-          await this.tx.geocodingAttempt.create({
-            data: {
-              id: attemptId,
-              tenantId: this.context.tenantId,
-              addressId: pkg.addressId,
-              datasetId,
-              status: 'MATCHED',
-              normalizedText: pkg.address.originalText,
-              components: {},
-              algorithmVersion: '1.0',
-            },
-          });
-
-          await this.tx.$executeRaw`
-                        INSERT INTO "GeocodingCandidate" (
-                            "id", "tenantId", "attemptId", "datasetId", "rank", "score", "scoreBreakdown", "source", "precision", "location"
-                        ) VALUES (
-                            ${candidateId}::uuid,
-                            ${this.context.tenantId}::uuid,
-                            ${attemptId}::uuid,
-                            ${datasetId}::uuid,
-                            1,
-                            1.0000,
-                            '{}'::jsonb,
-                            'SYNTHETIC',
-                            'ENTRANCE',
-                            ST_SetSRID(ST_MakePoint(${lon}::float8, ${lat}::float8), 4326)
-                        )
-                    `;
-
-          await this.tx.geocodingAttempt.update({
-            where: { id: attemptId },
-            data: { selectedCandidateId: candidateId },
-          });
-
-          await this.tx.$executeRaw`
-                        INSERT INTO "NetworkAttachment" (
-                            "id", "tenantId", "datasetId", "geocodingCandidateId", "profile", "roadNodeId", "roadEdgeId", "snappedLocation", "accessDistanceM", "status"
-                        ) VALUES (
-                            gen_random_uuid(),
-                            ${this.context.tenantId}::uuid,
-                            ${datasetId}::uuid,
-                            ${candidateId}::uuid,
-                            'MOTOR_VEHICLE',
-                            ${roadNodeId}::uuid,
-                            NULL,
-                            ST_SetSRID(ST_MakePoint(${lon}::float8, ${lat}::float8), 4326),
-                            0,
-                            'AUTO_ACCEPTED'
-                        )
-                    `;
-
-          await this.tx.package.update({
-            where: {
-              tenantId_id: {
-                tenantId: this.context.tenantId,
-                id: pkg.id,
-              },
-            },
-            data: { geocodingAttemptId: attemptId },
-          });
-        }
-
-        dbPackages = await this.tx.package.findMany({
-          where: {
-            tenantId: this.context.tenantId,
-            id: { in: [...packageIds] },
-          },
-          include: {
-            address: { select: { originalText: true } },
-            geocodingAttempt: {
-              include: {
-                dataset: true,
-              },
-            },
-          },
-        });
-      }
-    }
 
     const candidateIds = dbPackages
       .map((p) => p.geocodingAttempt?.selectedCandidateId)
@@ -241,6 +134,9 @@ export class PrismaEditableRouteReplanSession implements EditableRouteReplanSess
         status: 'AUTO_ACCEPTED' | 'REVIEW_REQUIRED' | 'APPROVED' | 'REJECTED';
         roadNodeId: string | null;
         roadEdgeId: string | null;
+        datasetId: string;
+        profile: 'MOTOR_VEHICLE' | 'MOTORCYCLE' | 'BICYCLE' | 'FOOT';
+        geocodingCandidateId: string;
       }
     >();
     if (candidateIds.length > 0) {
@@ -248,10 +144,13 @@ export class PrismaEditableRouteReplanSession implements EditableRouteReplanSess
         where: {
           tenantId: this.context.tenantId,
           geocodingCandidateId: { in: candidateIds },
+          datasetId: datasetId ? datasetId : undefined,
           profile: RoadProfile.MOTOR_VEHICLE,
         },
         select: {
           geocodingCandidateId: true,
+          datasetId: true,
+          profile: true,
           status: true,
           roadNodeId: true,
           roadEdgeId: true,
@@ -259,10 +158,12 @@ export class PrismaEditableRouteReplanSession implements EditableRouteReplanSess
       });
       for (const a of attachments) {
         attachmentMap.set(a.geocodingCandidateId, {
-          status: a.status as
-            'AUTO_ACCEPTED' | 'REVIEW_REQUIRED' | 'APPROVED' | 'REJECTED',
+          status: a.status,
           roadNodeId: a.roadNodeId,
           roadEdgeId: a.roadEdgeId,
+          datasetId: a.datasetId,
+          profile: a.profile,
+          geocodingCandidateId: a.geocodingCandidateId,
         });
       }
     }
@@ -278,11 +179,12 @@ export class PrismaEditableRouteReplanSession implements EditableRouteReplanSess
       return {
         id: p.id,
         tenantId: p.tenantId,
-        state: p.state as PackageStateName,
+        state: p.state,
         zoneId: p.zoneId,
         addressId: p.addressId,
         weightGrams: Math.round(p.weightKg.toNumber() * 1000),
         volumeCm3: Math.round(p.volumeM3.toNumber() * 1000000),
+        geocodingAttemptId: p.geocodingAttemptId,
         geocodingCandidate:
           attempt && candidateId && coords
             ? {
@@ -290,10 +192,9 @@ export class PrismaEditableRouteReplanSession implements EditableRouteReplanSess
                 latitude: coords.latitude,
                 longitude: coords.longitude,
                 datasetId: attempt.datasetId,
-                datasetStatus: attempt.dataset.status as
-                  'STAGING' | 'READY' | 'FAILED',
-                status: attempt.status as
-                  'MATCHED' | 'REVIEW_REQUIRED' | 'NOT_FOUND',
+                datasetStatus: attempt.dataset.status,
+                status: attempt.status,
+                attemptId: attempt.id,
               }
             : null,
         networkAttachment: attachment,
@@ -520,8 +421,8 @@ export class PrismaEditableRouteReplanSession implements EditableRouteReplanSess
         data: {
           tenantId: this.context.tenantId,
           packageId: update.packageId,
-          fromState: update.fromState as PackageState,
-          toState: update.toState as PackageState,
+          fromState: update.fromState,
+          toState: update.toState,
           reasonCode: update.reasonCode ?? null,
           changedByUserId: update.changedByUserId,
         },

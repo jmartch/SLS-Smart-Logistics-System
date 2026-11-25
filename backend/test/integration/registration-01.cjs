@@ -76,6 +76,7 @@ async function main() {
             {
                 DATABASE_URL: databaseUrl,
                 RUNTIME_DATABASE_URL: runtimeDatabaseUrl,
+                PROVISIONING_DATABASE_URL: databaseUrl,
                 NODE_OPTIONS: [
                     process.env.NODE_OPTIONS,
                     '--experimental-vm-modules',

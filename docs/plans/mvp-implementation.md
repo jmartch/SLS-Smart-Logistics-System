@@ -149,3 +149,8 @@ Fuera de esta hoja: dashboard analítico avanzado, GPS, móvil nativo, optimizac
 - [ ] Aislamiento, concurrencia, errores y recuperación comprobados.
 - [ ] README, C4, ADR y evidencia alineados.
 - [ ] Informe y estados finales sustentados por pruebas/commits.
+
+
+## Integración del registro ordinario — PKG-GEO-01
+
+El registro HTTP, la recuperación de direcciones y la aptitud para planificación se conectan en [PKG-GEO-01](pkg-geo-01.md). Consultar su [ADR](../adr/pkg-geo-01.md) y [guía operativa](../geospatial/pkg-geo-01-operation.md); las semillas de demostración no son evidencia de ese flujo. Este alcance no incorpora UI-DELIVERY-01.
