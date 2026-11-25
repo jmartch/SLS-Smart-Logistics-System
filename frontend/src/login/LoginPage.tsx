@@ -11,12 +11,20 @@ import {
   Truck,
 } from "lucide-react"
 import { type FormEvent, useState } from "react"
-import { Link, Navigate } from "react-router"
-import { defaultHomeForUser, useAuth } from "../auth"
+import { Link, Navigate, useSearchParams } from "react-router"
+import {
+  defaultHomeForUser,
+  DEMO_PLATFORM_LOGIN,
+  DEMO_TENANT_LOGIN,
+  useAuth,
+} from "../auth"
 
 export function LoginPage() {
   const { login, user, initializing } = useAuth()
-  const [mode, setMode] = useState<"tenant" | "platform">("tenant")
+  const [searchParams] = useSearchParams()
+  const [mode, setMode] = useState<"tenant" | "platform">(
+    searchParams.get("mode") === "platform" ? "platform" : "tenant",
+  )
   const [slug, setSlug] = useState("")
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
@@ -25,7 +33,11 @@ export function LoginPage() {
   const [error, setError] = useState("")
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({})
 
-  if (!initializing && user) {
+  const userMatchesRequestedMode =
+    (mode === "platform" && user?.kind === "PLATFORM_ADMIN") ||
+    (mode === "tenant" && user?.kind === "TENANT_USER")
+
+  if (!initializing && user && userMatchesRequestedMode) {
     return <Navigate to={defaultHomeForUser(user)} replace />
   }
 
@@ -46,6 +58,30 @@ export function LoginPage() {
       setFieldErrors(result.fields ?? {})
       return
     }
+  }
+
+  const handleDemoLogin = async () => {
+    const credentials =
+      mode === "platform"
+        ? {
+            mode,
+            email: DEMO_PLATFORM_LOGIN.email,
+            password: DEMO_PLATFORM_LOGIN.password,
+          }
+        : {
+            mode,
+            slug: DEMO_TENANT_LOGIN.slug,
+            email: DEMO_TENANT_LOGIN.email,
+            password: DEMO_TENANT_LOGIN.password,
+          }
+    setSlug(mode === "tenant" ? DEMO_TENANT_LOGIN.slug : "")
+    setEmail(credentials.email)
+    setPassword(credentials.password)
+    setError("")
+    setLoading(true)
+    const result = await login(credentials)
+    setLoading(false)
+    if (!result.ok) setError(result.error ?? "No se pudo iniciar la sesión demo.")
   }
 
   return (
@@ -251,6 +287,20 @@ export function LoginPage() {
               {loading ? <Loader2 size={17} className="spin" /> : <ArrowRight size={17} />}
               {loading ? "Verificando..." : "Entrar"}
             </button>
+            <button
+              className="demo-access"
+              type="button"
+              disabled={loading}
+              onClick={() => void handleDemoLogin()}
+            >
+              {mode === "platform"
+                ? `Entrar al SaaS · ${DEMO_PLATFORM_LOGIN.email}`
+                : `Entrar como empresa demo · ${DEMO_TENANT_LOGIN.email}`}
+            </button>
+            <p className="form-switch">
+              ¿Aún no tienes empresa?{" "}
+              <Link to="/registro/empresa">Registrar empresa</Link>
+            </p>
           </form>
         </div>
       </section>

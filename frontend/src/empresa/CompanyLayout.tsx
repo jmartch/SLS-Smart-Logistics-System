@@ -13,7 +13,8 @@ import {
   X,
 } from "lucide-react"
 import { useState } from "react"
-import { Link, NavLink, Outlet } from "react-router"
+import { NavLink, Navigate, Outlet, useNavigate } from "react-router"
+import { COMPANY_DEMO_SESSION_KEY } from "../mockData"
 import { Brand } from "../shared/ui/PortalShell"
 
 const companyNavigation = [
@@ -25,8 +26,19 @@ const companyNavigation = [
 ]
 
 export function CompanyLayout() {
+  const navigate = useNavigate()
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
+
+  if (localStorage.getItem(COMPANY_DEMO_SESSION_KEY) !== "active") {
+    return <Navigate to="/login/empresa" replace />
+  }
+
+  const handleLogout = () => {
+    localStorage.removeItem(COMPANY_DEMO_SESSION_KEY)
+    navigate("/login/empresa", { replace: true })
+  }
+
   return (
     <div className={`company-app${sidebarCollapsed ? " company-app--collapsed" : ""}`}>
       <aside className={sidebarOpen ? "company-sidebar company-sidebar--open" : "company-sidebar"}>
@@ -74,9 +86,13 @@ export function CompanyLayout() {
             </NavLink>
           ))}
         </nav>
-        <Link className="sidebar-logout" to="/login/empresa">
+        <button
+          className="sidebar-logout"
+          type="button"
+          onClick={handleLogout}
+        >
           <LogOut size={18} /> <span>Cerrar sesión</span>
-        </Link>
+        </button>
       </aside>
       <div className="company-main">
         <header className="company-topbar">
@@ -98,6 +114,16 @@ export function CompanyLayout() {
               <span />
             </button>
             <span className="profile-avatar">AM</span>
+            <button
+              className="dashboard-logout"
+              type="button"
+              onClick={handleLogout}
+              aria-label="Cerrar sesión"
+              title="Cerrar sesión"
+            >
+              <LogOut size={17} />
+              <span>Cerrar sesión</span>
+            </button>
           </div>
         </header>
         <Outlet />

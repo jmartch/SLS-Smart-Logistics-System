@@ -92,15 +92,29 @@ export default function HomePage() {
           <a href="#contacto" onClick={() => setMenuOpen(false)}>
             Contacto
           </a>
-          <Link to="/login" onClick={() => setMenuOpen(false)}>
+          <Link className="nav-access-link" to="/login/empresa" onClick={() => setMenuOpen(false)}>
             Acceso empresas
+          </Link>
+          <Link to="/registro/empresa" onClick={() => setMenuOpen(false)}>
+            Registro
+          </Link>
+          <Link className="nav-access-link" to="/login?mode=platform" onClick={() => setMenuOpen(false)}>
+            SaaS
           </Link>
         </nav>
 
-        <Link className="nav-cta" to="/seguimiento">
-          Rastrear paquete
-          <ArrowRight size={17} />
-        </Link>
+        <div className="public-access-actions">
+          <Link className="access-action access-action--company" to="/login/empresa">
+            Empresas
+          </Link>
+          <Link className="access-action access-action--saas" to="/login?mode=platform">
+            SaaS
+          </Link>
+          <Link className="nav-cta" to="/seguimiento">
+            Rastrear
+            <ArrowRight size={17} />
+          </Link>
+        </div>
 
         <button
           className="menu-button"
@@ -142,14 +156,22 @@ export default function HomePage() {
                 <ChevronRight size={18} />
               </a>
             </div>
-            <div className="trust-row" aria-label="Beneficios principales">
+            <div className="hero-stats" aria-label="Indicadores de la plataforma">
               <span>
-                <CheckCircle2 size={17} />
-                Sin instalaciones
+                <small>Disponibilidad</small>
+                <strong>99,9%</strong>
               </span>
               <span>
-                <CheckCircle2 size={17} />
-                Datos en directo
+                <small>Envíos visibles</small>
+                <strong>24/7</strong>
+              </span>
+              <span>
+                <small>Entregas a tiempo</small>
+                <strong>98,6%</strong>
+              </span>
+              <span>
+                <small>Actualización</small>
+                <strong>En directo</strong>
               </span>
             </div>
           </div>

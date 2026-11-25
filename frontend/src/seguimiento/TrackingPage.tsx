@@ -1,6 +1,6 @@
-import { ArrowRight, Building2, Search } from "lucide-react"
+import { ArrowRight, Search } from "lucide-react"
 import { useState } from "react"
-import { Link, useNavigate } from "react-router"
+import { useNavigate } from "react-router"
 import { Brand } from "../shared/ui/PortalShell"
 
 export function TrackingPage() {
@@ -10,11 +10,6 @@ export function TrackingPage() {
     <main className="tracking-page">
       <header className="portal-topbar">
         <Brand />
-        <nav aria-label="Acciones de usuario">
-          <Link className="portal-login" to="/login">
-            Acceso empresas <Building2 size={17} />
-          </Link>
-        </nav>
       </header>
       <section className="tracking-hero">
         <div className="tracking-heading">

@@ -86,6 +86,67 @@ interface AuthCtx {
 
 const Ctx = createContext<AuthCtx | null>(null)
 
+const MOCK_SESSION_KEY = "sls-saas-demo-session"
+
+export const DEMO_TENANT_LOGIN = {
+  slug: "soluciones-luna",
+  email: "empresa@sls.com",
+  password: "demo1234",
+} as const
+
+export const DEMO_PLATFORM_LOGIN = {
+  email: "saas@sls.com",
+  password: "demo1234",
+} as const
+
+function createMockUser(mode: "tenant" | "platform"): User {
+  if (mode === "platform") {
+    return {
+      id: "platform-demo-admin",
+      name: "Administración SLS",
+      email: DEMO_PLATFORM_LOGIN.email,
+      role: "superadmin",
+      roles: [{ id: "platform-admin", name: "Superadministrador" }],
+      permissions: [],
+      kind: "PLATFORM_ADMIN",
+      tenant: "SLS Platform",
+      tenantId: "platform",
+      avatar: "SA",
+    }
+  }
+
+  return {
+    id: "tenant-demo-admin",
+    name: "Ana Martínez",
+    email: DEMO_TENANT_LOGIN.email,
+    role: "admin",
+    roles: [{ id: "tenant-admin", name: "Administrador" }],
+    permissions: [
+      "MANAGE_TENANT",
+      "MANAGE_EMPLOYEES",
+      "REGISTER_PACKAGES",
+      "CLASSIFY_PACKAGES",
+      "COORDINATE_ROUTES",
+      "OPERATE_DELIVERIES",
+    ],
+    kind: "TENANT_USER",
+    tenant: "Soluciones Luna",
+    tenantId: "tenant-demo",
+    avatar: "AM",
+  }
+}
+
+function readMockUser(): User | null {
+  const stored = localStorage.getItem(MOCK_SESSION_KEY)
+  if (!stored) return null
+  try {
+    return JSON.parse(stored) as User
+  } catch {
+    localStorage.removeItem(MOCK_SESSION_KEY)
+    return null
+  }
+}
+
 function deriveDisplayName(email: string): string {
   const localPart = email.split("@")[0] ?? email
   const tokens = localPart
@@ -216,6 +277,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const fetchCurrentUser = useCallback(
     async (tenantHint?: string): Promise<User | null> => {
+      const mockUser = readMockUser()
+      if (mockUser) {
+        setUser(mockUser)
+        return mockUser
+      }
       try {
         const me = await apiFetch<MeResponse>("/auth/me", { method: "GET" })
         const mapped = mapMeResponseToUser(me, tenantHint)
@@ -232,6 +298,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     let active = true
     void (async () => {
+      const mockUser = readMockUser()
+      if (mockUser) {
+        if (active) {
+          setUser(mockUser)
+          setInitializing(false)
+        }
+        return
+      }
       try {
         const me = await apiFetch<MeResponse>("/auth/me", { method: "GET" })
         if (active) {
@@ -249,7 +323,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     })()
 
     const unsubscribe = onUnauthorizedResponse(() => {
-      if (active) {
+      if (active && !readMockUser()) {
         setUser(null)
       }
     })
@@ -263,6 +337,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const login = useCallback(
     async (input: LoginInput): Promise<LoginResult> => {
       const mode = input.mode ?? "tenant"
+      const normalizedEmail = input.email.trim().toLowerCase()
+      const isTenantDemo =
+        mode === "tenant" &&
+        input.slug?.trim().toLowerCase() === DEMO_TENANT_LOGIN.slug &&
+        normalizedEmail === DEMO_TENANT_LOGIN.email &&
+        input.password === DEMO_TENANT_LOGIN.password
+      const isPlatformDemo =
+        mode === "platform" &&
+        normalizedEmail === DEMO_PLATFORM_LOGIN.email &&
+        input.password === DEMO_PLATFORM_LOGIN.password
+
+      if (isTenantDemo || isPlatformDemo) {
+        const mockUser = createMockUser(mode)
+        localStorage.setItem(MOCK_SESSION_KEY, JSON.stringify(mockUser))
+        setUser(mockUser)
+        return { ok: true }
+      }
+
       const endpoint = mode === "platform" ? "/platform/login" : "/auth/login"
       const payload =
         mode === "platform"
@@ -309,6 +401,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   )
 
   const logout = useCallback(async () => {
+    const isMockSession = Boolean(localStorage.getItem(MOCK_SESSION_KEY))
+    localStorage.removeItem(MOCK_SESSION_KEY)
+    if (isMockSession) {
+      setUser(null)
+      return
+    }
     try {
       await apiFetch<{ ok: boolean }>("/auth/logout", { method: "POST" })
     } catch {

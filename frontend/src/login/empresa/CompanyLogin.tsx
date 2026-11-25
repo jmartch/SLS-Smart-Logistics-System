@@ -1,7 +1,7 @@
 import { AlertCircle, ArrowRight, Building2, Eye, EyeOff } from "lucide-react"
 import { useState } from "react"
 import { Link, useNavigate } from "react-router"
-import { COMPANY_ACCOUNT } from "../../mockData"
+import { COMPANY_ACCOUNT, COMPANY_DEMO_SESSION_KEY } from "../../mockData"
 import { AuthShell } from "../../shared/ui/PortalShell"
 
 export function CompanyLogin() {
@@ -10,6 +10,12 @@ export function CompanyLogin() {
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [error, setError] = useState("")
+
+  const openDemoDashboard = () => {
+    localStorage.setItem(COMPANY_DEMO_SESSION_KEY, "active")
+    navigate("/empresa")
+  }
+
   return (
     <AuthShell
       eyebrow="SLS Business"
@@ -30,7 +36,7 @@ export function CompanyLogin() {
             setError("El correo o la contraseña no coinciden con la cuenta demo.")
             return
           }
-          navigate("/empresa")
+          openDemoDashboard()
         }}
       >
         <div className="field">
@@ -83,10 +89,14 @@ export function CompanyLogin() {
             setEmail(COMPANY_ACCOUNT.email)
             setPassword(COMPANY_ACCOUNT.password)
             setError("")
+            openDemoDashboard()
           }}
         >
-          Usar acceso demo: <strong>{COMPANY_ACCOUNT.email}</strong>
+          Entrar con cuenta demo
         </button>
+        <p className="form-switch">
+          <strong>{COMPANY_ACCOUNT.email}</strong> · {COMPANY_ACCOUNT.password}
+        </p>
         <p className="form-switch">
           ¿Tu empresa aún no usa SLS? <Link to="/registro/empresa">Registrar empresa</Link>
         </p>
