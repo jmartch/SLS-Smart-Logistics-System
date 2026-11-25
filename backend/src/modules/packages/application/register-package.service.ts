@@ -8,6 +8,7 @@ import type {
     PackageRegistrationPort,
     RegisterPackageOutcome,
 } from './ports/package-registration.port';
+import type { PackageGeocodingPort } from './ports/package-geocoding.port';
 import type { PublicTrackingTokenGenerator } from './ports/public-tracking-token.port';
 
 export type RegisterPackageResult =
@@ -18,6 +19,7 @@ export class RegisterPackageService {
     constructor(
         private readonly registration: PackageRegistrationPort,
         private readonly tokens: PublicTrackingTokenGenerator,
+        private readonly geocoding?: PackageGeocodingPort,
     ) {}
 
     async execute(
@@ -44,10 +46,20 @@ export class RegisterPackageService {
             return { ok: false, code: failure };
         }
 
-        return this.registration.registerByTenant(
+        const outcome = await this.registration.registerByTenant(
             context,
             data,
             this.tokens.generate(),
         );
+
+        if (outcome.ok && this.geocoding) {
+            await this.geocoding.geocodeAndAttach({
+                tenantId: context.tenantId,
+                packageId: outcome.package.id,
+                addressId: outcome.package.addressId,
+            });
+        }
+
+        return outcome;
     }
 }

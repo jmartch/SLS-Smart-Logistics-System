@@ -13,6 +13,7 @@ import { TransitionPackageStateService } from './application/transition-package-
 import { PackageLifecycleRepository } from './domain/package-lifecycle.repository';
 import { CryptoPublicTrackingTokenGenerator } from './infrastructure/crypto-public-tracking-token.generator';
 import { PrismaPackageClassificationAdapter } from './infrastructure/prisma-package-classification.adapter';
+import { PrismaPackageGeocodingAdapter } from './infrastructure/prisma-package-geocoding.adapter';
 import { PrismaPackageLifecycleRepository } from './infrastructure/prisma-package-lifecycle.repository';
 import { PrismaPackageRegistrationAdapter } from './infrastructure/prisma-package-registration.adapter';
 import { PrismaPackageQueryAdapter } from './infrastructure/prisma-package-query.adapter';
@@ -29,6 +30,7 @@ import { PackagesController } from './presentation/packages.controller';
     providers: [
         PrismaPackageLifecycleRepository,
         PrismaPackageRegistrationAdapter,
+        PrismaPackageGeocodingAdapter,
         PrismaPackageClassificationAdapter,
         PackageGeocodingConfigAdapter,
         {
@@ -72,10 +74,12 @@ import { PackagesController } from './presentation/packages.controller';
             useFactory: (
                 registration: PrismaPackageRegistrationAdapter,
                 tokens: CryptoPublicTrackingTokenGenerator,
-            ) => new RegisterPackageService(registration, tokens),
+                geocoding: PrismaPackageGeocodingAdapter,
+            ) => new RegisterPackageService(registration, tokens, geocoding),
             inject: [
                 PrismaPackageRegistrationAdapter,
                 CryptoPublicTrackingTokenGenerator,
+                PrismaPackageGeocodingAdapter,
             ],
         },
         {
