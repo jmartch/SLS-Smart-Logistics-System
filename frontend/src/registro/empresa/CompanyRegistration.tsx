@@ -8,6 +8,7 @@ import {
   SuccessState,
 } from "../../shared/ui/PortalShell"
 import { submitForm } from "../../shared/ui/submitForm"
+import { COMPANY_DEMO_SESSION_KEY } from "../../mockData"
 
 export function CompanyRegistration() {
   const [submitted, setSubmitted] = useState(false)
@@ -29,7 +30,13 @@ export function CompanyRegistration() {
           action="Abrir panel empresarial"
         />
       ) : (
-        <form className="portal-form" onSubmit={(event) => submitForm(event, setSubmitted)}>
+        <form
+          className="portal-form"
+          onSubmit={(event) => {
+            localStorage.setItem(COMPANY_DEMO_SESSION_KEY, "active")
+            submitForm(event, setSubmitted)
+          }}
+        >
           <div className="field">
             <label htmlFor="company-name">Nombre de la empresa</label>
             <input id="company-name" placeholder="Nombre comercial" required />

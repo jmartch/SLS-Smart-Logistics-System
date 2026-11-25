@@ -93,6 +93,8 @@ export const COMPANY_ACCOUNT = {
   password: "demo1234",
 }
 
+export const COMPANY_DEMO_SESSION_KEY = "sls-company-demo-session"
+
 export const FLEET_RESOURCES: FleetResource[] = [
   { id: "fleet-1", kind: "truck", label: "Camiones", total: 12, available: 7, active: 4, maintenance: 1 },
   { id: "fleet-2", kind: "car", label: "Carros", total: 9, available: 5, active: 3, maintenance: 1 },

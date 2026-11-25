@@ -1,6 +1,6 @@
 import { AlertCircle, Check, CheckCircle2, Loader2, ShieldAlert } from "lucide-react"
 import { type FormEvent, useState } from "react"
-import { useAuth } from "../../../auth"
+import { DEMO_PLATFORM_LOGIN, useAuth } from "../../../auth"
 import { ApiError, apiFetch } from "../../../shared/api/httpClient"
 import { EmptyState } from "../../../shared/ui/EmptyState"
 
@@ -47,6 +47,29 @@ export function AdminTenantsPage() {
     setFieldErrors({})
     setSubmitting(true)
     try {
+      if (user.email === DEMO_PLATFORM_LOGIN.email) {
+        const normalizedName = name.trim()
+        const slug = normalizedName
+          .normalize("NFD")
+          .replace(/[\u0300-\u036f]/g, "")
+          .toLowerCase()
+          .replace(/[^a-z0-9]+/g, "-")
+          .replace(/^-|-$/g, "")
+        setCreatedTenants((prev) => [
+          {
+            tenantId: crypto.randomUUID(),
+            slug,
+            name: normalizedName,
+            adminEmail: adminEmail.trim(),
+          },
+          ...prev,
+        ])
+        setName("")
+        setAdminEmail("")
+        setAdminPassword("")
+        return
+      }
+
       const created = await apiFetch<{ tenantId: string; slug: string }>(
         "/platform/tenants",
         {

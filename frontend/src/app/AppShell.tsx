@@ -284,6 +284,16 @@ export function AppShell() {
                 {user.avatar}
               </span>
             </div>
+            <button
+              className="dashboard-logout"
+              type="button"
+              onClick={() => void handleLogout()}
+              aria-label="Cerrar sesión"
+              title="Cerrar sesión"
+            >
+              <LogOut size={17} />
+              <span>Cerrar sesión</span>
+            </button>
           </div>
         </header>
 

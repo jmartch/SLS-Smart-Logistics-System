@@ -14,34 +14,6 @@ const projectMetadata = new Set([
 ])
 const projectConfiguration =
   /^(?:package(?:-lock)?\.json|(?:tsconfig|jsconfig)(?:\.[^.]+)*\.json|.*\.config\.[^.]+)$/i
-const staticAssetExtensions = new Set([
-  '.avif',
-  '.bmp',
-  '.eot',
-  '.gif',
-  '.ico',
-  '.jpeg',
-  '.jpg',
-  '.mp3',
-  '.mp4',
-  '.ogg',
-  '.otf',
-  '.pdf',
-  '.png',
-  '.svg',
-  '.ttf',
-  '.wav',
-  '.webm',
-  '.webmanifest',
-  '.webp',
-  '.woff',
-  '.woff2',
-  '.xml',
-])
-
-function isStaticAsset(file) {
-  return staticAssetExtensions.has(path.extname(file).toLowerCase())
-}
 
 function currentAssets(root, excludedDirectories) {
   const files = []
@@ -96,7 +68,7 @@ export function frontendAssets() {
       excludedDirectories = new Set([outDir, config.publicDir])
     },
     async writeBundle() {
-      for (const file of currentAssets(root, excludedDirectories).filter(isStaticAsset)) {
+      for (const file of currentAssets(root, excludedDirectories)) {
         const target = path.resolve(outDir, file)
         await mkdir(path.dirname(target), { recursive: true })
         try {

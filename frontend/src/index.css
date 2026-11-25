@@ -1,4 +1,4 @@
-@import url("https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap");
 @import "tailwindcss";
 
 :root {
@@ -3107,4 +3107,1325 @@ button:not(:disabled):active,
   .nav-links a::after {
     transition: none;
   }
+}
+
+/* Aurora visual system */
+
+:root {
+  --color-horizon-navy: #001733;
+  --color-signal-blue: #006aed;
+  --gradient-signal-blue: linear-gradient(269.64deg, #18dcdc -20.36%, #006aed 109.5%);
+  --color-cyan-dawn: #18dcdc;
+  --color-slate-whisper: #68748d;
+  --color-graphite-dim: #464e5d;
+  --color-fog: #d1d6e0;
+  --color-mist: #e6e9f0;
+  --color-hailstone: #f3f4f8;
+  --color-paper-white: #ffffff;
+  --font-inter: "Inter", ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
+    sans-serif;
+  --navy: var(--color-horizon-navy);
+  --navy-dark: var(--color-horizon-navy);
+  --blue: var(--color-signal-blue);
+  --blue-dark: var(--color-signal-blue);
+  --blue-light: var(--color-fog);
+  --blue-pale: var(--color-hailstone);
+  --background: var(--color-paper-white);
+  --surface: var(--color-hailstone);
+  --surface-solid: var(--color-paper-white);
+  --surface-muted: var(--color-hailstone);
+  --text: var(--color-horizon-navy);
+  --text-muted: var(--color-slate-whisper);
+  --border: var(--color-mist);
+  --success: var(--color-signal-blue);
+  --shadow-sm: none;
+  --shadow-md: none;
+  --radius-sm: 8px;
+  --radius-md: 8px;
+  --radius-lg: 8px;
+}
+
+body {
+  background: var(--color-paper-white);
+  color: var(--color-horizon-navy);
+  font-family: var(--font-inter);
+  font-feature-settings:
+    "ss01" 1,
+    "cv11" 1;
+}
+
+h1,
+h2,
+h3,
+h4,
+h5,
+h6,
+.brand-name,
+.hero h1,
+.section-heading h2,
+.operations-copy h2,
+.auth-aside h2,
+.auth-form-heading h1,
+.tracking-heading h1,
+.company-page-heading h1,
+.dashboard-metrics strong,
+.panel-heading h2,
+.resource-card > div:nth-child(2) strong,
+.form-section-heading h2,
+.not-found > span,
+.not-found h1 {
+  font-family: var(--font-inter);
+}
+
+.dashboard-preview,
+.metric-card,
+.floating-update,
+.benefit-card,
+.section-icon,
+.shipments-card,
+.auth-layout,
+.auth-aside__icon,
+.tracking-icon,
+.tracking-search,
+.tracking-result,
+.dashboard-metrics article,
+.dashboard-panel,
+.resource-card,
+.package-toolbar,
+.company-form-card,
+.smart-capture,
+.success-state > span {
+  box-shadow: none !important;
+  backdrop-filter: none;
+}
+
+.nav-cta,
+.primary-action,
+.form-submit,
+.tracking-search button {
+  color: var(--color-paper-white);
+  background: var(--color-signal-blue);
+  border-radius: 8px;
+  box-shadow: none;
+  font-weight: 500;
+}
+
+.nav-cta:hover,
+.primary-action:hover,
+.form-submit:hover,
+.tracking-search button:hover {
+  background: #005bd0;
+  box-shadow: none;
+  filter: none;
+  transform: none;
+}
+
+.home-screen {
+  overflow: clip;
+  background: var(--color-paper-white);
+}
+
+.home-screen::before,
+.home-screen::after {
+  display: none;
+}
+
+.topbar {
+  position: sticky;
+  min-height: 72px;
+  padding-inline: max(20px, calc((100vw - 1280px) / 2));
+  background: var(--color-paper-white);
+  border-bottom: 1px solid var(--color-mist);
+  box-shadow: none;
+  backdrop-filter: none;
+}
+
+.brand {
+  gap: 10px;
+}
+
+.brand-mark {
+  width: 36px;
+  height: 36px;
+  background: var(--gradient-signal-blue);
+  border-radius: 8px;
+  box-shadow: none;
+}
+
+.brand-name {
+  color: var(--color-horizon-navy);
+  font-size: 16px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+}
+
+.nav-links {
+  gap: 28px;
+}
+
+.nav-links a {
+  padding-block: 8px;
+  color: var(--color-horizon-navy);
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.nav-links a::after {
+  height: 1px;
+  background: var(--color-horizon-navy);
+  border-radius: 0;
+}
+
+.nav-cta {
+  padding: 13px 16px;
+  font-size: 14px;
+}
+
+.hero {
+  position: relative;
+  grid-template-columns: minmax(0, 1.12fr) minmax(320px, 0.72fr);
+  align-content: end;
+  gap: 48px 72px;
+  width: 100%;
+  min-height: calc(100svh - 72px);
+  padding: clamp(120px, 18vh, 190px) max(24px, calc((100vw - 1280px) / 2)) 32px;
+  background:
+    linear-gradient(90deg, rgba(0, 23, 51, 0.82) 0%, rgba(0, 23, 51, 0.38) 55%, rgba(0, 23, 51, 0.16) 100%),
+    linear-gradient(0deg, rgba(0, 23, 51, 0.58) 0%, transparent 44%),
+    url("./assets/aurora-highway.png") center / cover no-repeat;
+}
+
+.hero-copy {
+  align-self: end;
+  max-width: 760px;
+}
+
+.hero-copy > .eyebrow {
+  padding: 0;
+  color: rgba(255, 255, 255, 0.76);
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+}
+
+.eyebrow {
+  color: var(--color-slate-whisper);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.12em;
+}
+
+.eyebrow-dot {
+  width: 6px;
+  height: 6px;
+  background: var(--color-paper-white);
+  box-shadow: none;
+}
+
+.hero h1 {
+  max-width: 760px;
+  color: var(--color-paper-white);
+  font-size: clamp(58px, 7.2vw, 90px);
+  font-weight: 400;
+  line-height: 0.96;
+  letter-spacing: -0.04em;
+}
+
+.hero h1 span {
+  color: var(--color-paper-white);
+}
+
+.home-copy {
+  max-width: 620px;
+  margin: 24px 0 28px;
+  color: rgba(255, 255, 255, 0.76);
+  font-size: 16px;
+  line-height: 1.5;
+}
+
+.hero-actions {
+  gap: 20px;
+}
+
+.primary-action {
+  min-width: 0;
+  padding: 14px 16px;
+}
+
+.secondary-action {
+  color: var(--color-paper-white);
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.dashboard-preview {
+  align-self: end;
+  padding: 16px;
+  background: var(--color-paper-white);
+  border: 1px solid var(--color-mist);
+  border-radius: 8px;
+  transform: none;
+}
+
+.metric-card,
+.route-card {
+  background: var(--color-hailstone);
+  border-color: var(--color-mist);
+  border-radius: 8px;
+}
+
+.metric-card--primary {
+  background: var(--color-horizon-navy);
+}
+
+.metric-icon,
+.metric-icon--soft,
+.shipment-icon,
+.floating-update__icon {
+  color: var(--color-horizon-navy);
+  background: var(--color-paper-white);
+  border-radius: 8px;
+}
+
+.live-pill,
+.time-chip,
+.status,
+.counter {
+  border-radius: 4px;
+}
+
+.live-pill,
+.status--success {
+  color: var(--color-signal-blue);
+  background: #edf4ff;
+}
+
+.floating-update {
+  right: 16px;
+  bottom: -32px;
+  background: var(--color-paper-white);
+  border: 1px solid var(--color-mist);
+  border-radius: 8px;
+}
+
+.hero-stats {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  margin-top: 8px;
+  border-top: 1px solid rgba(255, 255, 255, 0.34);
+}
+
+.hero-stats > span {
+  display: grid;
+  gap: 5px;
+  padding: 18px 24px 0 0;
+  border-right: 1px solid rgba(255, 255, 255, 0.22);
+}
+
+.hero-stats > span:not(:first-child) {
+  padding-left: 24px;
+}
+
+.hero-stats > span:last-child {
+  border-right: 0;
+}
+
+.hero-stats small {
+  color: rgba(255, 255, 255, 0.62);
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.hero-stats strong {
+  color: var(--color-paper-white);
+  font-size: 15px;
+  font-weight: 500;
+}
+
+.benefits-section,
+.operations-section {
+  width: min(1280px, calc(100% - 48px));
+  padding: 116px 0;
+}
+
+.section-heading {
+  max-width: 760px;
+  margin: 0 0 64px;
+  text-align: left;
+}
+
+.section-heading h2,
+.operations-copy h2 {
+  color: var(--color-horizon-navy);
+  font-size: clamp(44px, 5vw, 64px);
+  font-weight: 400;
+  line-height: 0.96;
+  letter-spacing: -0.04em;
+}
+
+.section-heading > p:last-child,
+.operations-copy > p {
+  max-width: 560px;
+  color: var(--color-slate-whisper);
+  font-size: 16px;
+  line-height: 1.5;
+}
+
+.section-icon {
+  display: none;
+}
+
+.benefit-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 0;
+  border-top: 1px solid var(--color-mist);
+}
+
+.benefit-card {
+  display: grid;
+  grid-template-columns: 64px minmax(220px, 0.65fr) 1fr;
+  align-items: center;
+  gap: 24px;
+  min-height: 0;
+  padding: 32px 0;
+  overflow: visible;
+  background: var(--color-paper-white);
+  border: 0;
+  border-bottom: 1px solid var(--color-mist);
+  border-radius: 0;
+}
+
+.benefit-card:hover {
+  box-shadow: none;
+  transform: none;
+}
+
+.benefit-number {
+  top: 50%;
+  right: 0;
+  color: var(--color-fog);
+  font-family: var(--font-inter);
+  font-size: 36px;
+  font-weight: 400;
+  transform: translateY(-50%);
+}
+
+.benefit-icon {
+  width: 48px;
+  height: 48px;
+  margin: 0;
+  color: var(--color-horizon-navy);
+  background: var(--color-hailstone);
+  border-radius: 8px;
+  box-shadow: none;
+}
+
+.benefit-card h3 {
+  color: var(--color-horizon-navy);
+  font-size: 24px;
+  font-weight: 500;
+  letter-spacing: -0.03em;
+}
+
+.benefit-card p {
+  max-width: 540px;
+  margin: 0;
+  color: var(--color-slate-whisper);
+  font-size: 16px;
+  line-height: 1.5;
+}
+
+.operations-section {
+  grid-template-columns: 0.8fr 1.2fr;
+  border-top: 1px solid var(--color-mist);
+}
+
+.operations-copy li svg {
+  color: var(--color-horizon-navy);
+}
+
+.shipments-card {
+  background: var(--color-hailstone);
+  border: 1px solid var(--color-mist);
+  border-radius: 8px;
+}
+
+.shipment-list {
+  border-color: var(--color-mist);
+  border-radius: 8px;
+}
+
+.home-footer {
+  width: min(1280px, calc(100% - 48px));
+  margin: 0 auto;
+  padding: 32px 0;
+  background: var(--color-paper-white);
+  border-color: var(--color-mist);
+}
+
+/* Public portals */
+
+.auth-page,
+.tracking-page,
+.not-found {
+  background: var(--color-paper-white);
+}
+
+.auth-header,
+.portal-topbar {
+  width: min(1280px, calc(100% - 48px));
+  min-height: 72px;
+}
+
+.auth-layout {
+  width: min(1120px, calc(100% - 48px));
+  background: var(--color-paper-white);
+  border: 1px solid var(--color-mist);
+  border-radius: 8px;
+}
+
+.auth-aside {
+  background: var(--color-horizon-navy);
+}
+
+.auth-aside::before {
+  display: none;
+}
+
+.auth-aside__icon {
+  color: var(--color-horizon-navy);
+  border-radius: 8px;
+}
+
+.auth-aside__eyebrow,
+.auth-route {
+  color: rgba(255, 255, 255, 0.62);
+}
+
+.auth-aside h2,
+.auth-form-heading h1,
+.tracking-heading h1 {
+  font-weight: 400;
+  line-height: 1;
+  letter-spacing: -0.038em;
+}
+
+.field input,
+.field select,
+.tracking-search input {
+  background: var(--color-hailstone);
+  border-color: var(--color-mist);
+  border-radius: 8px;
+}
+
+.field input:focus,
+.field select:focus,
+.tracking-search input:focus {
+  border-color: var(--color-signal-blue);
+  box-shadow: 0 0 0 3px rgba(0, 106, 237, 0.12);
+}
+
+.demo-access,
+.permission-box,
+.delivery-note {
+  background: var(--color-hailstone);
+  border-color: var(--color-mist);
+  border-radius: 8px;
+}
+
+.tracking-page {
+  background: var(--color-paper-white);
+}
+
+.tracking-heading {
+  margin-inline: 0;
+  text-align: left;
+}
+
+.tracking-icon {
+  margin-inline: 0;
+  color: var(--color-paper-white);
+  background: var(--color-horizon-navy);
+  border-radius: 8px;
+}
+
+.tracking-search,
+.tracking-result {
+  background: var(--color-hailstone);
+  border: 1px solid var(--color-mist);
+  border-radius: 8px;
+}
+
+.tracking-search button {
+  border-radius: 8px;
+}
+
+/* Operational dashboards */
+
+.company-app {
+  background: var(--color-hailstone);
+}
+
+.company-sidebar {
+  color: var(--color-paper-white);
+  background: var(--color-horizon-navy);
+}
+
+.company-profile {
+  background: rgba(255, 255, 255, 0.06);
+  border-color: rgba(255, 255, 255, 0.12);
+  border-radius: 8px;
+}
+
+.company-profile > span,
+.profile-avatar {
+  color: var(--color-paper-white);
+  background: var(--color-signal-blue);
+  border-radius: 8px;
+}
+
+.company-nav__link {
+  border-radius: 8px;
+}
+
+.company-nav__link:hover,
+.company-nav__link--active {
+  background: rgba(255, 255, 255, 0.1);
+  transform: none;
+}
+
+.company-nav__link--active {
+  box-shadow: inset 3px 0 var(--color-signal-blue);
+}
+
+.company-topbar {
+  min-height: 72px;
+  background: var(--color-paper-white);
+  border-color: var(--color-mist);
+  backdrop-filter: none;
+}
+
+.notification-button,
+.company-menu,
+.sidebar-close,
+.sidebar-collapse {
+  border-radius: 9999px;
+}
+
+.company-content {
+  width: min(1280px, calc(100% - 48px));
+  padding-block: 44px 72px;
+}
+
+.company-page-heading h1 {
+  color: var(--color-horizon-navy);
+  font-size: clamp(36px, 4vw, 52px);
+  font-weight: 400;
+  line-height: 0.97;
+  letter-spacing: -0.04em;
+}
+
+.dashboard-metrics article,
+.dashboard-panel,
+.resource-card,
+.company-form-card,
+.package-toolbar {
+  background: var(--color-paper-white);
+  border-color: var(--color-mist);
+  border-radius: 8px;
+}
+
+.dashboard-metric-icon,
+.form-section-heading > span,
+.smart-capture__heading > span,
+.worker-identity > i {
+  border-radius: 8px;
+}
+
+.dashboard-metric-icon--blue,
+.dashboard-metric-icon--green {
+  color: var(--color-paper-white);
+  background: var(--color-signal-blue);
+}
+
+.dashboard-metric-icon--navy {
+  background: var(--color-horizon-navy);
+}
+
+.dashboard-metric-icon--soft,
+.form-section-heading > span,
+.worker-identity > i {
+  color: var(--color-horizon-navy);
+  background: var(--color-hailstone);
+}
+
+.dashboard-metrics em,
+.resource-availability {
+  color: var(--color-signal-blue);
+}
+
+.chart {
+  background-image: linear-gradient(to bottom, var(--color-mist) 1px, transparent 1px);
+}
+
+.chart-column > span,
+.resource-progress span {
+  background: var(--color-signal-blue);
+  border-radius: 4px 4px 0 0;
+}
+
+.donut {
+  background: conic-gradient(
+    var(--color-signal-blue) 0 94%,
+    var(--color-hailstone) 94%
+  );
+}
+
+.legend-dot--green,
+.legend-dot--blue {
+  background: var(--color-signal-blue);
+}
+
+.resource-card:hover {
+  border-color: var(--color-fog);
+  box-shadow: none;
+  transform: none;
+}
+
+.package-toolbar,
+.company-table__head,
+.smart-capture {
+  background: var(--color-hailstone);
+}
+
+.company-table__head {
+  border-radius: 4px;
+}
+
+.smart-capture {
+  border-radius: 8px;
+}
+
+.smart-capture__heading > span {
+  color: var(--color-paper-white);
+  background: var(--color-horizon-navy);
+}
+
+@media (max-width: 900px) {
+  .hero {
+    grid-template-columns: 1fr;
+    align-content: end;
+    gap: 32px;
+    padding-top: 96px;
+  }
+
+  .dashboard-preview {
+    width: min(560px, 100%);
+    margin: 0;
+  }
+
+  .hero-stats {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .hero-stats > span:nth-child(2) {
+    border-right: 0;
+  }
+
+  .benefit-card {
+    grid-template-columns: 56px 1fr;
+  }
+
+  .benefit-card p {
+    grid-column: 2;
+  }
+
+  .benefit-number {
+    display: none;
+  }
+
+  .nav-links {
+    background: var(--color-paper-white);
+    border-radius: 8px;
+    box-shadow: none;
+  }
+}
+
+@media (max-width: 600px) {
+  .hero {
+    min-height: auto;
+    padding: 88px 20px 24px;
+  }
+
+  .hero h1 {
+    font-size: clamp(48px, 15vw, 68px);
+  }
+
+  .dashboard-preview {
+    display: none;
+  }
+
+  .hero-stats {
+    margin-top: 24px;
+  }
+
+  .hero-stats > span {
+    padding: 14px 12px 14px 0;
+  }
+
+  .hero-stats > span:not(:first-child) {
+    padding-left: 12px;
+  }
+
+  .benefits-section,
+  .operations-section,
+  .home-footer,
+  .company-content {
+    width: min(100% - 32px, 1280px);
+  }
+
+  .benefit-card {
+    grid-template-columns: 48px 1fr;
+    gap: 16px;
+  }
+
+  .benefit-card h3 {
+    font-size: 20px;
+  }
+
+  .benefit-card p {
+    font-size: 14px;
+  }
+}
+
+/* Explicit public access and cross-theme brand contrast */
+
+.public-access-actions {
+  justify-self: end;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.access-action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 42px;
+  padding: 0 14px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.access-action--company {
+  color: var(--color-horizon-navy);
+  background: var(--color-paper-white);
+  border: 1px solid var(--color-mist);
+}
+
+.access-action--saas {
+  color: #ffffff;
+  background: var(--color-horizon-navy);
+  border: 1px solid var(--color-horizon-navy);
+}
+
+.access-action:hover {
+  border-color: var(--color-signal-blue);
+}
+
+.brand-mark svg {
+  color: #ffffff;
+  stroke: currentColor;
+}
+
+:root[data-theme="dark"] .topbar,
+:root[data-theme="dark"] .company-topbar {
+  background: #081320;
+}
+
+:root[data-theme="dark"] .brand-name,
+:root[data-theme="dark"] .nav-links a,
+:root[data-theme="dark"] .access-action--company {
+  color: #f7fbff;
+}
+
+:root[data-theme="dark"] .access-action--company {
+  background: #111e2e;
+  border-color: #52667f;
+}
+
+:root[data-theme="dark"] .access-action--saas {
+  color: #06101d;
+  background: #74b2ff;
+  border-color: #74b2ff;
+}
+
+:root[data-theme="dark"] .section-heading > p:last-child,
+:root[data-theme="dark"] .operations-copy > p,
+:root[data-theme="dark"] .benefit-card p,
+:root[data-theme="dark"] .shipment-main small,
+:root[data-theme="dark"] .route-labels,
+:root[data-theme="dark"] .preview-kicker,
+:root[data-theme="dark"] .route-card__header span,
+:root[data-theme="dark"] .shipments-header > div > span {
+  color: #cbd6e4;
+}
+
+:root[data-theme="dark"] .shipment-main strong,
+:root[data-theme="dark"] .route-card__header strong,
+:root[data-theme="dark"] .shipments-header h3,
+:root[data-theme="dark"] .benefit-card h3 {
+  color: #f7fbff;
+}
+
+:root[data-theme="contrast"] .brand-mark {
+  color: #000000;
+  background: #00e5ff;
+  border: 2px solid #ffffff;
+}
+
+:root[data-theme="contrast"] .brand-mark svg {
+  color: #000000;
+}
+
+:root[data-theme="contrast"] .topbar,
+:root[data-theme="contrast"] .company-topbar {
+  background: #000000;
+  border-color: #ffffff;
+}
+
+:root[data-theme="contrast"] .access-action--company {
+  color: #ffffff;
+  background: #000000;
+  border: 2px solid #ffffff;
+}
+
+:root[data-theme="contrast"] .access-action--saas {
+  color: #000000;
+  background: #00e5ff;
+  border: 2px solid #ffffff;
+}
+
+:root[data-theme="contrast"] .company-sidebar .brand-name,
+:root[data-theme="contrast"] .company-sidebar .company-nav__link,
+:root[data-theme="contrast"] .company-sidebar .sidebar-logout {
+  color: #ffffff !important;
+}
+
+@media (min-width: 1101px) {
+  .nav-links .nav-access-link {
+    display: none;
+  }
+}
+
+@media (max-width: 1100px) {
+  .public-access-actions .access-action {
+    display: none;
+  }
+}
+
+@media (max-width: 900px) {
+  .public-access-actions {
+    display: none;
+  }
+}
+
+/* Global theme controls */
+
+.theme-toggle {
+  position: fixed;
+  z-index: 100;
+  right: 20px;
+  bottom: 20px;
+  display: flex;
+  gap: 4px;
+  padding: 5px;
+  background: var(--color-paper-white);
+  border: 1px solid var(--color-mist);
+  border-radius: 9999px;
+}
+
+.theme-toggle__button {
+  display: grid;
+  width: 34px;
+  height: 34px;
+  place-items: center;
+  padding: 0;
+  color: var(--color-slate-whisper);
+  background: transparent;
+  border: 0;
+  border-radius: 9999px;
+}
+
+.theme-toggle__button:hover {
+  color: var(--color-horizon-navy);
+  background: var(--color-hailstone);
+  transform: none;
+}
+
+.theme-toggle__button--active {
+  color: #ffffff;
+  background: var(--color-signal-blue);
+}
+
+.theme-toggle__button--active:hover {
+  color: #ffffff;
+  background: var(--color-signal-blue);
+}
+
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --color-horizon-navy: #eef6ff;
+  --color-signal-blue: #4d9cff;
+  --color-slate-whisper: #c3cede;
+  --color-graphite-dim: #c2ccda;
+  --color-fog: #45566e;
+  --color-mist: #26374c;
+  --color-hailstone: #111e2e;
+  --color-paper-white: #081320;
+  --navy: #eef6ff;
+  --navy-dark: #f7fbff;
+  --blue: #4d9cff;
+  --blue-dark: #74b2ff;
+  --blue-light: #45566e;
+  --blue-pale: #111e2e;
+  --background: #081320;
+  --surface: #111e2e;
+  --surface-solid: #0b1725;
+  --surface-muted: #17263a;
+  --text: #eef6ff;
+  --text-muted: #c3cede;
+  --border: #26374c;
+  --success: #70adff;
+  --danger-pale: #30191d;
+  --danger-border: #70323a;
+}
+
+:root[data-theme="dark"] .hero {
+  background:
+    linear-gradient(90deg, rgba(0, 9, 22, 0.92) 0%, rgba(0, 9, 22, 0.58) 56%, rgba(0, 9, 22, 0.34) 100%),
+    linear-gradient(0deg, rgba(0, 9, 22, 0.76) 0%, transparent 48%),
+    url("./assets/aurora-highway.png") center / cover no-repeat;
+}
+
+:root[data-theme="dark"] .company-sidebar,
+:root[data-theme="dark"] .auth-aside,
+:root[data-theme="dark"] .metric-card--primary {
+  background: #030b15;
+}
+
+:root[data-theme="dark"] .brand--compact .brand-name,
+:root[data-theme="dark"] .company-sidebar {
+  color: #ffffff;
+}
+
+:root[data-theme="dark"] .company-app .dashboard-panel,
+:root[data-theme="dark"] .company-app .company-form-card,
+:root[data-theme="dark"] .company-app .resource-card,
+:root[data-theme="dark"] .company-app .dashboard-metrics article,
+:root[data-theme="dark"] .company-app .company-table__row,
+:root[data-theme="dark"] .company-app .shipment-list,
+:root[data-theme="dark"] .company-app .shipment-row {
+  color: var(--text);
+  background: var(--surface-solid) !important;
+  border-color: var(--border) !important;
+}
+
+:root[data-theme="dark"] .auth-page [role="tab"] {
+  color: var(--text-muted) !important;
+  background: transparent !important;
+}
+
+:root[data-theme="dark"] .auth-page [role="tab"][aria-selected="true"] {
+  color: var(--text) !important;
+  background: var(--surface-muted) !important;
+}
+
+:root[data-theme="dark"] .company-app button:not(.form-submit):not(.sidebar-logout),
+:root[data-theme="dark"] .auth-page button:not(.form-submit):not(.demo-access) {
+  color: var(--text);
+  border-color: var(--border);
+}
+
+:root[data-theme="dark"] .notification-button,
+:root[data-theme="dark"] .company-menu {
+  background: var(--surface-muted);
+}
+
+:root[data-theme="contrast"] {
+  color-scheme: dark;
+  --color-horizon-navy: #ffffff;
+  --color-signal-blue: #00e5ff;
+  --color-slate-whisper: #ffffff;
+  --color-graphite-dim: #ffffff;
+  --color-fog: #ffffff;
+  --color-mist: #ffffff;
+  --color-hailstone: #000000;
+  --color-paper-white: #000000;
+  --navy: #ffffff;
+  --navy-dark: #ffffff;
+  --blue: #00e5ff;
+  --blue-dark: #00e5ff;
+  --blue-light: #ffffff;
+  --blue-pale: #000000;
+  --background: #000000;
+  --surface: #000000;
+  --surface-solid: #000000;
+  --surface-muted: #000000;
+  --text: #ffffff;
+  --text-muted: #ffffff;
+  --border: #ffffff;
+  --success: #00e5ff;
+  --danger: #ff8e87;
+  --danger-pale: #000000;
+  --danger-border: #ffffff;
+}
+
+:root[data-theme="contrast"] .hero {
+  background:
+    linear-gradient(rgba(0, 0, 0, 0.76), rgba(0, 0, 0, 0.9)),
+    url("./assets/aurora-highway.png") center / cover no-repeat;
+}
+
+:root[data-theme="contrast"] .company-sidebar,
+:root[data-theme="contrast"] .auth-aside,
+:root[data-theme="contrast"] .metric-card--primary {
+  color: #ffffff;
+  background: #000000;
+  border-color: #ffffff;
+}
+
+:root[data-theme="contrast"] .company-app .dashboard-panel,
+:root[data-theme="contrast"] .company-app .company-form-card,
+:root[data-theme="contrast"] .company-app .resource-card,
+:root[data-theme="contrast"] .company-app .dashboard-metrics article,
+:root[data-theme="contrast"] .company-app .company-table__row,
+:root[data-theme="contrast"] .company-app .shipment-list,
+:root[data-theme="contrast"] .company-app .shipment-row {
+  color: #ffffff;
+  background: #000000 !important;
+  border-color: #ffffff !important;
+}
+
+:root[data-theme="contrast"] .auth-page [role="tab"] {
+  color: #ffffff !important;
+  background: #000000 !important;
+  border: 1px solid #ffffff !important;
+}
+
+:root[data-theme="contrast"] .auth-page [role="tab"][aria-selected="true"] {
+  color: #000000 !important;
+  background: #00e5ff !important;
+}
+
+:root[data-theme="contrast"] .form-submit,
+:root[data-theme="contrast"] .primary-action,
+:root[data-theme="contrast"] .nav-cta,
+:root[data-theme="contrast"] .tracking-search button,
+:root[data-theme="contrast"] .theme-toggle__button--active {
+  color: #000000;
+  background: #00e5ff;
+  border: 2px solid #00e5ff;
+}
+
+:root[data-theme="contrast"] input,
+:root[data-theme="contrast"] select,
+:root[data-theme="contrast"] textarea,
+:root[data-theme="contrast"] button,
+:root[data-theme="contrast"] a,
+:root[data-theme="contrast"] .dashboard-panel,
+:root[data-theme="contrast"] .resource-card,
+:root[data-theme="contrast"] .company-form-card {
+  border-color: #ffffff;
+}
+
+:root[data-theme="contrast"] .status,
+:root[data-theme="contrast"] .counter,
+:root[data-theme="contrast"] .live-pill,
+:root[data-theme="contrast"] .time-chip {
+  color: #000000;
+  background: #00e5ff;
+  border: 1px solid #ffffff;
+}
+
+:root[data-theme="contrast"] *:focus-visible {
+  outline: 3px solid #00e5ff;
+  outline-offset: 3px;
+}
+
+@media (max-width: 600px) {
+  .theme-toggle {
+    right: 12px;
+    bottom: 12px;
+  }
+}
+
+/* Dashboard session actions and theme legibility */
+
+.company-menu {
+  display: none !important;
+}
+
+.sidebar-logout {
+  width: 100%;
+  background: transparent;
+  border: 0;
+  text-align: left;
+}
+
+.dashboard-logout {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  min-height: 38px;
+  padding: 0 12px;
+  color: var(--color-horizon-navy);
+  background: var(--color-hailstone);
+  border: 1px solid var(--color-mist);
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.dashboard-logout:hover {
+  color: #ffffff;
+  background: var(--color-signal-blue);
+  border-color: var(--color-signal-blue);
+  transform: none;
+}
+
+:root[data-theme="dark"] .company-page-heading p,
+:root[data-theme="dark"] .panel-heading span,
+:root[data-theme="dark"] .company-table__row,
+:root[data-theme="dark"] .field label,
+:root[data-theme="dark"] .form-section-heading p,
+:root[data-theme="dark"] .permission-box p,
+:root[data-theme="dark"] .resource-card small,
+:root[data-theme="dark"] .company-profile small,
+:root[data-theme="dark"] .company-topbar__title span,
+:root[data-theme="dark"] .auth-form-heading > p:last-child,
+:root[data-theme="dark"] .form-switch,
+:root[data-theme="dark"] .check-field {
+  color: #c3cede !important;
+}
+
+:root[data-theme="dark"] .company-table__row > strong,
+:root[data-theme="dark"] .panel-heading h2,
+:root[data-theme="dark"] .field label,
+:root[data-theme="dark"] .company-page-heading h1,
+:root[data-theme="dark"] .auth-form-heading h1,
+:root[data-theme="dark"] .dashboard-metrics strong {
+  color: #f7fbff !important;
+}
+
+:root[data-theme="dark"] input::placeholder,
+:root[data-theme="dark"] textarea::placeholder {
+  color: #8fa0b6 !important;
+  opacity: 1;
+}
+
+:root[data-theme="dark"] .dashboard-logout {
+  color: #f7fbff;
+  background: #17263a;
+  border-color: #40536c;
+}
+
+:root[data-theme="contrast"] p,
+:root[data-theme="contrast"] small,
+:root[data-theme="contrast"] label,
+:root[data-theme="contrast"] .company-table__row,
+:root[data-theme="contrast"] .panel-heading span,
+:root[data-theme="contrast"] .company-topbar__title span,
+:root[data-theme="contrast"] .company-profile small,
+:root[data-theme="contrast"] .form-switch,
+:root[data-theme="contrast"] .check-field {
+  color: #ffffff !important;
+  opacity: 1;
+}
+
+:root[data-theme="contrast"] h1,
+:root[data-theme="contrast"] h2,
+:root[data-theme="contrast"] h3,
+:root[data-theme="contrast"] strong,
+:root[data-theme="contrast"] .brand-name {
+  color: #ffffff !important;
+}
+
+:root[data-theme="contrast"] a:not(.form-submit):not(.nav-cta) {
+  color: #00e5ff;
+  text-decoration-color: #00e5ff;
+}
+
+:root[data-theme="contrast"] input::placeholder,
+:root[data-theme="contrast"] textarea::placeholder {
+  color: #ffffff !important;
+  opacity: 1;
+}
+
+:root[data-theme="contrast"] .dashboard-logout {
+  color: #000000;
+  background: #00e5ff;
+  border: 2px solid #ffffff;
+}
+
+@media (max-width: 900px) {
+  .company-menu {
+    display: grid !important;
+  }
+}
+
+@media (max-width: 600px) {
+  .dashboard-logout {
+    width: 38px;
+    padding: 0;
+    justify-content: center;
+    border-radius: 9999px;
+  }
+
+  .dashboard-logout span {
+    display: none;
+  }
+}
+
+:root[data-theme="dark"] .brand-mark {
+  background: #4d9cff;
+  border: 1px solid #9ac7ff;
+}
+
+:root[data-theme="contrast"] .access-action--company {
+  color: #ffffff !important;
+}
+
+:root[data-theme="contrast"] .access-action--saas {
+  color: #000000 !important;
+}
+
+:root[data-theme="dark"] .hero h1,
+:root[data-theme="dark"] .hero h1 span,
+:root[data-theme="dark"] .hero-copy > .eyebrow,
+:root[data-theme="dark"] .home-copy,
+:root[data-theme="dark"] .hero-stats small,
+:root[data-theme="dark"] .hero-stats strong,
+:root[data-theme="contrast"] .hero h1,
+:root[data-theme="contrast"] .hero h1 span,
+:root[data-theme="contrast"] .hero-copy > .eyebrow,
+:root[data-theme="contrast"] .home-copy,
+:root[data-theme="contrast"] .hero-stats small,
+:root[data-theme="contrast"] .hero-stats strong {
+  color: #ffffff !important;
+}
+
+:root[data-theme="dark"] .brand-mark svg {
+  color: #ffffff !important;
+}
+
+:root[data-theme="contrast"] .brand-mark svg {
+  color: #000000 !important;
 }
