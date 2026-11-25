@@ -53,7 +53,7 @@ docker compose up -d --build
 | **Frontend** | `sls-frontend` | http://localhost:5173 | Interfaz web React + Vite y mapa `RouteMap` |
 | **API HTTP** | `sls-backend` | http://localhost:3000/api/v1 | API REST NestJS (`src/main.ts`) |
 | **Worker AMQP** | `sls-worker` | *(proceso de fondo)* | Worker NestJS (`src/worker.ts`): Outbox relay, consumidor idempotente, retry (`5s/10s/20s`), DLQ y redrive |
-| **PostgreSQL** | `sls-postgres` | `localhost:5432` | Base de datos relacional con RLS por `tenantId` |
+| **PostgreSQL** | `sls-postgres` | `localhost:5433` (container `5432`) | Base de datos relacional con RLS por `tenantId` |
 | **RabbitMQ (AMQP)** | `sls-rabbitmq` | `localhost:5672` | Broker AMQP (imagen `./infra/rabbitmq` con vhost `sls`) |
 | **RabbitMQ Management** | `sls-rabbitmq` | http://localhost:15672 | Consola y API HTTP de administración (`sls` / `sls`) |
 

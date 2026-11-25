@@ -32,12 +32,14 @@ import { UserRegistration } from "./registro/usuario/UserRegistration"
 import { TrackingPage } from "./seguimiento/TrackingPage"
 import { NotFound } from "./shared/ui/NotFound"
 import { PublicTrackingPage } from "./track/PublicTrackingPage"
+import { DemoGuidePage } from "./demo/DemoGuidePage"
 
 export const router = createBrowserRouter([
   // Public
   { path: "/", Component: HomePage },
   { path: "/seguimiento", Component: TrackingPage },
   { path: "/track", Component: PublicTrackingPage },
+  { path: "/demo", Component: DemoGuidePage },
   { path: "/login", Component: LoginPage },
 
   // Demo empresarial con datos locales

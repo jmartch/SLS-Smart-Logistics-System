@@ -3,6 +3,12 @@
 Actualizado: 2026-10-13. La semilla deja el inicio del proceso, y las acciones de
 clasificación, planificación, asignación y preparación se ejecutan desde la UI.
 
+La guía web está disponible en `http://localhost:5173/demo`. Muestra las etapas
+del recorrido, consulta paquetes y rutas del tenant autenticado y no crea ni
+elimina datos. Para una demo conectada, inicia sesión con una cuenta real del
+backend con permisos de coordinación; el acceso demo local no autentica contra
+la API.
+
 ## Preparación
 
 Todos los comandos de aplicación se ejecutan en Docker Compose:

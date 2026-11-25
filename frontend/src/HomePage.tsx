@@ -89,6 +89,9 @@ export default function HomePage() {
           <a href="#operaciones" onClick={() => setMenuOpen(false)}>
             Plataforma
           </a>
+          <Link to="/demo" onClick={() => setMenuOpen(false)}>
+            Demo guiada
+          </Link>
           <a href="#contacto" onClick={() => setMenuOpen(false)}>
             Contacto
           </a>
