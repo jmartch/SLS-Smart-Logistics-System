@@ -2,6 +2,7 @@ import type {
     PackageRegistrationContext,
     PackageRegistrationPort,
 } from '../application/ports/package-registration.port';
+import type { PackageGeocodingPort } from '../application/ports/package-geocoding.port';
 import type { PublicTrackingTokenGenerator } from '../application/ports/public-tracking-token.port';
 import { RegisterPackageService } from '../application/register-package.service';
 import { InvalidPackageRegistrationError } from '../domain/invalid-package-registration.error';
@@ -131,5 +132,64 @@ describe('RegisterPackageService', () => {
         expect(loadReferences).not.toHaveBeenCalled();
         expect(registerByTenant).not.toHaveBeenCalled();
         expect(generate).not.toHaveBeenCalled();
+    });
+
+    it('invokes automatic geocoding and network attachment when registration succeeds', async () => {
+        const loadReferences = jest.fn().mockResolvedValue({
+            shipmentType: { active: true },
+            zone: null,
+            sector: null,
+        });
+        const outcome = {
+            ok: true as const,
+            package: { id: 'pkg-1', addressId: 'addr-1' } as never,
+        };
+        const registerByTenant = jest.fn().mockResolvedValue(outcome);
+        const generate = jest.fn().mockReturnValue('token-publico');
+        const geocodeAndAttach = jest.fn().mockResolvedValue(undefined);
+        const geocoding: PackageGeocodingPort = { geocodeAndAttach };
+
+        const service = new RegisterPackageService(
+            { loadReferences, registerByTenant },
+            { generate },
+            geocoding,
+        );
+
+        const result = await service.execute(context, input());
+
+        expect(result).toBe(outcome);
+        expect(geocodeAndAttach).toHaveBeenCalledWith({
+            tenantId: TENANT_ID,
+            packageId: 'pkg-1',
+            addressId: 'addr-1',
+        });
+    });
+
+    it('skips geocoding when registration fails with a conflict', async () => {
+        const loadReferences = jest.fn().mockResolvedValue({
+            shipmentType: { active: true },
+            zone: null,
+            sector: null,
+        });
+        const registerByTenant = jest.fn().mockResolvedValue({
+            ok: false,
+            code: 'PACKAGE_TRACKING_CODE_CONFLICT',
+        });
+        const generate = jest.fn().mockReturnValue('token-publico');
+        const geocodeAndAttach = jest.fn();
+
+        const service = new RegisterPackageService(
+            { loadReferences, registerByTenant },
+            { generate },
+            { geocodeAndAttach },
+        );
+
+        const result = await service.execute(context, input());
+
+        expect(result).toEqual({
+            ok: false,
+            code: 'PACKAGE_TRACKING_CODE_CONFLICT',
+        });
+        expect(geocodeAndAttach).not.toHaveBeenCalled();
     });
 });

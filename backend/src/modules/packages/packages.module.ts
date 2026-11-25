@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { PrismaModule } from '../../database/prisma.module';
 import { AuthModule } from '../auth/auth.module';
+import { GeocodingModule } from '../geocoding/geocoding.module';
 import { ClassifyPackageService } from './application/classify-package.service';
 import { RegisterPackageService } from './application/register-package.service';
 import { ListPackagesUseCase } from './application/list-packages.use-case';
@@ -10,17 +11,19 @@ import { TransitionPackageStateService } from './application/transition-package-
 import { PackageLifecycleRepository } from './domain/package-lifecycle.repository';
 import { CryptoPublicTrackingTokenGenerator } from './infrastructure/crypto-public-tracking-token.generator';
 import { PrismaPackageClassificationAdapter } from './infrastructure/prisma-package-classification.adapter';
+import { PrismaPackageGeocodingAdapter } from './infrastructure/prisma-package-geocoding.adapter';
 import { PrismaPackageLifecycleRepository } from './infrastructure/prisma-package-lifecycle.repository';
 import { PrismaPackageRegistrationAdapter } from './infrastructure/prisma-package-registration.adapter';
 import { PrismaPackageQueryAdapter } from './infrastructure/prisma-package-query.adapter';
 import { PackagesController } from './presentation/packages.controller';
 
 @Module({
-    imports: [PrismaModule, AuthModule],
+    imports: [PrismaModule, AuthModule, GeocodingModule],
     controllers: [PackagesController],
     providers: [
         PrismaPackageLifecycleRepository,
         PrismaPackageRegistrationAdapter,
+        PrismaPackageGeocodingAdapter,
         PrismaPackageClassificationAdapter,
         PrismaPackageQueryAdapter,
         CryptoPublicTrackingTokenGenerator,
@@ -55,10 +58,12 @@ import { PackagesController } from './presentation/packages.controller';
             useFactory: (
                 registration: PrismaPackageRegistrationAdapter,
                 tokens: CryptoPublicTrackingTokenGenerator,
-            ) => new RegisterPackageService(registration, tokens),
+                geocoding: PrismaPackageGeocodingAdapter,
+            ) => new RegisterPackageService(registration, tokens, geocoding),
             inject: [
                 PrismaPackageRegistrationAdapter,
                 CryptoPublicTrackingTokenGenerator,
+                PrismaPackageGeocodingAdapter,
             ],
         },
         {
